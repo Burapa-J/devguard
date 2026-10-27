@@ -26,10 +26,10 @@ mkdir -p "$HOME/.gemini/antigravity-cli/skills/verified-dev"   # foreign real di
 echo "foreign" > "$HOME/.gemini/antigravity-cli/skills/verified-dev/SKILL.md"
 cp -R "$HOME" "$HOME.orig"
 
-echo "== dry-run"; "$KIT/install.sh" --dry-run --with-hooks
+echo "== dry-run"; "$KIT/install.sh" --dry-run --with-hooks --with=none
 check "dry-run changes nothing" 'same_tree "$HOME" "$HOME.orig"'
 
-echo "== install"; "$KIT/install.sh" --with-hooks 2>&1
+echo "== install"; "$KIT/install.sh" --with-hooks --with=none 2>&1
 check "user text kept in CLAUDE.md" 'grep -qx -- "- be nice" "$HOME/.claude/CLAUDE.md"'
 check "block in CLAUDE.md" 'grep -qx "<!-- agent-kit:begin -->" "$HOME/.claude/CLAUDE.md"'
 check "block in GEMINI.md" 'grep -q "verified-dev" "$HOME/.gemini/GEMINI.md"'
@@ -44,7 +44,7 @@ check "model key kept" '[ "$(jq -r .model "$HOME/.claude/settings.json")" = opus
 check "backup made" 'ls "$HOME"/.agent-kit-backup/*/.claude/CLAUDE.md >/dev/null 2>&1'
 cp -R "$HOME" "$HOME.after1"; rm -rf "$HOME.after1/.agent-kit-backup"
 
-echo "== install again"; sleep 1; "$KIT/install.sh" --with-hooks 2>&1
+echo "== install again"; sleep 1; "$KIT/install.sh" --with-hooks --with=none 2>&1
 tmp=$(mktemp -d); cp -R "$HOME/." "$tmp"; rm -rf "$tmp/.agent-kit-backup"
 check "re-install is idempotent" 'same_tree "$tmp" "$HOME.after1"'
 

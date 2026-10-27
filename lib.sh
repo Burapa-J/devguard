@@ -12,6 +12,7 @@ BACKUP_DIR=${BACKUP_DIR:-}
 SKILL_NAME="verified-dev"
 HOOK_CMD="$KIT_DIR/hooks/remind.sh"
 VERIFY_LINK="$HOME/.local/bin/agent-verify"
+PROJECT_LINK="$HOME/.local/bin/agent-kit-project"
 
 # Rules files and skill directories per target.
 CLAUDE_RULES="$HOME/.claude/CLAUDE.md"

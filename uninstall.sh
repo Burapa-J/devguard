@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Remove everything agent-kit installed, and nothing else:
-# only the marked rules blocks, symlinks pointing into this kit, and the hook entry with this kit's path.
+# Remove everything agent-kit installed, and nothing else: the marked rules blocks, symlinks
+# pointing into this kit, the hook entry with this kit's path, and component wiring agent-kit added.
+# Tool CLIs stay installed unless --purge, and --purge only removes CLIs agent-kit installed.
 set -eu
 
 KIT_DIR=$(cd "$(dirname "$0")" && pwd -P)
 DRY_RUN=0
+PURGE=0
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
-    -h | --help) echo "Usage: ./uninstall.sh [--dry-run]"; exit 0 ;;
+    --purge) PURGE=1 ;;
+    -h | --help) echo "Usage: ./uninstall.sh [--dry-run] [--purge]"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 64 ;;
   esac
 done
@@ -19,14 +22,21 @@ BACKUP_DIR=""
 
 # shellcheck source=lib.sh
 . "$KIT_DIR/lib.sh"
+# shellcheck source=components/common.sh
+. "$KIT_DIR/components/common.sh"
+load_components
 
 [ "$DRY_RUN" = 1 ] && say "Dry run: nothing will be changed."
+
+for c in $ALL_COMPONENTS; do
+  [ -d "$(state_dir "$c")" ] && component_down "$c" "$PURGE"
+done
 
 for f in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES"; do
   remove_block "$f"
 done
 
-for l in "$VERIFY_LINK" \
+for l in "$VERIFY_LINK" "$PROJECT_LINK" \
          "$CLAUDE_SKILLS/$SKILL_NAME" "$VSCODE_SKILLS/$SKILL_NAME" \
          "$AG_SKILLS/$SKILL_NAME" "$AG_CLI_SKILLS/$SKILL_NAME"; do
   unlink_ours "$l"
@@ -40,7 +50,9 @@ fi
 if [ "$DRY_RUN" = 0 ]; then
   for d in "$CLAUDE_SKILLS" "$VSCODE_SKILLS" "$HOME/.copilot" \
            "$AG_SKILLS" "$HOME/.gemini/config" "$AG_CLI_SKILLS" "$HOME/.gemini/antigravity-cli" \
-           "$HOME/.local/bin" "$HOME/.local"; do
+           "$HOME/.gemini/antigravity" "$HOME/.gemini" \
+           "$(dirname "$VSCODE_MCP")" "$(dirname "$(dirname "$VSCODE_MCP")")" "$HOME/.config" \
+           "$HOME/.local/bin" "$HOME/.local/share" "$HOME/.local"; do
     [ -d "$d" ] && rmdir "$d" 2>/dev/null && say "  rmdir      $d"
   done
 fi
