@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016,SC2155,SC2034
+# shellcheck disable=SC2016,SC2155,SC2034,SC2329
 # SC2016: check() bodies are eval'd later, so single quotes are intended.
 # Runs install/uninstall against a throwaway HOME. Never touches your real home directory.
 set -u
@@ -7,6 +7,16 @@ KIT=$(cd "$(dirname "$0")/.." && pwd -P)
 export HOME=$(mktemp -d)
 export PATH="$HOME/.local/bin:$PATH"
 fail=0; check(){ if eval "$2"; then echo "PASS $1"; else echo "FAIL $1"; fail=1; fi; }
+# Tree snapshot that never follows symlinks (BSD and GNU diff -r both do, and macOS reports
+# "Directory loop detected" when two links share a target). Records type, link target, checksum.
+snap() {
+  (cd "$1" && find . -path ./.agent-kit-backup -prune -o -print | LC_ALL=C sort | while IFS= read -r p; do
+    if [ -L "$p" ]; then echo "L $p -> $(readlink "$p")"
+    elif [ -d "$p" ]; then echo "D $p"
+    else echo "F $p $(cksum < "$p")"; fi
+  done)
+}
+same_tree() { [ "$(snap "$1")" = "$(snap "$2")" ]; }
 
 # Seed: existing user content that must survive untouched
 mkdir -p "$HOME/.claude"
@@ -17,7 +27,7 @@ echo "foreign" > "$HOME/.gemini/antigravity-cli/skills/verified-dev/SKILL.md"
 cp -R "$HOME" "$HOME.orig"
 
 echo "== dry-run"; "$KIT/install.sh" --dry-run --with-hooks
-check "dry-run changes nothing" 'diff -r "$HOME" "$HOME.orig" >/dev/null'
+check "dry-run changes nothing" 'same_tree "$HOME" "$HOME.orig"'
 
 echo "== install"; "$KIT/install.sh" --with-hooks 2>&1
 check "user text kept in CLAUDE.md" 'grep -qx -- "- be nice" "$HOME/.claude/CLAUDE.md"'
@@ -36,7 +46,7 @@ cp -R "$HOME" "$HOME.after1"; rm -rf "$HOME.after1/.agent-kit-backup"
 
 echo "== install again"; sleep 1; "$KIT/install.sh" --with-hooks 2>&1
 tmp=$(mktemp -d); cp -R "$HOME/." "$tmp"; rm -rf "$tmp/.agent-kit-backup"
-check "re-install is idempotent" 'diff -r "$tmp" "$HOME.after1" >/dev/null'
+check "re-install is idempotent" 'same_tree "$tmp" "$HOME.after1"'
 
 echo "== agent-verify"; cd "$(mktemp -d)" || exit 1
 agent-verify ok -- sh -c 'echo hello; echo err >&2'; code=$?
@@ -52,6 +62,6 @@ echo "== uninstall"; "$KIT/uninstall.sh" 2>&1
 rm -rf "$HOME/.agent-kit-backup"
 check "CLAUDE.md byte-identical to original" 'cmp -s "$HOME/.claude/CLAUDE.md" "$HOME.orig/.claude/CLAUDE.md"'
 check "settings.json identical to original" 'cmp -s "$HOME/.claude/settings.json" "$HOME.orig/.claude/settings.json"'
-check "whole HOME restored" 'diff -r "$HOME" "$HOME.orig"'
+check "whole HOME restored" 'same_tree "$HOME" "$HOME.orig"'
 echo "== uninstall again (no-op)"; "$KIT/uninstall.sh" 2>&1
 exit $fail
