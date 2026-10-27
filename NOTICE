@@ -1,0 +1,8 @@
+agent-kit
+Copyright (c) 2026 Mai. Licensed under the MIT License (see LICENSE).
+
+The verified-dev skill (skills/verified-dev/SKILL.md) is an independent rewrite that adapts
+workflow ideas from pstack by Lauren Tan (poteto):
+  https://github.com/cursor/plugins/tree/main/pstack
+pstack is licensed under the MIT License. No pstack files are included verbatim.
+If you copy text from pstack into this project, also include pstack's LICENSE text here.
