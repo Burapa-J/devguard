@@ -81,6 +81,8 @@ has() { jq -e --arg k "$2" --arg n "$3" '.[$k] | has($n)' "$1" >/dev/null 2>&1; 
 echo "== unknown component"
 "$KIT/install.sh" --with=bogus >/dev/null 2>&1; code=$?
 check "unknown component rejected (64)" '[ $code = 64 ]'
+"$KIT/install.sh" --with=none --auto-project="$HOME/no such dir" >/dev/null 2>&1; code=$?
+check "bad --auto-project rejected before any change" '[ $code = 64 ] && same_tree "$HOME" "$HOME.orig"'
 
 echo "== dry-run with components"
 "$KIT/install.sh" --dry-run --with=codegraph,projectmem,context-mode > /dev/null 2>&1
@@ -148,6 +150,34 @@ cp "$STUB/bin/codegraph.real" "$STUB/bin/codegraph"
 "$KIT/uninstall.sh" --purge > "$STUB/un3.log" 2>&1
 check "user codegraph kept on purge" '[ -x "$STUB/bin/codegraph" ] && grep -q "kept       codegraph CLI (not installed" "$STUB/un3.log"'
 check "but its wiring removed" '! has "$CJ" mcpServers codegraph'
+
+echo "== automatic project setup, kit path with a space"
+SKIT="$STUB/kit with space"; mkdir -p "$SKIT"; cp -R "$KIT/." "$SKIT/"
+DEV="$HOME/Dev Projects"; mkdir -p "$DEV/app" "$DEV/group/lib" "$HOME/elsewhere/other"
+for r in "$DEV/app" "$DEV/group/lib" "$HOME/elsewhere/other"; do (cd "$r" && git init -q); done
+touch "$DEV/group/lib/.agent-kit-skip"
+"$SKIT/install.sh" --with-hooks --with=codegraph,projectmem --auto-project="$DEV" > "$STUB/auto-install.log" 2>&1; code=$?
+check "install with --auto-project exit 0" '[ $code = 0 ]'
+check "auto root recorded" '[ "$(cat "$HOME/.agent-kit/auto-roots")" = "$DEV" ]'
+# Run every SessionStart hook command exactly as Claude Code would: through a shell.
+run_hooks() { jq -r ".hooks.SessionStart[] | select(.matcher==\"$1\") | .hooks[].command" "$HOME/.claude/settings.json" |
+  while IFS= read -r c; do (cd "$2" && CLAUDE_PROJECT_DIR="$2" sh -c "$c"); done; }
+check "compact hook runs from spaced path" 'run_hooks compact "$DEV/app" | grep -q verified-dev'
+out=$(run_hooks startup "$DEV/app"); sleep 2
+check "startup hook announces setup" 'printf "%s" "$out" | grep -q "Setting up this repository"'
+check "auto setup indexed repo under root" '[ -d "$DEV/app/.codegraph" ] && [ -d "$DEV/app/.projectmem" ] && grep -qx ".verify/" "$DEV/app/.gitignore"'
+check "auto setup quiet once ready" '[ -z "$(run_hooks startup "$DEV/app")" ]'
+check "repo outside roots untouched" '[ -z "$(run_hooks startup "$HOME/elsewhere/other")" ] && [ ! -e "$HOME/elsewhere/other/.gitignore" ]'
+check ".agent-kit-skip respected" '[ -z "$(run_hooks startup "$DEV/group/lib")" ] && [ ! -e "$DEV/group/lib/.codegraph" ]'
+rm "$DEV/group/lib/.agent-kit-skip"
+agent-kit-project init-all "$DEV" > "$STUB/initall.log" 2>&1
+check "init-all sets up nested repos" '[ -d "$DEV/group/lib/.codegraph" ] && grep -q "Done: 2 repositories" "$STUB/initall.log"'
+"$SKIT/status.sh" > "$STUB/auto-status.log" 2>&1
+check "status shows auto hook" 'grep -q "ok   auto project setup hook" "$STUB/auto-status.log"'
+"$SKIT/uninstall.sh" --purge > "$STUB/auto-un.log" 2>&1
+check "both hooks removed" '[ ! -e "$HOME/.claude/settings.json" ] || ! grep -q "kit with space" "$HOME/.claude/settings.json"'
+check "auto state removed" '[ ! -e "$HOME/.agent-kit" ]'
+rm -rf "$DEV" "$HOME/elsewhere"
 
 rm -rf "$HOME/.agent-kit-backup"
 check ".claude.json byte-identical to original" 'cmp -s "$CJ" "$HOME.orig/.claude.json"'

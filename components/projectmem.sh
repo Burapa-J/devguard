@@ -53,6 +53,8 @@ projectmem_status() {
   done
 }
 
+projectmem_project_ready() { [ -d .projectmem ]; }
+
 projectmem_project_init() {
   if [ -d .projectmem ]; then say "  present    .projectmem/"; return 0; fi
   # pjm init also installs git hooks and creates/updates CLAUDE.md and AGENTS.md with a

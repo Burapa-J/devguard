@@ -23,6 +23,8 @@ mark "skill (Antigravity)          $AG_SKILLS/$SKILL_NAME" 'is_ours "$AG_SKILLS/
 mark "agent-verify                 $VERIFY_LINK" 'is_ours "$VERIFY_LINK"'
 mark "agent-kit-project            $PROJECT_LINK" 'is_ours "$PROJECT_LINK"'
 mark "compaction hook              $CLAUDE_SETTINGS" '[ -f "$CLAUDE_SETTINGS" ] && grep -qF "$HOOK_CMD" "$CLAUDE_SETTINGS"'
+mark "auto project setup hook   $AUTO_ROOTS" '[ -f "$AUTO_ROOTS" ] && grep -qF "$AUTO_HOOK_CMD" "$CLAUDE_SETTINGS" 2>/dev/null'
+[ -f "$AUTO_ROOTS" ] && sed 's/^/         root: /' "$AUTO_ROOTS"
 mark "\$HOME/.local/bin on PATH" 'case ":$PATH:" in *":$HOME/.local/bin:"*) true ;; *) false ;; esac'
 
 echo

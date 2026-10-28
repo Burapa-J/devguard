@@ -43,10 +43,13 @@ cd ~/agent-kit
 ./status.sh                                # what is installed and wired
 ```
 
-Then, inside each project:
+Then set up each project, either automatically or by hand:
 ```sh
-agent-kit-project init      # adds .verify/ to .gitignore, runs codegraph init and pjm init
+./install.sh --with-hooks --auto-project=~/Developer   # new repos under ~/Developer: set up on first Claude Code session
+agent-kit-project init-all ~/Developer                 # existing repos, once
+agent-kit-project init                                 # one repo, by hand
 ```
+Each setup adds `.verify/` to `.gitignore` and runs `codegraph init` and `pjm init`. Automatic setup runs in the background, only under the folders you list, once per repository; a `.agent-kit-skip` file opts a repository out. It relies on a Claude Code hook, so for repos opened only in VS Code or Antigravity run `init` yourself.
 Note: `pjm init` also installs projectmem's git hooks and adds a "projectmem bridge" section to the project's `CLAUDE.md` and `AGENTS.md` that tells agents to call projectmem at session start.
 
 Every file agent-kit changes is backed up to `~/.agent-kit-backup/<timestamp>/`. Re-running is safe. Rules go between `<!-- agent-kit:begin -->` / `<!-- agent-kit:end -->` markers; anything else in those files is left alone. Skills are symlinks, so `git pull` updates them everywhere.
@@ -103,6 +106,8 @@ Both run against a throwaway `HOME` and check that user content survives and tha
 The workflow (sections 1, 2 and 4-9 of the skill) is stack-neutral. Section 3's verification table is written for Swift/macOS; replace its rows with your stack's real surfaces. To add a component, copy `components/context-mode.sh`, implement the same functions, and add its name to `ALL_COMPONENTS` in `components/common.sh`.
 
 ## ภาษาไทย (สรุป)
+
+คู่มือใช้งานฉบับเต็มภาษาไทย: [`docs/USAGE.th.md`](docs/USAGE.th.md)
 
 agent-kit มี 2 ชั้น
 - **วิธีทำงาน** (ติดตั้งเสมอ): rules และ skill ที่บังคับให้ agent เลือก playbook ตามประเภทงาน, กำหนด data shape ก่อนเขียนโค้ด, verify บนของจริง และห้ามบอกว่าเสร็จถ้าไม่มีหลักฐาน

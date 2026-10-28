@@ -39,7 +39,7 @@ check "no duplicate copilot skill" '[ ! -e "$HOME/.copilot/skills/verified-dev" 
 check "antigravity skill link" '[ -L "$HOME/.gemini/config/skills/verified-dev" ]'
 check "foreign dir untouched" '[ ! -L "$HOME/.gemini/antigravity-cli/skills/verified-dev" ] && grep -q foreign "$HOME/.gemini/antigravity-cli/skills/verified-dev/SKILL.md"'
 check "user hook kept" 'jq -e ".hooks.SessionStart[] | select(.matcher==\"startup\")" "$HOME/.claude/settings.json" >/dev/null'
-check "our hook added once" '[ "$(jq "[.hooks.SessionStart[].hooks[] | select(.command==\"$KIT/hooks/remind.sh\")] | length" "$HOME/.claude/settings.json")" = 1 ]'
+check "our hook added once" '[ "$(jq "[.hooks.SessionStart[].hooks[] | select(.command==\"'"'"'$KIT/hooks/remind.sh'"'"'\")] | length" "$HOME/.claude/settings.json")" = 1 ]'
 check "model key kept" '[ "$(jq -r .model "$HOME/.claude/settings.json")" = opus ]'
 check "backup made" 'ls "$HOME"/.agent-kit-backup/*/.claude/CLAUDE.md >/dev/null 2>&1'
 cp -R "$HOME" "$HOME.after1"; rm -rf "$HOME.after1/.agent-kit-backup"

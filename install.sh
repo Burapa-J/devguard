@@ -8,10 +8,11 @@ TARGETS="claude,vscode,antigravity"
 WITH_HOOKS=0
 DRY_RUN=0
 WITH=""
+AUTO_PROJECT=""
 
 usage() {
   cat <<EOF
-Usage: ./install.sh [--dry-run] [--with-hooks] [--with=LIST] [--targets=LIST]
+Usage: ./install.sh [--dry-run] [--with-hooks] [--with=LIST] [--targets=LIST] [--auto-project=DIRS]
 
   --dry-run      Show what would change; change nothing.
   --with-hooks   Add a Claude Code SessionStart(compact) hook that reminds the agent
@@ -20,6 +21,11 @@ Usage: ./install.sh [--dry-run] [--with-hooks] [--with=LIST] [--targets=LIST]
                  Available: codegraph, projectmem, rtk, context-mode.
                  Default: codegraph,projectmem
   --targets=...  Comma-separated subset of: claude, vscode, antigravity (default: all).
+  --auto-project=DIRS
+                 Set up repositories under these folders automatically (comma-separated),
+                 e.g. --auto-project=~/Developer. Claude Code runs it at session start, in
+                 the background, once per repository. Add a .agent-kit-skip file to opt a
+                 repository out. Use "agent-kit-project init-all DIR" for existing repos.
 
 Quit Claude Code, VS Code and Antigravity before installing: they rewrite their own
 config files and can overwrite changes made while they run.
@@ -32,6 +38,7 @@ for arg in "$@"; do
     --with-hooks) WITH_HOOKS=1 ;;
     --with=*) WITH=${arg#--with=} ;;
     --targets=*) TARGETS=${arg#--targets=} ;;
+    --auto-project=*) AUTO_PROJECT=${arg#--auto-project=} ;;
     -h | --help) usage; exit 0 ;;
     *) echo "unknown option: $arg" >&2; usage >&2; exit 64 ;;
   esac
@@ -53,6 +60,19 @@ load_components
 for c in $(printf '%s' "$WITH" | tr ',' ' '); do
   valid_component "$c" || { echo "unknown component: $c (available: $ALL_COMPONENTS)" >&2; exit 64; }
 done
+
+ROOTS_TMP=""
+if [ -n "$AUTO_PROJECT" ]; then
+  ROOTS_TMP=$(mktemp)
+  old_ifs=$IFS; IFS=,
+  for d in $AUTO_PROJECT; do
+    IFS=$old_ifs
+    case "$d" in "~"*) d="$HOME${d#\~}" ;; esac
+    [ -d "$d" ] || { echo "--auto-project: '$d' is not a directory" >&2; rm -f "$ROOTS_TMP"; exit 64; }
+    (cd "$d" && pwd -P) >> "$ROOTS_TMP"
+  done
+  IFS=$old_ifs
+fi
 
 RULES="$KIT_DIR/rules/core.md"
 SKILL_SRC="$KIT_DIR/skills/$SKILL_NAME"
@@ -98,6 +118,21 @@ if has_target antigravity; then
   set_block "$AG_RULES" "$RULES"
   link "$AG_SKILLS/$SKILL_NAME" "$SKILL_SRC"
   link "$AG_CLI_SKILLS/$SKILL_NAME" "$SKILL_SRC"
+fi
+
+if [ -n "$AUTO_PROJECT" ]; then
+  say "Automatic project setup"
+  if [ -f "$AUTO_ROOTS" ] && cmp -s "$ROOTS_TMP" "$AUTO_ROOTS"; then
+    say "  unchanged  $AUTO_ROOTS"
+  elif [ "$DRY_RUN" = 1 ]; then
+    say "  would write $AUTO_ROOTS: $(tr '\n' ';' < "$ROOTS_TMP")"
+  else
+    mkdir -p "$(dirname "$AUTO_ROOTS")"
+    cat "$ROOTS_TMP" > "$AUTO_ROOTS"
+    say "  updated    $AUTO_ROOTS"
+  fi
+  rm -f "$ROOTS_TMP"
+  edit_settings "$JQ_ADD_HOOK" "$AUTO_HOOK_CMD" startup
 fi
 
 AGENTS=$(printf '%s' "$TARGETS" | tr ',' ' ')

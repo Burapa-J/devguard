@@ -45,6 +45,8 @@ codegraph_status() {
   done
 }
 
+codegraph_project_ready() { [ -d .codegraph ]; }
+
 codegraph_project_init() {
   if [ -d .codegraph ]; then say "  present    .codegraph/"; return 0; fi
   CODEGRAPH_TELEMETRY=0 run codegraph init

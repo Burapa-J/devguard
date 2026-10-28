@@ -10,9 +10,14 @@ DRY_RUN=${DRY_RUN:-0}
 BACKUP_DIR=${BACKUP_DIR:-}
 
 SKILL_NAME="verified-dev"
-HOOK_CMD="$KIT_DIR/hooks/remind.sh"
+# Hook commands are run by a shell, so paths are single-quoted (the kit path may contain spaces).
+# Single quotes, not backslashes: JSON stores them unescaped, so the command can be matched as text.
+shell_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+HOOK_CMD=$(shell_quote "$KIT_DIR/hooks/remind.sh")
 VERIFY_LINK="$HOME/.local/bin/agent-verify"
 PROJECT_LINK="$HOME/.local/bin/agent-kit-project"
+AUTO_HOOK_CMD="$(shell_quote "$KIT_DIR/bin/project.sh") auto"
+AUTO_ROOTS="$HOME/.agent-kit/auto-roots"
 
 # Rules files and skill directories per target.
 CLAUDE_RULES="$HOME/.claude/CLAUDE.md"
@@ -132,8 +137,9 @@ unlink_ours() {
 }
 
 # Apply a jq filter to Claude Code settings.json in place (with backup).
+# edit_settings <filter> [command] [matcher]: the filter sees them as $cmd and $matcher.
 edit_settings() {
-  local filter=$1 file=$CLAUDE_SETTINGS tmp src
+  local filter=$1 cmd=${2:-$HOOK_CMD} matcher=${3:-compact} file=$CLAUDE_SETTINGS tmp src
   if ! command -v jq >/dev/null 2>&1; then
     warn "jq not found; skipping Claude Code hook. See README for the manual snippet."
     return 0
@@ -142,8 +148,8 @@ edit_settings() {
   [ -f "$file" ] || src=/dev/null
   tmp=$(mktemp)
   if [ "$src" = /dev/null ]; then
-    echo '{}' | jq --arg cmd "$HOOK_CMD" "$filter" > "$tmp"
-  elif ! jq --arg cmd "$HOOK_CMD" "$filter" "$src" > "$tmp"; then
+    echo '{}' | jq --arg cmd "$cmd" --arg matcher "$matcher" "$filter" > "$tmp"
+  elif ! jq --arg cmd "$cmd" --arg matcher "$matcher" "$filter" "$src" > "$tmp"; then
     warn "$file is not valid JSON; hook not changed"
     rm -f "$tmp"
     return 0
@@ -178,4 +184,4 @@ JQ_REMOVE_HOOK='
 
 JQ_ADD_HOOK="$JQ_REMOVE_HOOK"'
   | .hooks.SessionStart = ((.hooks.SessionStart // [])
-      + [{"matcher": "compact", "hooks": [{"type": "command", "command": $cmd}]}])'
+      + [{"matcher": $matcher, "hooks": [{"type": "command", "command": $cmd}]}])'

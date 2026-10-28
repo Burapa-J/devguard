@@ -45,6 +45,18 @@ done
 if [ -f "$CLAUDE_SETTINGS" ] && grep -qF "$HOOK_CMD" "$CLAUDE_SETTINGS"; then
   edit_settings "$JQ_REMOVE_HOOK"
 fi
+if [ -f "$CLAUDE_SETTINGS" ] && grep -qF "$AUTO_HOOK_CMD" "$CLAUDE_SETTINGS"; then
+  edit_settings "$JQ_REMOVE_HOOK" "$AUTO_HOOK_CMD"
+fi
+if [ -e "$AUTO_ROOTS" ] || [ -d "$STATE_DIR/logs" ] || [ -d "$STATE_DIR/locks" ]; then
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would remove automatic project setup ($AUTO_ROOTS, logs)"
+  else
+    rm -rf "$AUTO_ROOTS" "$STATE_DIR/logs" "$STATE_DIR/locks"
+    rmdir "$STATE_DIR" 2>/dev/null || true
+    say "  removed    automatic project setup"
+  fi
+fi
 
 # Directories install may have created. rmdir only succeeds on empty ones, deepest first.
 if [ "$DRY_RUN" = 0 ]; then
