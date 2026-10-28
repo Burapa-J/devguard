@@ -17,6 +17,7 @@ HOOK_CMD=$(shell_quote "$KIT_DIR/hooks/remind.sh")
 VERIFY_LINK="$HOME/.local/bin/agent-verify"
 PROJECT_LINK="$HOME/.local/bin/agent-kit-project"
 CLI_LINK="$HOME/.local/bin/agent-kit"
+POTLESS_LINK="$HOME/.local/bin/potless"
 AUTO_HOOK_CMD="$(shell_quote "$KIT_DIR/bin/project.sh") auto"
 AUTO_ROOTS="$HOME/.agent-kit/auto-roots"
 
@@ -29,6 +30,13 @@ VSCODE_SKILLS="$HOME/.copilot/skills"
 AG_RULES="$HOME/.gemini/GEMINI.md"
 AG_SKILLS="$HOME/.gemini/config/skills"
 AG_CLI_SKILLS="$HOME/.gemini/antigravity-cli/skills"
+OPENCODE_RULES="$HOME/.config/opencode/AGENTS.md"
+OPENCODE_SKILLS="$HOME/.config/opencode/skills"
+CURSOR_RULES="$HOME/.cursor/rules/potless.mdc"
+CURSOR_SKILLS="$HOME/.cursor/skills"
+CODEX_RULES="$HOME/.codex/AGENTS.md"
+CODEX_SKILLS="$HOME/.codex/skills"
+GEMINI_SKILLS="$HOME/.gemini/skills"
 
 say() { printf '%s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }

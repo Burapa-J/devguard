@@ -32,13 +32,15 @@ for c in $ALL_COMPONENTS; do
   [ -d "$(state_dir "$c")" ] && component_down "$c" "$PURGE"
 done
 
-for f in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES"; do
+for f in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES" "$OPENCODE_RULES" "$CURSOR_RULES" "$CODEX_RULES"; do
   remove_block "$f"
 done
 
-for l in "$CLI_LINK" "$VERIFY_LINK" "$PROJECT_LINK" \
+for l in "$POTLESS_LINK" "$CLI_LINK" "$VERIFY_LINK" "$PROJECT_LINK" \
          "$CLAUDE_SKILLS/$SKILL_NAME" "$VSCODE_SKILLS/$SKILL_NAME" \
-         "$AG_SKILLS/$SKILL_NAME" "$AG_CLI_SKILLS/$SKILL_NAME"; do
+         "$AG_SKILLS/$SKILL_NAME" "$AG_CLI_SKILLS/$SKILL_NAME" \
+         "$OPENCODE_SKILLS/$SKILL_NAME" "$CURSOR_SKILLS/$SKILL_NAME" \
+         "$CODEX_SKILLS/$SKILL_NAME" "$GEMINI_SKILLS/$SKILL_NAME"; do
   unlink_ours "$l"
 done
 

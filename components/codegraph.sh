@@ -21,6 +21,10 @@ codegraph_target() {
     claude) echo claude ;;
     vscode) echo copilot-vscode ;;
     antigravity) echo antigravity ;;
+    opencode) echo opencode ;;
+    cursor) echo cursor ;;
+    codex) echo codex ;;
+    gemini) echo gemini ;;
   esac
 }
 

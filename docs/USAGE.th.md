@@ -1,10 +1,10 @@
-# คู่มือใช้งาน agent-kit
+# คู่มือใช้งาน potless (agent-kit)
 
-agent-kit มี 2 ส่วน
+**`potless`** (`poteto` + `tokless`) มี 2 ส่วน
 - **วิธีทำงาน**: rules และ skill `verified-dev` ที่บังคับให้ agent ทำงานแบบมีหลักฐาน
-- **เครื่องมือ (components)**: codegraph และ projectmem (เปิดเป็นค่าเริ่มต้น) รวมถึง rtk และ context-mode (เลือกเปิดเอง) ติดตั้งและเชื่อมเข้ากับ Claude Code, VS Code (Copilot) และ Antigravity
+- **เครื่องมือ (components)**: codegraph, projectmem และ rtk (เปิดเป็นค่าเริ่มต้น) รวมถึง context-mode (เลือกเปิดเอง) ติดตั้งและเชื่อมเข้ากับ **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI** และ **Gemini CLI**
 
-ติดตั้งคำสั่งเดียว แล้วทุกอย่างทำงานเองแบบ tokless ภาพรวมภาษาอังกฤษอยู่ใน `README.md`
+ติดตั้งคำสั่งเดียว แล้วทุกอย่างทำงานเอง (เรียกใช้ได้ทั้งคำสั่ง `potless` และ `agent-kit`) ภาพรวมภาษาอังกฤษอยู่ใน `README.md`
 
 ---
 
@@ -21,7 +21,7 @@ gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/
 คำสั่งนี้จะ
 - ติดตั้งสิ่งที่ขาดผ่าน Homebrew (git, jq, python3, node)
 - clone kit ไปไว้ที่ `~/.local/share/agent-kit/src` หรือใช้ที่เดิมถ้าเคยติดตั้งแล้ว
-- ติดตั้ง rules, skill, hook, codegraph และ projectmem
+- ติดตั้ง rules, skill, hook, codegraph, projectmem และ rtk
 - เปิดการตั้งค่าโปรเจกต์อัตโนมัติใน `~/Developer`
 - เพิ่ม `~/.local/bin` ใน PATH
 
@@ -41,13 +41,13 @@ cd <โฟลเดอร์ repo> && git pull --ff-only && ./install.sh && agen
 
 | ตัวเลือก | ผล |
 |---|---|
-| (ไม่ใส่) | วิธีทำงาน + codegraph + projectmem + hook + ตั้งค่าโปรเจกต์อัตโนมัติใน `~/Developer` |
-| `--with=codegraph,projectmem,rtk` | เพิ่ม rtk (ย่อ output ของ shell) |
-| `--with=codegraph,projectmem,context-mode` | เพิ่ม context-mode (ต้องใช้ Node ≥ 22.5) |
+| (ไม่ใส่) | วิธีทำงาน + codegraph + projectmem + rtk + hook + ตั้งค่าโปรเจกต์อัตโนมัติใน `~/Developer` |
+| `--with=codegraph,projectmem` | ไม่ติดตั้ง rtk |
+| `--with=codegraph,projectmem,rtk,context-mode` | เพิ่ม context-mode (ต้องใช้ Node ≥ 22.5) |
 | `--with=none` | เฉพาะวิธีทำงาน ไม่ติดตั้งเครื่องมือ |
 | `--auto-project=~/Developer,~/Work` | กำหนดโฟลเดอร์ที่ตั้งค่าโปรเจกต์อัตโนมัติ |
 | `--auto-project=none` | ปิดการตั้งค่าอัตโนมัติ |
-| `--targets=claude` | ติดตั้งเฉพาะบาง agent: `claude`, `vscode`, `antigravity` |
+| `--targets=claude` | ติดตั้งเฉพาะบาง agent: `claude`, `vscode`, `antigravity`, `opencode`, `cursor`, `codex`, `gemini` |
 | `--no-hooks` | ไม่ใส่ hook เตือนให้โหลด skill ใหม่หลัง compact |
 | `--dry-run` | แสดงสิ่งที่จะเปลี่ยน โดยไม่แก้อะไรจริง |
 
@@ -114,17 +114,20 @@ agent-verify build -- swift build
 
 ---
 
-## 4. คำสั่ง agent-kit
+## 4. คำสั่ง potless (หรือ agent-kit)
 
 | คำสั่ง | ผล |
 |---|---|
-| `agent-kit status` | ดูสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติ |
-| `agent-kit update` | ดึงเวอร์ชันล่าสุดแล้วติดตั้งซ้ำ โดยคงการตั้งค่าเดิม |
-| `agent-kit init` / `init --all` | ตั้งค่า repo นี้ หรือทุก repo ในโฟลเดอร์อัตโนมัติ |
-| `agent-kit skip` | ยกเว้น repo นี้ |
-| `agent-kit install [ตัวเลือก]` | เปลี่ยนการตั้งค่า (ดูข้อ 1.3) |
-| `agent-kit uninstall [--purge]` | ถอนการติดตั้ง (ดูข้อ 6) |
-| `agent-kit docs` | แสดงที่อยู่ของคู่มือ |
+| `potless` | เปิดเมนูแบบ Interactive เลือกคำสั่งได้ทันที |
+| `potless status` | แสดงตารางสรุปสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติแบบดูง่าย |
+| `potless stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`) และตาราง Index ของ `codegraph` ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
+| `potless select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar (เหมือน tokless) |
+| `potless update` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงการตั้งค่าเดิม |
+| `potless init` / `init --all` | ตั้งค่า repo นี้ หรือทุก repo ในโฟลเดอร์อัตโนมัติ |
+| `potless skip` | ยกเว้น repo นี้ |
+| `potless install [ตัวเลือก]` | เปลี่ยนการตั้งค่า (ดูข้อ 1.3 หรือใช้ `-i` เพื่อเปิดเมนูเลือก) |
+| `potless disable` / `uninstall [--purge]` | ถอนการเชื่อมต่อแบบเลือกได้จากเมนู หรือถอนการติดตั้งทั้งหมด (ดูข้อ 6) |
+| `potless docs` | แสดงที่อยู่ของคู่มือ |
 
 **อย่าย้ายหรือลบโฟลเดอร์ kit** เพราะลิงก์ทั้งหมดชี้มาที่นี่ ถ้าจำเป็นต้องย้าย ให้รัน `./install.sh` ใหม่จากตำแหน่งใหม่
 

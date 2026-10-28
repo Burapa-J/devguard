@@ -1,6 +1,6 @@
-# agent-kit
+# potless (agent-kit)
 
-An evidence-first working mode for AI coding agents, plus a small, opinionated set of tools, installed once and shared across **Claude Code**, **VS Code (Copilot)** and **Antigravity**.
+An evidence-first working mode (`poteto` / `pstack` style) plus token-saving tools (`tokless` style), installed once and shared across **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI**, and **Gemini CLI**.
 
 Two layers:
 - **Working mode** (always installed): rules and a skill that control *how* the agent works. It picks a playbook, names the data shape, verifies on the real surface, and never calls something "done" without evidence.
@@ -23,10 +23,10 @@ Two layers:
 |---|---|---|---|---|
 | `codegraph` | Code graph search (`codegraph_explore`); supports Swift and ObjC | npm `@colbymchenry/codegraph@1.6.2` | Its own `codegraph install` (MCP + marked CLAUDE.md section + prompt hook); telemetry turned off | on |
 | `projectmem` | Per-project memory: issues, attempts, fixes, decisions | PyPI `projectmem==0.3.4` in its own venv (`~/.local/share/agent-kit/projectmem-venv`) | One global MCP server for all projects | on |
-| `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` | `rtk init -g` (per-agent flags) | off |
+| `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` | `rtk init -g` (per-agent flags) | on |
 | `context-mode` | Sandboxed execution + indexed search | npm `context-mode@1.0.169` (Node ≥ 22.5) | MCP only, no hooks | off |
 
-`rtk` is off by default because it can hide failing lines. `verified-dev` works around that with `agent-verify`, but turn rtk on only after you confirm that evidence still comes through.
+`rtk` compresses routine shell output while `verified-dev` captures full verification logs into `.verify/<name>.log` via `agent-verify` and reads them with the file-read tool, so failing lines are never lost.
 
 ## Install
 
@@ -40,22 +40,26 @@ gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/
 It installs missing prerequisites with Homebrew, clones the kit to `~/.local/share/agent-kit/src` (or reuses an existing clone), and runs `install.sh` with the recommended defaults:
 - rules and skill for all three agents
 - the compaction hook
-- codegraph and projectmem
+- codegraph, projectmem and rtk
 - **automatic setup of every git repository under `~/Developer`**
 
 Then open a new terminal, restart your agents, and run `agent-kit status`.
 
-Already cloned? Run `./install.sh`. Options (all optional): `--with=LIST`, `--auto-project=DIRS|none`, `--targets=LIST`, `--no-hooks`, `--dry-run`. See `./install.sh --help`. To pass them through bootstrap, use `... | bash -s -- --with=codegraph,projectmem,rtk`.
+Already cloned? Run `./install.sh`. Options (all optional): `--with=LIST`, `--auto-project=DIRS|none`, `--targets=LIST`, `--no-hooks`, `--dry-run`. See `./install.sh --help`. To pass them through bootstrap, use `... | bash -s -- --with=codegraph,projectmem,rtk,context-mode`.
 
 ### Everyday commands
 
 ```sh
-agent-kit status          # what is installed, wired and set up
-agent-kit update          # pull the latest kit and re-apply it (keeps your settings)
-agent-kit init [--all]    # set up this repo now, or every repo under your auto-setup folders
-agent-kit skip            # never set up this repo automatically
-agent-kit uninstall [--purge]
+potless                 # interactive menu (status, select tools, stats, update, uninstall)
+potless status          # compact overview table of what is installed, wired and set up
+potless stats           # unified token savings (rtk, projectmem) & codegraph index stats
+potless select          # interactively pick agents and tools to enable/disable
+potless update          # pull the latest kit, upgrade tools and re-apply settings
+potless init [--all]    # set up this repo now, or every repo under your auto-setup folders
+potless skip            # never set up this repo automatically
+potless disable         # interactive uninstall / unwire (or: potless uninstall [--purge])
 ```
+*(All commands also work under the `agent-kit` alias.)*
 
 ### Automatic project setup
 
@@ -81,7 +85,11 @@ Remove it first so tools aren't wired twice: `tokless uninstall`. Install warns 
 |---|---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/skills/verified-dev` | `~/.claude.json` |
 | VS Code / Copilot | `~/.copilot/copilot-instructions.md` | reads `~/.claude/skills` (or `~/.copilot/skills` if Claude Code is not a target) | `~/Library/Application Support/Code/User/mcp.json` |
-| Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills/verified-dev`, `~/.gemini/antigravity-cli/skills/verified-dev` | `~/.gemini/antigravity/mcp_config.json` |
+| Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills/verified-dev`, `~/.gemini/antigravity-cli/skills/verified-dev` | `~/.gemini/antigravity/mcp_config.json` (or `~/.gemini/config/mcp_config.json`) |
+| OpenCode | `~/.config/opencode/AGENTS.md` | `~/.config/opencode/skills/verified-dev` | `~/.config/opencode/opencode.json` |
+| Cursor | `~/.cursor/rules/agent-kit.mdc` | `~/.cursor/skills/verified-dev` | `~/.cursor/mcp.json` |
+| Codex CLI | `~/.codex/AGENTS.md` | `~/.codex/skills/verified-dev` | `~/.codex/config.toml` |
+| Gemini CLI | `~/.gemini/GEMINI.md` | `~/.gemini/skills/verified-dev` | `~/.gemini/settings.json` |
 
 ## Uninstall
 
@@ -129,7 +137,7 @@ The workflow (sections 1, 2 and 4-9 of the skill) is stack-neutral. Section 3's 
 
 agent-kit มี 2 ชั้น
 - **วิธีทำงาน** (ติดตั้งเสมอ): rules และ skill ที่บังคับให้ agent เลือก playbook ตามประเภทงาน, กำหนด data shape ก่อนเขียนโค้ด, verify บนของจริง และห้ามบอกว่าเสร็จถ้าไม่มีหลักฐาน
-- **Components** (เลือกได้): เครื่องมือของคนอื่นที่ติดตั้งจาก upstream โดยตรงแบบ pin version แล้ว wire เข้าแต่ละ agent ให้ ค่าเริ่มต้นคือ codegraph + projectmem ส่วน rtk และ context-mode ต้องเลือกเอง และไม่มี headroom
+- **Components** (เลือกได้): เครื่องมือของคนอื่นที่ติดตั้งจาก upstream โดยตรงแบบ pin version แล้ว wire เข้าแต่ละ agent ให้ ค่าเริ่มต้นคือ codegraph + projectmem + rtk ส่วน context-mode ต้องเลือกเอง และไม่มี headroom
 
 ติดตั้งคำสั่งเดียวด้วย bootstrap (ดูส่วน Install) หรือรัน `./install.sh` ใน repo ที่ clone ไว้ ค่าเริ่มต้นตั้งค่าทุก repo ใน `~/Developer` ให้อัตโนมัติ ผ่าน Claude Code, การ `cd` ใน zsh และการสแกนของ launchd ทุก 30 นาที
 

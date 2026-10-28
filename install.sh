@@ -16,14 +16,15 @@ usage() {
 Usage: ./install.sh [options]
 
 With no options: rules + skill for Claude Code, VS Code and Antigravity, the compaction
-hook, codegraph + projectmem, and automatic setup of repositories under ~/Developer.
+hook, codegraph + projectmem + rtk, and automatic setup of repositories under ~/Developer.
 
   --dry-run            Show what would change; change nothing.
   --no-hooks           Skip the Claude Code compaction-reminder hook.
   --with=LIST          Tool components, comma-separated, or "none".
                        Available: codegraph, projectmem, rtk, context-mode.
-                       Default: codegraph,projectmem
-  --targets=LIST       Subset of: claude, vscode, antigravity (default: all).
+                       Default: codegraph,projectmem,rtk
+  --targets=LIST       Subset of: claude, vscode, antigravity, opencode, cursor, codex, gemini
+                       (default: claude,vscode,antigravity).
   --auto-project=DIRS  Folders whose git repositories are set up automatically
                        (comma-separated). Default: ~/Developer if it exists, or the
                        folders from the previous install. "none" turns it off.
@@ -98,13 +99,14 @@ RULES="$KIT_DIR/rules/core.md"
 SKILL_SRC="$KIT_DIR/skills/$SKILL_NAME"
 
 [ "$DRY_RUN" = 1 ] && say "Dry run: nothing will be changed."
-[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/agent-kit" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/hooks/remind.sh"
+[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/agent-kit" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/bin/stats.sh" "$KIT_DIR/bin/ui.sh" "$KIT_DIR/hooks/remind.sh"
 
 if command -v tokless >/dev/null 2>&1; then
   warn "tokless is installed. It wires some of the same tools; run 'tokless uninstall' first to avoid duplicates."
 fi
 
-say "Commands: agent-kit, agent-verify, agent-kit-project"
+say "Commands: potless, agent-kit, agent-verify, agent-kit-project"
+link "$POTLESS_LINK" "$KIT_DIR/bin/agent-kit"
 link "$CLI_LINK" "$KIT_DIR/bin/agent-kit"
 link "$VERIFY_LINK" "$KIT_DIR/bin/verify.sh"
 link "$PROJECT_LINK" "$KIT_DIR/bin/project.sh"
@@ -139,6 +141,30 @@ if has_target antigravity; then
   set_block "$AG_RULES" "$RULES"
   link "$AG_SKILLS/$SKILL_NAME" "$SKILL_SRC"
   link "$AG_CLI_SKILLS/$SKILL_NAME" "$SKILL_SRC"
+fi
+
+if has_target opencode; then
+  say "OpenCode"
+  set_block "$OPENCODE_RULES" "$RULES"
+  link "$OPENCODE_SKILLS/$SKILL_NAME" "$SKILL_SRC"
+fi
+
+if has_target cursor; then
+  say "Cursor"
+  set_block "$CURSOR_RULES" "$RULES"
+  link "$CURSOR_SKILLS/$SKILL_NAME" "$SKILL_SRC"
+fi
+
+if has_target codex; then
+  say "Codex CLI"
+  set_block "$CODEX_RULES" "$RULES"
+  link "$CODEX_SKILLS/$SKILL_NAME" "$SKILL_SRC"
+fi
+
+if has_target gemini; then
+  say "Gemini CLI"
+  set_block "$AG_RULES" "$RULES"
+  link "$GEMINI_SKILLS/$SKILL_NAME" "$SKILL_SRC"
 fi
 
 if [ "$AUTO_PROJECT" != none ]; then

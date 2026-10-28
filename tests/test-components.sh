@@ -5,8 +5,8 @@
 # codegraph on PATH. Nothing is downloaded and your real home directory is never touched.
 set -u
 KIT=$(cd "$(dirname "$0")/.." && pwd -P)
-export HOME=$(mktemp -d)
-STUB=$(mktemp -d)
+export HOME=$(cd "$(mktemp -d)" && pwd -P)
+STUB=$(cd "$(mktemp -d)" && pwd -P)
 export STUB_LOG="$STUB/calls.log"
 export PATH="$STUB/bin:$HOME/.local/bin:/usr/bin:/bin"
 fail=0; check(){ if eval "$2"; then echo "PASS $1"; else echo "FAIL $1"; fail=1; fi; }
@@ -67,7 +67,27 @@ if [ "$1 $2" = "-m venv" ]; then
 fi
 EOF
 printf '#!/bin/sh\necho 22\n' > "$STUB/bin/node"
-chmod +x "$STUB/bin/npm" "$STUB/bin/python3" "$STUB/bin/node"
+cat > "$STUB/bin/brew" <<'EOF'
+#!/bin/sh
+echo "brew $*" >> "$STUB_LOG"
+d=$(dirname "$0")
+case "$1 $2" in
+  "install rtk") cp "$d/rtk.real" "$d/rtk"; chmod +x "$d/rtk" ;;
+  "uninstall rtk") rm -f "$d/rtk" ;;
+esac
+EOF
+cat > "$STUB/bin/rtk.real" <<'EOF'
+#!/bin/sh
+echo "rtk $*" >> "$STUB_LOG"
+case "$1 $2 $3" in
+  "gain  ") exit 0 ;;
+  "init -g --auto-patch") mkdir -p "$HOME/.claude/hooks"; : > "$HOME/.claude/hooks/rtk-rewrite.sh" ;;
+  "init -g --copilot") : ;;
+  "init -g --agent") mkdir -p "$HOME/.gemini/config/plugins/rtk" ;;
+  "init -g --uninstall") rm -f "$HOME/.claude/hooks/rtk-rewrite.sh"; rmdir "$HOME/.claude/hooks" 2>/dev/null || true ;;
+esac
+EOF
+chmod +x "$STUB/bin/npm" "$STUB/bin/python3" "$STUB/bin/node" "$STUB/bin/brew" "$STUB/bin/rtk.real"
 
 # ---- seed user content -------------------------------------------------------------------------
 echo '{"numStartups":7,"mcpServers":{"mine":{"command":"my-server"}}}' | jq . > "$HOME/.claude.json"
@@ -84,17 +104,18 @@ check "unknown component rejected (64)" '[ $code = 64 ]'
 "$KIT/install.sh" --with=none --auto-project="$HOME/no such dir" >/dev/null 2>&1; code=$?
 check "bad --auto-project rejected before any change" '[ $code = 64 ] && same_tree "$HOME" "$HOME.orig"'
 
-echo "== dry-run with components"
-"$KIT/install.sh" --dry-run --with=codegraph,projectmem,context-mode > /dev/null 2>&1
+echo "== dry-run with default components (codegraph,projectmem,rtk) + context-mode"
+"$KIT/install.sh" --dry-run --with=codegraph,projectmem,rtk,context-mode > /dev/null 2>&1
 check "dry-run changes nothing" 'same_tree "$HOME" "$HOME.orig"'
 check "dry-run calls no installer" '[ ! -s "$STUB_LOG" ]'
 
-echo "== install codegraph,projectmem,context-mode"
-"$KIT/install.sh" --with=codegraph,projectmem,context-mode > "$STUB/install1.log" 2>&1; code=$?
+echo "== install default components + context-mode"
+"$KIT/install.sh" --with=codegraph,projectmem,rtk,context-mode > "$STUB/install1.log" 2>&1; code=$?
 check "install exit 0" '[ $code = 0 ]'
 check "codegraph installed via pinned npm" '[ "$(calls "npm install -g @colbymchenry/codegraph@")" = 1 ]'
 check "projectmem venv created" '[ -x "$HOME/.local/share/agent-kit/projectmem-venv/bin/pjm" ]'
 check "pjm linked on PATH" '[ -L "$HOME/.local/bin/pjm" ]'
+check "rtk installed via brew and wired" '[ "$(calls "brew install rtk")" = 1 ] && [ -f "$HOME/.claude/hooks/rtk-rewrite.sh" ] && [ -d "$HOME/.gemini/config/plugins/rtk" ]'
 for a in "$CJ:mcpServers" "$VS:servers" "$AG:mcpServers"; do
   f=${a%:*}; k=${a##*:}
   for n in codegraph projectmem context-mode; do
@@ -104,17 +125,17 @@ done
 check "projectmem points at venv python" '[ "$(jq -r ".mcpServers.projectmem.command" "$CJ")" = "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" ]'
 check "user MCP server kept" 'has "$CJ" mcpServers mine'
 check "unrelated .claude.json key kept" '[ "$(jq .numStartups "$CJ")" = 7 ]'
-check "state recorded" '[ -f "$HOME/.agent-kit/components/projectmem/installed-by-kit" ] && grep -qx antigravity "$HOME/.agent-kit/components/codegraph/wired"'
+check "state recorded" '[ -f "$HOME/.agent-kit/components/projectmem/installed-by-kit" ] && grep -qx antigravity "$HOME/.agent-kit/components/codegraph/wired" && grep -qx claude "$HOME/.agent-kit/components/rtk/wired"'
 
 echo "== re-install"
 cp "$STUB_LOG" "$STUB/before"; snap "$HOME" > "$STUB/snap1"
-"$KIT/install.sh" --with=codegraph,projectmem,context-mode > /dev/null 2>&1
-check "no reinstall of present CLIs" '! diff "$STUB/before" "$STUB_LOG" | grep -q "npm install\|venv"'
+"$KIT/install.sh" --with=codegraph,projectmem,rtk,context-mode > /dev/null 2>&1
+check "no reinstall of present CLIs" '! diff "$STUB/before" "$STUB_LOG" | grep -q "npm install\|venv\|brew install"'
 check "re-install leaves files identical" '[ "$(snap "$HOME")" = "$(cat "$STUB/snap1")" ]'
 
 echo "== status"
 "$KIT/status.sh" > "$STUB/status.log" 2>&1
-check "status lists wired components" 'grep -q "projectmem: CLI installed, managed by agent-kit" "$STUB/status.log"'
+check "status lists wired components" 'grep -q "projectmem: CLI installed, managed by agent-kit" "$STUB/status.log" && grep -q "rtk: CLI installed, managed by agent-kit" "$STUB/status.log"'
 
 echo "== agent-kit-project init"
 repo=$(mktemp -d); (cd "$repo" && git init -q && printf 'build/' > .gitignore && agent-kit-project init > "$STUB/proj.log" 2>&1); code=$?
@@ -136,10 +157,11 @@ check "wiring state cleared" '[ -z "$(find "$HOME/.agent-kit" -name wired 2>/dev
 check "ownership kept for later purge" '[ -f "$HOME/.agent-kit/components/codegraph/installed-by-kit" ]'
 
 echo "== reinstall, then uninstall --purge"
-"$KIT/install.sh" --with=codegraph,projectmem,context-mode > /dev/null 2>&1
-check "reinstall did not reinstall CLIs" '[ "$(calls "npm install -g @colbymchenry/codegraph@")" = 1 ]'
+"$KIT/install.sh" --with=codegraph,projectmem,rtk,context-mode > /dev/null 2>&1
+check "reinstall did not reinstall CLIs" '[ "$(calls "npm install -g @colbymchenry/codegraph@")" = 1 ] && [ "$(calls "brew install rtk")" = 1 ]'
 "$KIT/uninstall.sh" --purge > "$STUB/un2.log" 2>&1
 check "kit-installed codegraph removed on purge" '[ ! -e "$STUB/bin/codegraph" ] && [ "$(calls "npm uninstall -g @colbymchenry/codegraph")" = 1 ]'
+check "kit-installed rtk removed on purge" '[ ! -e "$STUB/bin/rtk" ] && [ "$(calls "brew uninstall rtk")" = 1 ]'
 check "kit-installed context-mode removed on purge" '[ ! -e "$STUB/bin/context-mode" ]'
 check "kit-installed projectmem venv removed on purge" '[ ! -e "$HOME/.local/share/agent-kit" ] && [ ! -e "$HOME/.local/bin/pjm" ]'
 check "all state gone after purge" '[ ! -e "$HOME/.agent-kit" ]'
@@ -236,7 +258,7 @@ check "bootstrap installed agent-kit command" '[ "$(readlink "$HOME/.local/bin/a
 "$BK/uninstall.sh" > /dev/null 2>&1
 rm -f "$HOME/.zshrc"
 unset AGENT_KIT_FORCE_LAUNCHD AGENT_KIT_LAUNCHD_DIR
-rmdir "$HOME/Library" 2>/dev/null || true   # test-only stand-in for macOS ~/Library
+rmdir "$HOME/Library/Application Support" "$HOME/Library" 2>/dev/null || true   # test-only stand-in for macOS ~/Library
 
 rm -rf "$HOME/.agent-kit-backup"
 check ".claude.json byte-identical to original" 'cmp -s "$CJ" "$HOME.orig/.claude.json"'

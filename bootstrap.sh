@@ -3,7 +3,7 @@
 #
 #   gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/contents/bootstrap.sh | bash
 #
-# Pass install options after "bash -s --", e.g. ... | bash -s -- --with=codegraph,projectmem,rtk
+# Pass install options after "bash -s --", e.g. ... | bash -s -- --with=codegraph,projectmem,rtk,context-mode
 # Installs missing prerequisites with Homebrew (macOS), clones the kit, and runs install.sh.
 set -eu
 

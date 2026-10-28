@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# agent-kit: one command for everything.
+# agent-kit: one command for everything (interactive menu + direct CLI subcommands).
 set -eu
 
 SELF=$0
@@ -11,30 +11,155 @@ KIT_DIR=$(cd "$(dirname "$SELF")/.." && pwd -P)
 
 usage() {
   cat <<EOF
-agent-kit — evidence-first working mode and tools for AI coding agents
+potless — evidence-first working mode and token-saving tools (poteto + tokless)
 Kit: $KIT_DIR
 
-  agent-kit status              what is installed, wired and set up
-  agent-kit update              pull the latest kit and re-apply it (keeps your settings)
-  agent-kit init                set up the git repository you are in
-  agent-kit init --all          set up every repository under your auto-setup folders
-  agent-kit install [options]   install or change the setup (see: agent-kit install --help)
-  agent-kit uninstall [--purge] remove everything agent-kit added (--purge: also its tool CLIs)
-  agent-kit skip                never set up this repository automatically
-  agent-kit docs                show where the guides are
+  potless                       interactive menu (when run in a terminal)
+  potless status                compact overview of what is installed, wired and set up
+  potless stats [options]       token savings (rtk, projectmem) & codegraph index stats
+                                (-d daily, -p current project, --dashboard, --reset)
+  potless select                interactively pick agents and tools to enable/disable
+  potless update                pull the latest kit, upgrade tools, and re-apply settings
+  potless init [--all]          set up this repo, or every repo under auto-setup folders
+  potless install [options]     install or change setup (see: potless install --help)
+  potless uninstall [--purge]   remove wiring (--purge: also remove installed tool CLIs)
+  potless disable               interactive alias for uninstall / unwire
+  potless skip                  never set up this repository automatically
+  potless docs                  show where the guides are
 EOF
 }
 
-cmd=${1:-help}
-[ $# -gt 0 ] && shift
+# Interactive multi-select for agents and components
+run_select() {
+  # shellcheck source=bin/ui.sh
+  . "$KIT_DIR/bin/ui.sh"
+  # shellcheck source=lib.sh
+  . "$KIT_DIR/lib.sh"
+  # shellcheck source=components/common.sh
+  . "$KIT_DIR/components/common.sh"
+  load_components
+
+  local cur_components="" c
+  for c in $ALL_COMPONENTS; do
+    if [ -n "$(state_wired "$c")" ]; then
+      [ -n "$cur_components" ] && cur_components="$cur_components,$c" || cur_components="$c"
+    fi
+  done
+  [ -n "$cur_components" ] || cur_components=$DEFAULT_COMPONENTS
+
+  local default_agents="claude,vscode,antigravity"
+  [ -d "$HOME/.config/opencode" ] && default_agents="$default_agents,opencode"
+  [ -d "$HOME/.cursor" ] && default_agents="$default_agents,cursor"
+  [ -d "$HOME/.codex" ] && default_agents="$default_agents,codex"
+  is_ours "$GEMINI_SKILLS/$SKILL_NAME" && default_agents="$default_agents,gemini"
+
+  UI_RESULT=""
+  ui_multiselect "Select agents to configure" \
+    "claude:Claude Code,vscode:VS Code (Copilot),antigravity:Google Antigravity,opencode:OpenCode,cursor:Cursor IDE,codex:Codex CLI,gemini:Gemini CLI" \
+    "$default_agents" || return 0
+  local chosen_agents=$UI_RESULT
+  [ -n "$chosen_agents" ] || { echo "No agents selected."; return 0; }
+
+  ui_multiselect "Select tools (components) to enable" \
+    "codegraph:CodeGraph (AST code index & call graph),projectmem:ProjectMem (per-project issue & fix memory),rtk:RTK (90%+ shell output compression),context-mode:Context-Mode (sandboxed execution & search)" \
+    "$cur_components" || return 0
+  local chosen_tools=$UI_RESULT
+  [ -n "$chosen_tools" ] || chosen_tools="none"
+
+  # Unwire any component that was previously wired but is no longer selected
+  for c in $ALL_COMPONENTS; do
+    if [ -n "$(state_wired "$c")" ]; then
+      case ",$chosen_tools," in
+        *,"$c",*) ;;
+        *) component_down "$c" 0 ;;
+      esac
+    fi
+  done
+
+  "$KIT_DIR/install.sh" --targets="$chosen_agents" --with="$chosen_tools"
+}
+
+run_interactive_uninstall() {
+  # shellcheck source=bin/ui.sh
+  . "$KIT_DIR/bin/ui.sh"
+  UI_CHOICE=0
+  ui_choose "Uninstall / Disable potless" \
+    "Unwire only — ถอดการเชื่อมต่อจากทุก Agent (เก็บ CLI ของเครื่องมือไว้)" \
+    "Full Uninstall (--purge) — ถอดทั้งหมดและลบ CLI ที่ potless ติดตั้งด้วย" \
+    "Dry Run — ดูสิ่งที่จะถูกลบโดยไม่ลบจริง" \
+    "Cancel — ยกเลิก" || return 0
+  case "$UI_CHOICE" in
+    0) "$KIT_DIR/uninstall.sh" ;;
+    1) "$KIT_DIR/uninstall.sh" --purge ;;
+    2) "$KIT_DIR/uninstall.sh" --dry-run ;;
+    *) echo "Cancelled." ;;
+  esac
+}
+
+run_menu() {
+  # shellcheck source=bin/ui.sh
+  . "$KIT_DIR/bin/ui.sh"
+  "$KIT_DIR/status.sh"
+  UI_CHOICE=0
+  ui_choose "Select an action" \
+    "Select & Install   — เลือกเปิด/ปิด Agents และเครื่องมือ (CodeGraph, ProjectMem, RTK)" \
+    "Stats & ROI        — ดูสถิติการประหยัด Token (RTK, ProjectMem, CodeGraph)" \
+    "Reset RTK Stats    — รีเซ็ตตัวนับสถิติของ RTK เพื่อเริ่มนับใหม่" \
+    "Update             — อัปเดต potless และเครื่องมือเป็นเวอร์ชันล่าสุด" \
+    "Init All Projects  — ตั้งค่าทุกโปรเจกต์ใน ~/Developer ทันที" \
+    "Disable/Uninstall  — ถอดการเชื่อมต่อ หรือถอนการติดตั้ง" \
+    "Quit               — ออก" || return 0
+  case "$UI_CHOICE" in
+    0) run_select ;;
+    1) "$KIT_DIR/bin/stats.sh" ;;
+    2) "$KIT_DIR/bin/stats.sh" --reset ;;
+    3) "$0" update ;;
+    4) "$0" init --all ;;
+    5) run_interactive_uninstall ;;
+    *) ;;
+  esac
+}
+
+if [ $# -eq 0 ]; then
+  if [ -t 0 ] && [ -t 1 ]; then
+    run_menu
+    exit 0
+  else
+    usage
+    exit 0
+  fi
+fi
+
+cmd=$1
+shift
 
 case "$cmd" in
-  status) exec "$KIT_DIR/status.sh" "$@" ;;
-  install) exec "$KIT_DIR/install.sh" "$@" ;;
-  uninstall) exec "$KIT_DIR/uninstall.sh" "$@" ;;
+  menu) run_menu ;;
+  status | info) exec "$KIT_DIR/status.sh" "$@" ;;
+  stats | doctor) exec "$KIT_DIR/bin/stats.sh" "$@" ;;
+  select) run_select ;;
+  install)
+    if [ "${1:-}" = "-i" ] || [ "${1:-}" = "--interactive" ]; then
+      run_select
+    else
+      exec "$KIT_DIR/install.sh" "$@"
+    fi
+    ;;
+  uninstall | disable)
+    if [ $# -eq 0 ] && [ -t 0 ] && [ -t 1 ] && [ "$cmd" = "disable" ]; then
+      run_interactive_uninstall
+    else
+      exec "$KIT_DIR/uninstall.sh" "$@"
+    fi
+    ;;
   update)
     git -C "$KIT_DIR" pull --ff-only
-    exec "$KIT_DIR/install.sh" "$@"
+    if command -v brew >/dev/null 2>&1 && [ -f "$HOME/.agent-kit/components/rtk/installed-by-kit" ]; then
+      brew upgrade rtk 2>/dev/null || true
+    fi
+    "$KIT_DIR/install.sh" "$@"
+    echo
+    exec "$KIT_DIR/status.sh"
     ;;
   init)
     if [ "${1:-}" = --all ]; then
