@@ -4,9 +4,11 @@
 #   agent-kit-project init [--dry-run]      set up the git repository you are in
 #   agent-kit-project init-all <dir> [--dry-run]
 #                                           set up every git repository under <dir> (2 levels deep)
-#   agent-kit-project auto                  used by the Claude Code SessionStart hook: if this repo
+#   agent-kit-project auto                  used by the Claude Code hook and the zsh hook: if this repo
 #                                           is under a root listed in ~/.agent-kit/auto-roots and is
 #                                           not set up yet, set it up in the background
+#   agent-kit-project scan                  used by launchd: set up every repo under the auto roots
+#                                           that is not set up yet (covers VS Code and Antigravity)
 #
 # A repository containing a file named .agent-kit-skip is never set up automatically.
 set -eu
@@ -26,7 +28,7 @@ for a in "$@"; do [ "$a" = --dry-run ] && DRY_RUN=1; done
 BACKUP_DIR=""
 
 usage() {
-  echo "usage: agent-kit-project init [--dry-run] | init-all <dir> [--dry-run] | auto" >&2
+  echo "usage: agent-kit-project init [--dry-run] | init-all <dir> [--dry-run] | auto | scan" >&2
   exit 64
 }
 
@@ -86,6 +88,14 @@ under_auto_root() {
   return 1
 }
 
+# Repositories at <dir>/<repo> and <dir>/<group>/<repo>; .git may be a dir or a worktree file.
+list_repos() {
+  find "$1" -mindepth 2 -maxdepth 3 -name .git -not -path '*/node_modules/*' 2>/dev/null |
+    while IFS= read -r g; do dirname "$g"; done | LC_ALL=C sort
+}
+
+lock_path() { printf '%s/locks/%s' "$STATE_DIR" "$(printf '%s' "$1" | cksum | cut -d' ' -f1)"; }
+
 case "$cmd" in
   init)
     top=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "agent-kit-project: not inside a git repository" >&2; exit 1; }
@@ -97,15 +107,37 @@ case "$cmd" in
   init-all)
     [ -n "${2:-}" ] && [ -d "$2" ] || usage
     count=0
-    # Repositories at <dir>/<repo> and <dir>/<group>/<repo>; .git may be a dir or a worktree file.
-    find "$2" -mindepth 2 -maxdepth 3 -name .git 2>/dev/null | LC_ALL=C sort > "${TMPDIR:-/tmp}/agent-kit-repos.$$"
-    while IFS= read -r g; do
-      repo=$(dirname "$g")
-      ( cd "$repo" && init_here ) || warn "setup failed in $repo"
+    skipped=0
+    list_repos "$2" > "${TMPDIR:-/tmp}/agent-kit-repos.$$"
+    while IFS= read -r repo; do
+      if [ -e "$repo/.agent-kit-skip" ]; then
+        say "Project: $repo"; say "  skipped    .agent-kit-skip"; skipped=$((skipped + 1)); continue
+      fi
+      ( cd "$repo" && init_here < /dev/null ) || warn "setup failed in $repo"
       count=$((count + 1))
     done < "${TMPDIR:-/tmp}/agent-kit-repos.$$"
     rm -f "${TMPDIR:-/tmp}/agent-kit-repos.$$"
-    say "Done: $count repositories."
+    say "Done: $count repositories ($skipped skipped)."
+    ;;
+
+  scan)
+    # Periodic and quiet: only repos that still need setup are touched and logged.
+    [ -f "$AUTO_ROOTS" ] || exit 0
+    mkdir -p "$STATE_DIR/locks"
+    while IFS= read -r root; do
+      [ -d "$root" ] || continue
+      list_repos "$root" > "${TMPDIR:-/tmp}/agent-kit-scan.$$"
+      while IFS= read -r repo; do
+        [ -e "$repo/.agent-kit-skip" ] && continue
+        ( cd "$repo" && project_ready ) && continue
+        lock=$(lock_path "$repo")
+        mkdir "$lock" 2>/dev/null || continue
+        echo "$(date '+%Y-%m-%d %H:%M:%S') setting up $repo"
+        ( cd "$repo" && init_here < /dev/null ) || warn "setup failed in $repo"
+        rmdir "$lock"
+      done < "${TMPDIR:-/tmp}/agent-kit-scan.$$"
+      rm -f "${TMPDIR:-/tmp}/agent-kit-scan.$$"
+    done < "$AUTO_ROOTS"
     ;;
 
   auto)
@@ -118,11 +150,11 @@ case "$cmd" in
     cd "$top"
     project_ready && exit 0
     mkdir -p "$STATE_DIR/logs" "$STATE_DIR/locks"
-    key=$(printf '%s' "$top" | cksum | cut -d' ' -f1)
-    mkdir "$STATE_DIR/locks/$key" 2>/dev/null || exit 0
+    lock=$(lock_path "$top")
+    mkdir "$lock" 2>/dev/null || exit 0
     log="$STATE_DIR/logs/$(basename "$top").log"
     # shellcheck disable=SC2016  # positional args expand inside the child shell
-    nohup /bin/sh -c '"$1" init > "$2" 2>&1; rmdir "$3"' sh "$SELF" "$log" "$STATE_DIR/locks/$key" \
+    nohup /bin/sh -c '"$1" init > "$2" 2>&1; rmdir "$3"' sh "$SELF" "$log" "$lock" \
       < /dev/null > /dev/null 2>&1 &
     echo "[agent-kit] Setting up this repository in the background (code index, project memory). Log: $log"
     ;;

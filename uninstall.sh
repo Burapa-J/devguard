@@ -36,7 +36,7 @@ for f in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES"; do
   remove_block "$f"
 done
 
-for l in "$VERIFY_LINK" "$PROJECT_LINK" \
+for l in "$CLI_LINK" "$VERIFY_LINK" "$PROJECT_LINK" \
          "$CLAUDE_SKILLS/$SKILL_NAME" "$VSCODE_SKILLS/$SKILL_NAME" \
          "$AG_SKILLS/$SKILL_NAME" "$AG_CLI_SKILLS/$SKILL_NAME"; do
   unlink_ours "$l"
@@ -48,6 +48,8 @@ fi
 if [ -f "$CLAUDE_SETTINGS" ] && grep -qF "$AUTO_HOOK_CMD" "$CLAUDE_SETTINGS"; then
   edit_settings "$JQ_REMOVE_HOOK" "$AUTO_HOOK_CMD"
 fi
+zsh_hook_remove
+launchd_remove
 if [ -e "$AUTO_ROOTS" ] || [ -d "$STATE_DIR/logs" ] || [ -d "$STATE_DIR/locks" ]; then
   if [ "$DRY_RUN" = 1 ]; then
     say "  would remove automatic project setup ($AUTO_ROOTS, logs)"
@@ -64,6 +66,7 @@ if [ "$DRY_RUN" = 0 ]; then
            "$AG_SKILLS" "$HOME/.gemini/config" "$AG_CLI_SKILLS" "$HOME/.gemini/antigravity-cli" \
            "$HOME/.gemini/antigravity" "$HOME/.gemini" \
            "$(dirname "$VSCODE_MCP")" "$(dirname "$(dirname "$VSCODE_MCP")")" "$HOME/.config" \
+           "${AGENT_KIT_LAUNCHD_DIR:-}" \
            "$HOME/.local/bin" "$HOME/.local/share" "$HOME/.local"; do
     [ -d "$d" ] && rmdir "$d" 2>/dev/null && say "  rmdir      $d"
   done

@@ -16,6 +16,7 @@ shell_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 HOOK_CMD=$(shell_quote "$KIT_DIR/hooks/remind.sh")
 VERIFY_LINK="$HOME/.local/bin/agent-verify"
 PROJECT_LINK="$HOME/.local/bin/agent-kit-project"
+CLI_LINK="$HOME/.local/bin/agent-kit"
 AUTO_HOOK_CMD="$(shell_quote "$KIT_DIR/bin/project.sh") auto"
 AUTO_ROOTS="$HOME/.agent-kit/auto-roots"
 
@@ -185,3 +186,111 @@ JQ_REMOVE_HOOK='
 JQ_ADD_HOOK="$JQ_REMOVE_HOOK"'
   | .hooks.SessionStart = ((.hooks.SessionStart // [])
       + [{"matcher": $matcher, "hooks": [{"type": "command", "command": $cmd}]}])'
+
+# ---- automatic project setup: zsh hook and launchd agent ---------------------------------------
+
+ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
+ZSH_BEGIN="# >>> agent-kit >>>"
+ZSH_END="# <<< agent-kit <<<"
+LAUNCHD_LABEL="com.agent-kit.scan"
+LAUNCHD_DIR="${AGENT_KIT_LAUNCHD_DIR:-$HOME/Library/LaunchAgents}"
+LAUNCHD_PLIST="$LAUNCHD_DIR/$LAUNCHD_LABEL.plist"
+
+# macOS only; AGENT_KIT_FORCE_LAUNCHD=1 lets tests write the plist on Linux.
+use_launchd() { [ "$(uname -s)" = Darwin ] || [ "${AGENT_KIT_FORCE_LAUNCHD:-0}" = 1 ]; }
+
+zsh_block_body() {
+  cat <<ZSH
+# Sets up git repositories under the folders in ~/.agent-kit/auto-roots when you cd into them.
+agent_kit_chpwd() { $(shell_quote "$KIT_DIR/bin/project.sh") auto >/dev/null 2>&1 &! }
+autoload -Uz add-zsh-hook && add-zsh-hook chpwd agent_kit_chpwd
+ZSH
+}
+
+zsh_strip() { awk -v b="$ZSH_BEGIN" -v e="$ZSH_END" '$0==b{s=1;next} $0==e{s=0;next} !s' "$1"; }
+
+zsh_hook_set() {
+  local rest="" tmp
+  [ -f "$ZSHRC" ] && rest=$(zsh_strip "$ZSHRC")
+  tmp=$(mktemp)
+  if [ -n "$rest" ]; then
+    printf '%s\n\n%s\n%s\n%s\n' "$rest" "$ZSH_BEGIN" "$(zsh_block_body)" "$ZSH_END" > "$tmp"
+  else
+    printf '%s\n%s\n%s\n' "$ZSH_BEGIN" "$(zsh_block_body)" "$ZSH_END" > "$tmp"
+  fi
+  if [ -f "$ZSHRC" ] && cmp -s "$tmp" "$ZSHRC"; then
+    say "  unchanged  $ZSHRC"
+  elif [ "$DRY_RUN" = 1 ]; then
+    say "  would add cd hook to $ZSHRC"
+  else
+    backup "$ZSHRC"
+    cat "$tmp" > "$ZSHRC"
+    say "  updated    $ZSHRC (cd hook)"
+  fi
+  rm -f "$tmp"
+}
+
+zsh_hook_remove() {
+  local rest
+  [ -f "$ZSHRC" ] && grep -qxF "$ZSH_BEGIN" "$ZSHRC" || return 0
+  rest=$(zsh_strip "$ZSHRC")
+  if [ "$DRY_RUN" = 1 ]; then say "  would remove cd hook from $ZSHRC"; return 0; fi
+  backup "$ZSHRC"
+  if [ -z "$rest" ]; then rm -f "$ZSHRC"; else printf '%s\n' "$rest" > "$ZSHRC"; fi
+  say "  cleaned    $ZSHRC"
+}
+
+launchd_plist_body() {
+  local xml_kit
+  xml_kit=$(printf '%s' "$KIT_DIR/bin/project.sh" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+  cat <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$LAUNCHD_LABEL</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>$xml_kit</string><string>scan</string></array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>StartInterval</key><integer>1800</integer>
+  <key>RunAtLoad</key><true/>
+  <key>LowPriorityIO</key><true/>
+  <key>Nice</key><integer>10</integer>
+  <key>StandardOutPath</key><string>$HOME/.agent-kit/logs/scan.log</string>
+  <key>StandardErrorPath</key><string>$HOME/.agent-kit/logs/scan.log</string>
+</dict>
+</plist>
+PLIST
+}
+
+launchd_set() {
+  local tmp
+  use_launchd || { say "  skipped    periodic scan (launchd is macOS only)"; return 0; }
+  tmp=$(mktemp)
+  launchd_plist_body > "$tmp"
+  if [ -f "$LAUNCHD_PLIST" ] && cmp -s "$tmp" "$LAUNCHD_PLIST"; then
+    say "  unchanged  $LAUNCHD_PLIST"
+  elif [ "$DRY_RUN" = 1 ]; then
+    say "  would install periodic scan $LAUNCHD_PLIST (every 30 min)"
+  else
+    mkdir -p "$LAUNCHD_DIR" "$HOME/.agent-kit/logs"
+    cat "$tmp" > "$LAUNCHD_PLIST"
+    if command -v launchctl >/dev/null 2>&1; then
+      launchctl bootout "gui/$(id -u)/$LAUNCHD_LABEL" >/dev/null 2>&1 || true
+      launchctl bootstrap "gui/$(id -u)" "$LAUNCHD_PLIST" || warn "launchctl could not load $LAUNCHD_PLIST"
+    fi
+    say "  installed  $LAUNCHD_PLIST (every 30 min)"
+  fi
+  rm -f "$tmp"
+}
+
+launchd_remove() {
+  [ -f "$LAUNCHD_PLIST" ] || return 0
+  if [ "$DRY_RUN" = 1 ]; then say "  would remove $LAUNCHD_PLIST"; return 0; fi
+  if command -v launchctl >/dev/null 2>&1; then
+    launchctl bootout "gui/$(id -u)/$LAUNCHD_LABEL" >/dev/null 2>&1 || true
+  fi
+  rm -f "$LAUNCHD_PLIST"
+  say "  removed    $LAUNCHD_PLIST"
+}

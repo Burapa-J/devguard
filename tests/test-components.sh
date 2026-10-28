@@ -153,31 +153,90 @@ check "but its wiring removed" '! has "$CJ" mcpServers codegraph'
 
 echo "== automatic project setup, kit path with a space"
 SKIT="$STUB/kit with space"; mkdir -p "$SKIT"; cp -R "$KIT/." "$SKIT/"
+export AGENT_KIT_FORCE_LAUNCHD=1 AGENT_KIT_LAUNCHD_DIR="$HOME/Library/LaunchAgents"
+printf '#!/bin/sh\necho "launchctl $*" >> "$STUB_LOG"\n' > "$STUB/bin/launchctl"; chmod +x "$STUB/bin/launchctl"
+printf '# my zsh config\nalias ll="ls -l"\n' > "$HOME/.zshrc"; cp "$HOME/.zshrc" "$STUB/zshrc.orig"
 DEV="$HOME/Dev Projects"; mkdir -p "$DEV/app" "$DEV/group/lib" "$HOME/elsewhere/other"
 for r in "$DEV/app" "$DEV/group/lib" "$HOME/elsewhere/other"; do (cd "$r" && git init -q); done
 touch "$DEV/group/lib/.agent-kit-skip"
-"$SKIT/install.sh" --with-hooks --with=codegraph,projectmem --auto-project="$DEV" > "$STUB/auto-install.log" 2>&1; code=$?
+"$SKIT/install.sh" --with=codegraph,projectmem --auto-project="$DEV" > "$STUB/auto-install.log" 2>&1; code=$?
 check "install with --auto-project exit 0" '[ $code = 0 ]'
 check "auto root recorded" '[ "$(cat "$HOME/.agent-kit/auto-roots")" = "$DEV" ]'
 # Run every SessionStart hook command exactly as Claude Code would: through a shell.
 run_hooks() { jq -r ".hooks.SessionStart[] | select(.matcher==\"$1\") | .hooks[].command" "$HOME/.claude/settings.json" |
   while IFS= read -r c; do (cd "$2" && CLAUDE_PROJECT_DIR="$2" sh -c "$c"); done; }
-check "compact hook runs from spaced path" 'run_hooks compact "$DEV/app" | grep -q verified-dev'
+check "hooks on by default; compact hook runs from spaced path" 'run_hooks compact "$DEV/app" | grep -q verified-dev'
 out=$(run_hooks startup "$DEV/app"); sleep 2
 check "startup hook announces setup" 'printf "%s" "$out" | grep -q "Setting up this repository"'
 check "auto setup indexed repo under root" '[ -d "$DEV/app/.codegraph" ] && [ -d "$DEV/app/.projectmem" ] && grep -qx ".verify/" "$DEV/app/.gitignore"'
 check "auto setup quiet once ready" '[ -z "$(run_hooks startup "$DEV/app")" ]'
 check "repo outside roots untouched" '[ -z "$(run_hooks startup "$HOME/elsewhere/other")" ] && [ ! -e "$HOME/elsewhere/other/.gitignore" ]'
 check ".agent-kit-skip respected" '[ -z "$(run_hooks startup "$DEV/group/lib")" ] && [ ! -e "$DEV/group/lib/.codegraph" ]'
+
+echo "== zsh cd hook (real zsh)"
+check "zshrc block added, user lines kept" 'grep -qx "# >>> agent-kit >>>" "$HOME/.zshrc" && grep -qx "alias ll=\"ls -l\"" "$HOME/.zshrc"'
+if command -v zsh >/dev/null 2>&1; then
+  mkdir -p "$DEV/viazsh" && (cd "$DEV/viazsh" && git init -q)
+  zsh -c 'source "$HOME/.zshrc"; cd "$1"; sleep 3' zsh "$DEV/viazsh" >/dev/null 2>&1
+  check "cd in zsh sets up repo" '[ -d "$DEV/viazsh/.codegraph" ] && [ -d "$DEV/viazsh/.projectmem" ]'
+  zsh -c 'source "$HOME/.zshrc"; cd "$1"; sleep 1' zsh "$HOME/elsewhere/other" >/dev/null 2>&1
+  check "cd outside roots does nothing" '[ ! -e "$HOME/elsewhere/other/.codegraph" ]'
+else
+  echo "SKIP zsh not installed"
+fi
+
+echo "== launchd periodic scan"
+P="$HOME/Library/LaunchAgents/com.agent-kit.scan.plist"
+check "launchd plist written and loaded" '[ -f "$P" ] && grep -q "launchctl bootstrap" "$STUB_LOG"'
+check "plist is valid XML pointing at the kit" 'python3 -c "import sys,xml.dom.minidom as m; m.parse(sys.argv[1])" "$P" && grep -q "kit with space/bin/project.sh" "$P"'
+mkdir -p "$DEV/new-from-gui" && (cd "$DEV/new-from-gui" && git init -q)
+agent-kit-project scan > "$STUB/scan.log" 2>&1
+check "scan sets up a repo nobody opened from a shell" '[ -d "$DEV/new-from-gui/.codegraph" ] && grep -q "setting up $DEV/new-from-gui" "$STUB/scan.log"'
+check "scan skips ready and skipped repos" '! grep -q "setting up $DEV/app$" "$STUB/scan.log" && ! grep -q "group/lib" "$STUB/scan.log"'
+check "scan is silent when nothing to do" '[ -z "$(agent-kit-project scan 2>&1)" ]'
+
+echo "== agent-kit command"
+check "agent-kit status works" 'agent-kit status | grep -q "ok   auto setup (Claude Code)"'
+check "status shows zsh and launchd" 'agent-kit status | grep -q "ok   auto setup on cd (zsh)" && agent-kit status | grep -q "ok   auto setup scan (launchd)"'
 rm "$DEV/group/lib/.agent-kit-skip"
-agent-kit-project init-all "$DEV" > "$STUB/initall.log" 2>&1
-check "init-all sets up nested repos" '[ -d "$DEV/group/lib/.codegraph" ] && grep -q "Done: 2 repositories" "$STUB/initall.log"'
-"$SKIT/status.sh" > "$STUB/auto-status.log" 2>&1
-check "status shows auto hook" 'grep -q "ok   auto project setup hook" "$STUB/auto-status.log"'
+agent-kit init --all > "$STUB/initall.log" 2>&1
+check "agent-kit init --all sets up nested repos" '[ -d "$DEV/group/lib/.codegraph" ] && grep -q "Done: 4 repositories" "$STUB/initall.log"'
+(cd "$HOME/elsewhere/other" && agent-kit skip > /dev/null)
+check "agent-kit skip creates marker" '[ -f "$HOME/elsewhere/other/.agent-kit-skip" ]'
+check "unknown command rejected" '! agent-kit frobnicate 2>/dev/null'
+
+echo "== turn automatic setup off"
+"$SKIT/install.sh" --with=codegraph,projectmem --auto-project=none > "$STUB/auto-off.log" 2>&1
+check "auto off removes zsh block, plist and roots" '! grep -q "agent-kit" "$HOME/.zshrc" && [ ! -e "$P" ] && [ ! -e "$HOME/.agent-kit/auto-roots" ]'
+check "zshrc restored exactly" 'cmp -s "$HOME/.zshrc" "$STUB/zshrc.orig"'
+check "auto hook removed, compaction hook kept" '! grep -q "project.sh" "$HOME/.claude/settings.json" && grep -q "remind.sh" "$HOME/.claude/settings.json"'
+
 "$SKIT/uninstall.sh" --purge > "$STUB/auto-un.log" 2>&1
-check "both hooks removed" '[ ! -e "$HOME/.claude/settings.json" ] || ! grep -q "kit with space" "$HOME/.claude/settings.json"'
+check "uninstall removes all hooks" '[ ! -e "$HOME/.claude/settings.json" ] || ! grep -q "kit with space" "$HOME/.claude/settings.json"'
 check "auto state removed" '[ ! -e "$HOME/.agent-kit" ]'
-rm -rf "$DEV" "$HOME/elsewhere"
+rm -rf "$DEV" "$HOME/elsewhere" "$HOME/.zshrc"
+
+echo "== zero-config default: ~/Developer"
+mkdir -p "$HOME/Developer/one" && (cd "$HOME/Developer/one" && git init -q)
+"$KIT/install.sh" --with=none > "$STUB/default.log" 2>&1
+check "default auto root is ~/Developer" '[ "$(cat "$HOME/.agent-kit/auto-roots")" = "$HOME/Developer" ]'
+"$KIT/install.sh" --with=none > /dev/null 2>&1
+check "re-install keeps previous roots" '[ "$(cat "$HOME/.agent-kit/auto-roots")" = "$HOME/Developer" ]'
+"$KIT/uninstall.sh" > /dev/null 2>&1
+rm -rf "$HOME/Developer" "$HOME/.zshrc"
+
+echo "== bootstrap through a pipe"
+BK="$STUB/bootstrap-kit"; cp -R "$KIT/." "$BK"
+git -C "$BK" -c user.name=t -c user.email=t@t commit -qam wip --allow-empty >/dev/null 2>&1
+git -C "$BK" remote set-url origin "$BK" 2>/dev/null || git -C "$BK" remote add origin "$BK"
+git -C "$BK" fetch -q origin 2>/dev/null; git -C "$BK" branch -q -u origin/main main 2>/dev/null
+cat "$KIT/bootstrap.sh" | AGENT_KIT_DIR="$BK" bash -s -- --with=none --auto-project=none > "$STUB/boot.log" 2>&1; code=$?
+check "bootstrap via pipe exit 0" '[ $code = 0 ] && grep -q "Done. Open a new terminal" "$STUB/boot.log"'
+check "bootstrap installed agent-kit command" '[ "$(readlink "$HOME/.local/bin/agent-kit")" = "$BK/bin/agent-kit" ]'
+"$BK/uninstall.sh" > /dev/null 2>&1
+rm -f "$HOME/.zshrc"
+unset AGENT_KIT_FORCE_LAUNCHD AGENT_KIT_LAUNCHD_DIR
+rmdir "$HOME/Library" 2>/dev/null || true   # test-only stand-in for macOS ~/Library
 
 rm -rf "$HOME/.agent-kit-backup"
 check ".claude.json byte-identical to original" 'cmp -s "$CJ" "$HOME.orig/.claude.json"'

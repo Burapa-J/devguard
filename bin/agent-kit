@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# agent-kit: one command for everything.
+set -eu
+
+SELF=$0
+while [ -L "$SELF" ]; do
+  t=$(readlink "$SELF")
+  case "$t" in /*) SELF=$t ;; *) SELF="$(dirname "$SELF")/$t" ;; esac
+done
+KIT_DIR=$(cd "$(dirname "$SELF")/.." && pwd -P)
+
+usage() {
+  cat <<EOF
+agent-kit — evidence-first working mode and tools for AI coding agents
+Kit: $KIT_DIR
+
+  agent-kit status              what is installed, wired and set up
+  agent-kit update              pull the latest kit and re-apply it (keeps your settings)
+  agent-kit init                set up the git repository you are in
+  agent-kit init --all          set up every repository under your auto-setup folders
+  agent-kit install [options]   install or change the setup (see: agent-kit install --help)
+  agent-kit uninstall [--purge] remove everything agent-kit added (--purge: also its tool CLIs)
+  agent-kit skip                never set up this repository automatically
+  agent-kit docs                show where the guides are
+EOF
+}
+
+cmd=${1:-help}
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  status) exec "$KIT_DIR/status.sh" "$@" ;;
+  install) exec "$KIT_DIR/install.sh" "$@" ;;
+  uninstall) exec "$KIT_DIR/uninstall.sh" "$@" ;;
+  update)
+    git -C "$KIT_DIR" pull --ff-only
+    exec "$KIT_DIR/install.sh" "$@"
+    ;;
+  init)
+    if [ "${1:-}" = --all ]; then
+      roots="$HOME/.agent-kit/auto-roots"
+      [ -f "$roots" ] || { echo "No auto-setup folders. Use: agent-kit init-all <dir>, or install with --auto-project=<dir>" >&2; exit 1; }
+      while IFS= read -r root; do
+        [ -d "$root" ] && "$KIT_DIR/bin/project.sh" init-all "$root" < /dev/null
+      done < "$roots"
+    else
+      exec "$KIT_DIR/bin/project.sh" init "$@"
+    fi
+    ;;
+  init-all) exec "$KIT_DIR/bin/project.sh" init-all "$@" ;;
+  skip)
+    top=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not inside a git repository" >&2; exit 1; }
+    : > "$top/.agent-kit-skip"
+    echo "Created $top/.agent-kit-skip — this repository will not be set up automatically."
+    ;;
+  docs)
+    echo "English:  $KIT_DIR/README.md"
+    echo "ภาษาไทย:  $KIT_DIR/docs/USAGE.th.md"
+    ;;
+  help | -h | --help) usage ;;
+  *) echo "unknown command: $cmd" >&2; usage >&2; exit 64 ;;
+esac

@@ -30,29 +30,46 @@ Two layers:
 
 ## Install
 
-Quit Claude Code, VS Code and Antigravity first. They rewrite their own config files and can overwrite changes made while they run.
+One command on a new Mac (quit Claude Code, VS Code and Antigravity first):
 
 ```sh
-git clone https://github.com/Burapa-J/A69-012-agent-kit.git ~/agent-kit
-cd ~/agent-kit
-./install.sh --dry-run                     # see every change first
-./install.sh --with-hooks                  # working mode + codegraph + projectmem
-./install.sh --with=none                   # working mode only
-./install.sh --with=codegraph,projectmem,rtk
-./install.sh --targets=claude              # only some agents: claude, vscode, antigravity
-./status.sh                                # what is installed and wired
+brew install gh && gh auth login     # first time only; the repo is private
+gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/contents/bootstrap.sh | bash
 ```
 
-Then set up each project, either automatically or by hand:
+It installs missing prerequisites with Homebrew, clones the kit to `~/.local/share/agent-kit/src` (or reuses an existing clone), and runs `install.sh` with the recommended defaults:
+- rules and skill for all three agents
+- the compaction hook
+- codegraph and projectmem
+- **automatic setup of every git repository under `~/Developer`**
+
+Then open a new terminal, restart your agents, and run `agent-kit status`.
+
+Already cloned? Run `./install.sh`. Options (all optional): `--with=LIST`, `--auto-project=DIRS|none`, `--targets=LIST`, `--no-hooks`, `--dry-run`. See `./install.sh --help`. To pass them through bootstrap, use `... | bash -s -- --with=codegraph,projectmem,rtk`.
+
+### Everyday commands
+
 ```sh
-./install.sh --with-hooks --auto-project=~/Developer   # new repos under ~/Developer: set up on first Claude Code session
-agent-kit-project init-all ~/Developer                 # existing repos, once
-agent-kit-project init                                 # one repo, by hand
+agent-kit status          # what is installed, wired and set up
+agent-kit update          # pull the latest kit and re-apply it (keeps your settings)
+agent-kit init [--all]    # set up this repo now, or every repo under your auto-setup folders
+agent-kit skip            # never set up this repo automatically
+agent-kit uninstall [--purge]
 ```
-Each setup adds `.verify/` to `.gitignore` and runs `codegraph init` and `pjm init`. Automatic setup runs in the background, only under the folders you list, once per repository; a `.agent-kit-skip` file opts a repository out. It relies on a Claude Code hook, so for repos opened only in VS Code or Antigravity run `init` yourself.
-Note: `pjm init` also installs projectmem's git hooks and adds a "projectmem bridge" section to the project's `CLAUDE.md` and `AGENTS.md` that tells agents to call projectmem at session start.
 
-Every file agent-kit changes is backed up to `~/.agent-kit-backup/<timestamp>/`. Re-running is safe. Rules go between `<!-- agent-kit:begin -->` / `<!-- agent-kit:end -->` markers; anything else in those files is left alone. Skills are symlinks, so `git pull` updates them everywhere.
+### Automatic project setup
+
+Each repository under your auto-setup folders (default `~/Developer`, 1–2 levels deep) is set up once: `.verify/` goes into `.gitignore`, then `codegraph init` and `pjm init` run. It is triggered three ways, so every agent is covered:
+
+| Trigger | Covers |
+|---|---|
+| Claude Code session start (hook) | Claude Code |
+| `cd` into a repo in zsh | every agent's integrated terminal, and yours |
+| launchd scan every 30 min and at login (macOS) | everything, including repos cloned from a GUI |
+
+Setup runs in the background, ready repos are skipped instantly, and logs go to `~/.agent-kit/logs/`. Repositories outside the folders are never touched, and a `.agent-kit-skip` file opts one out (the kit's own repo has one).
+
+Unlike tokless, `pjm init` writes into each project: it installs git hooks and adds a "projectmem bridge" section to the project's `CLAUDE.md` and `AGENTS.md`. That is why setup is limited to your own folders.
 
 ### Coming from tokless
 
@@ -69,9 +86,9 @@ Remove it first so tools aren't wired twice: `tokless uninstall`. Install warns 
 ## Uninstall
 
 ```sh
-./uninstall.sh --dry-run
-./uninstall.sh            # remove rules, skill, hook and all component wiring; keep tool CLIs
-./uninstall.sh --purge    # also remove tool CLIs that agent-kit installed
+agent-kit uninstall --dry-run
+agent-kit uninstall            # remove rules, skill, hooks, zsh block, launchd agent and component wiring; keep tool CLIs
+agent-kit uninstall --purge    # also remove tool CLIs that agent-kit installed
 ```
 
 `--purge` never removes a CLI you installed yourself. agent-kit records ownership in `~/.agent-kit/` and keeps that record after a plain uninstall, so a later `--purge` still works.
@@ -80,7 +97,7 @@ Left in place on purpose, because they are the tools' own data: `~/.codegraph/`,
 
 ## Verify after installing
 
-1. Run `./status.sh`. Every core line should say `ok`, and each enabled component should be `wired` for your agents.
+1. Run `agent-kit status`. Every core line should say `ok`, and each enabled component should be `wired` for your agents.
 2. Open a new session in each agent and ask: "What rules are you following for code tasks?" It should mention `verified-dev` and evidence.
 3. Ask it to fix a bug that has a failing test. The reply should include the `agent-verify` log path, exit codes before and after, and the failing/passing lines.
 
@@ -97,7 +114,8 @@ Both run against a throwaway `HOME` and check that user content survives and tha
 ## Known limits
 
 - **VS Code** reads `~/.copilot/copilot-instructions.md` for the Copilot harness. Confirm your VS Code version picks it up by asking the agent what rules it has.
-- **Hooks** (agent-kit's own) are installed for Claude Code only. VS Code hooks are in preview, and Antigravity IDE hooks are not reliably documented yet.
+- **Agent hooks** (agent-kit's own) are installed for Claude Code only, because VS Code hooks are in preview and Antigravity IDE hooks are not reliably documented yet. Automatic project setup still covers those agents through zsh and launchd.
+- **launchd** is macOS only. On Linux the zsh hook and the Claude Code hook still work.
 - **rtk** has no documented unwire for Copilot. Uninstall warns you to remove its hook by hand.
 - **codegraph unwire** is all-or-nothing upstream. Uninstall removes codegraph from every agent at once.
 
@@ -113,7 +131,9 @@ agent-kit มี 2 ชั้น
 - **วิธีทำงาน** (ติดตั้งเสมอ): rules และ skill ที่บังคับให้ agent เลือก playbook ตามประเภทงาน, กำหนด data shape ก่อนเขียนโค้ด, verify บนของจริง และห้ามบอกว่าเสร็จถ้าไม่มีหลักฐาน
 - **Components** (เลือกได้): เครื่องมือของคนอื่นที่ติดตั้งจาก upstream โดยตรงแบบ pin version แล้ว wire เข้าแต่ละ agent ให้ ค่าเริ่มต้นคือ codegraph + projectmem ส่วน rtk และ context-mode ต้องเลือกเอง และไม่มี headroom
 
-ติดตั้งด้วย `./install.sh --dry-run` ก่อน แล้วค่อย `./install.sh --with-hooks` ตรวจสถานะด้วย `./status.sh` และในแต่ละโปรเจกต์ให้รัน `agent-kit-project init` ถอนด้วย `./uninstall.sh` (เก็บ CLI ไว้) หรือ `./uninstall.sh --purge` (ลบ CLI ที่ agent-kit ติดตั้งให้ด้วย) ไฟล์ที่ถูกแก้จะถูก backup ไว้ที่ `~/.agent-kit-backup/` ถ้าเคยใช้ tokless ให้รัน `tokless uninstall` ก่อน
+ติดตั้งคำสั่งเดียวด้วย bootstrap (ดูส่วน Install) หรือรัน `./install.sh` ใน repo ที่ clone ไว้ ค่าเริ่มต้นตั้งค่าทุก repo ใน `~/Developer` ให้อัตโนมัติ ผ่าน Claude Code, การ `cd` ใน zsh และการสแกนของ launchd ทุก 30 นาที
+
+ใช้งานผ่านคำสั่ง `agent-kit` เช่น `status`, `update`, `init --all`, `skip` และ `uninstall [--purge]` ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` ถ้าเคยใช้ tokless ให้รัน `tokless uninstall` ก่อน
 
 ## Credits
 
