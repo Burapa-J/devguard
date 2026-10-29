@@ -15,33 +15,11 @@ rtk_install() {
 }
 
 rtk_wire() {
-  local tmp pdir="$HOME/.gemini/config/plugins/rtk"
   [ "$DRY_RUN" = 1 ] || rtk telemetry disable >/dev/null 2>&1 || true
   case "$1" in
     claude) run rtk init -g --auto-patch ;;
     vscode) run rtk init -g --copilot ;;
-    antigravity)
-      if [ "$DRY_RUN" = 1 ]; then
-        say "  would install $pdir"
-        return 0
-      fi
-      tmp=$(mktemp -d)
-      if ! (cd "$tmp" && rtk init --agent antigravity >/dev/null) || [ ! -f "$tmp/.agents/rules/antigravity-rtk-rules.md" ]; then
-        rm -rf "$tmp"
-        return 1
-      fi
-      if [ -f "$pdir/plugin.json" ] && [ -f "$pdir/rules/AGENTS.md" ] && cmp -s "$tmp/.agents/rules/antigravity-rtk-rules.md" "$pdir/rules/AGENTS.md"; then
-        rm -rf "$tmp"
-        say "  unchanged  $pdir"
-        return 0
-      fi
-      [ -d "$pdir" ] && backup "$pdir"
-      mkdir -p "$pdir/rules"
-      printf '{"name":"rtk"}\n' > "$pdir/plugin.json"
-      cp "$tmp/.agents/rules/antigravity-rtk-rules.md" "$pdir/rules/AGENTS.md"
-      rm -rf "$tmp"
-      say "  updated    $pdir"
-      ;;
+    antigravity) run rtk init -g --agent antigravity ;;
     opencode) run rtk init -g --opencode --no-patch ;;
     cursor) run rtk init -g --agent=cursor ;;
     codex)
@@ -68,16 +46,8 @@ rtk_unwire() {
       fi
       ;;
     antigravity)
-      if [ -d "$HOME/.gemini/config/plugins/rtk" ]; then
-        if [ "$DRY_RUN" = 1 ]; then
-          say "  would remove $HOME/.gemini/config/plugins/rtk"
-        else
-          backup "$HOME/.gemini/config/plugins/rtk"
-          rm -rf "$HOME/.gemini/config/plugins/rtk"
-          rmdir "$HOME/.gemini/config/plugins" 2>/dev/null || true
-          say "  removed    $HOME/.gemini/config/plugins/rtk"
-        fi
-      fi
+      run rtk init -g --agent antigravity --uninstall
+      [ "$DRY_RUN" = 1 ] || rmdir "$HOME/.gemini/config/plugins" "$HOME/.gemini/config" "$HOME/.gemini" 2>/dev/null || true
       ;;
     opencode) run rtk init -g --opencode --uninstall ;;
     cursor) run rtk init -g --agent=cursor --uninstall ;;

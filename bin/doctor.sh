@@ -69,6 +69,7 @@ echo "${C_BOLD}╭─ potless doctor ──────────────�
 # ---- 1. Legacy tokless residue -----------------------------------------------------------------
 tokless_found=0
 if [ -e "$HOME/.local/bin/tokless" ] || [ -L "$HOME/.local/bin/tokless" ] ||
+   { [ -f "$HOME/.local/bin/rtk" ] && [ ! -L "$HOME/.local/bin/rtk" ]; } ||
    [ -d "$HOME/.local/share/tokless" ] ||
    [ -f "$HOME/.config/opencode/plugins/tokless-rtk.ts" ] ||
    { [ -f "$ZSHRC" ] && grep -q "tokless" "$ZSHRC" 2>/dev/null; } ||
@@ -86,6 +87,11 @@ else
         "$HOME/.local/bin/tokless" disable >/dev/null 2>&1 || true
     fi
     rm -f "$HOME/.local/bin/tokless" "$HOME/.config/opencode/plugins/tokless-rtk.ts"
+    if [ -f "$HOME/.local/bin/rtk" ] && [ ! -L "$HOME/.local/bin/rtk" ]; then
+      mkdir -p "$BACKUP_DIR"
+      mv "$HOME/.local/bin/rtk" "$BACKUP_DIR/tokless-rtk"
+      command -v rtk >/dev/null 2>&1 || rtk_install >/dev/null 2>&1 || true
+    fi
     if [ -d "$HOME/.local/share/tokless" ]; then
       mkdir -p "$BACKUP_DIR"
       mv "$HOME/.local/share/tokless" "$BACKUP_DIR/tokless-share"
@@ -250,8 +256,10 @@ fi
 # ---- 5. RTK Antigravity global plugin & telemetry ----------------------------------------------
 rtk_issues=""
 if [ -d "$(state_dir rtk)" ] && grep -qxF "antigravity" "$(state_dir rtk)/wired" 2>/dev/null; then
-  if [ ! -f "$HOME/.gemini/config/plugins/rtk/plugin.json" ] || [ ! -f "$HOME/.gemini/config/plugins/rtk/rules/AGENTS.md" ]; then
-    rtk_issues="antigravity-plugin-missing"
+  if [ ! -f "$HOME/.gemini/config/plugins/rtk/plugin.json" ] ||
+     [ ! -f "$HOME/.gemini/config/plugins/rtk/hooks.json" ] ||
+     [ ! -f "$HOME/.gemini/config/plugins/rtk/rules/AGENTS.md" ]; then
+    rtk_issues="antigravity-plugin-incomplete"
   fi
 fi
 

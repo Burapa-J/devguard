@@ -12,8 +12,10 @@
 |---|---|---|---|---|
 | **CodeGraph** | `1.6.2` | `components/codegraph.sh` | https://github.com/colbymchenry/codegraph (`@colbymchenry/codegraph` บน npm) | เมื่อมีการปรับปรุง parser ของ Swift / ObjC หรือรองรับ Agent ตัวใหม่ |
 | **ProjectMem** | `0.3.4` | `components/projectmem.sh` | https://github.com/riponcm/projectmem (`projectmem` บน PyPI) | เมื่อมีการปรับปรุง MCP schema หรือแก้บั๊กฐานข้อมูล SQLite |
-| **RTK** | ตาม Homebrew (`0.48.0+`) | `components/rtk.sh` | https://github.com/rtk-ai/rtk (`rtk` บน Homebrew) | เมื่อมีการเพิ่ม filter สำหรับคำสั่งใหม่ (เช่น `xcodebuild`, `swift`) หรือรองรับ global hook ของ Antigravity โดยตรง |
+| **RTK** | ตาม Homebrew (`1.1.0+`) | `components/rtk.sh` | https://github.com/rtk-ai/rtk (`rtk` บน Homebrew) | เมื่อมีการเพิ่ม filter สำหรับคำสั่งใหม่ (เช่น `xcodebuild`, `swift`) หรือรองรับ global hook ของ Antigravity โดยตรง |
 | **Context-Mode** | `1.0.169` | `components/context-mode.sh` | https://github.com/mksglu/context-mode (`context-mode` บน npm) | เมื่อเปิดใช้งาน `context-mode` และต้องการอัปเดต sandbox |
+| **xcbeautify** | ตาม Homebrew (`3.2.1+`) | `bootstrap.sh` | https://github.com/cpisciotta/xcbeautify (`xcbeautify` บน Homebrew) | เมื่อ Xcode ออกเวอร์ชันใหญ่และเปลี่ยนรูปแบบ build/test log |
+| **ast-grep (`sg`)** | ตาม Homebrew (`0.51.0+`) | `bootstrap.sh` | https://github.com/ast-grep/ast-grep (`ast-grep` บน Homebrew) | เมื่อต้องการอัปเดต tree-sitter grammar สำหรับ Swift / TypeScript |
 
 ### คำสั่งเช็คเวอร์ชันล่าสุดจากต้นทางเทียบกับที่ใช้อยู่ (รันใน Terminal ได้ทันที)
 ```sh
@@ -22,6 +24,8 @@ printf "%-15s %-12s %-12s\n" "codegraph" "$(codegraph --version 2>/dev/null || e
 printf "%-15s %-12s %-12s\n" "projectmem" "$(~/.local/share/agent-kit/projectmem-venv/bin/python -c 'import importlib.metadata as m; print(m.version("projectmem"))' 2>/dev/null || echo -)" "$(curl -fsSL https://pypi.org/pypi/projectmem/json 2>/dev/null | jq -r .info.version || echo -)"
 printf "%-15s %-12s %-12s\n" "rtk" "$(rtk --version 2>/dev/null | awk '{print $2}' || echo -)" "$(brew info --json=v2 rtk 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
 printf "%-15s %-12s %-12s\n" "context-mode" "$(npm ls -g context-mode --depth=0 2>/dev/null | sed -n 's/.*context-mode@\([0-9.]*\).*/\1/p')" "$(npm view context-mode version 2>/dev/null || echo -)"
+printf "%-15s %-12s %-12s\n" "xcbeautify" "$(xcbeautify --version 2>/dev/null || echo -)" "$(brew info --json=v2 xcbeautify 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
+printf "%-15s %-12s %-12s\n" "ast-grep" "$(sg --version 2>/dev/null | awk '{print $2}' || echo -)" "$(brew info --json=v2 ast-grep 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
 ```
 *(หากต้องการอัปเกรด: แก้เลขเวอร์ชันใน `components/<ชื่อ>.sh` แล้วรัน `potless update` หรือ `potless doctor --fix`)*
 

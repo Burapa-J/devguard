@@ -81,13 +81,13 @@ EOF
 cat > "$STUB/bin/rtk.real" <<'EOF'
 #!/bin/sh
 echo "rtk $*" >> "$STUB_LOG"
-case "$1 $2 $3" in
-  "gain  ") exit 0 ;;
-  "telemetry disable ") exit 0 ;;
+case "$*" in
+  "gain") exit 0 ;;
+  "telemetry disable") exit 0 ;;
   "init -g --auto-patch") mkdir -p "$HOME/.claude/hooks"; : > "$HOME/.claude/hooks/rtk-rewrite.sh" ;;
   "init -g --copilot") : ;;
-  "init -g --agent") echo "rtk: Antigravity is project-scoped. Use: rtk init --agent antigravity" >&2; exit 1 ;;
-  "init --agent antigravity") mkdir -p .agents/rules; echo "# RTK" > .agents/rules/antigravity-rtk-rules.md ;;
+  "init -g --agent antigravity") mkdir -p "$HOME/.gemini/config/plugins/rtk/rules"; : > "$HOME/.gemini/config/plugins/rtk/plugin.json"; : > "$HOME/.gemini/config/plugins/rtk/hooks.json"; : > "$HOME/.gemini/config/plugins/rtk/rules/AGENTS.md" ;;
+  "init -g --agent antigravity --uninstall") rm -rf "$HOME/.gemini/config/plugins/rtk"; rmdir "$HOME/.gemini/config/plugins" 2>/dev/null || true ;;
   "init -g --uninstall") rm -f "$HOME/.claude/hooks/rtk-rewrite.sh"; rmdir "$HOME/.claude/hooks" 2>/dev/null || true ;;
 esac
 EOF
@@ -119,7 +119,7 @@ check "install exit 0" '[ $code = 0 ]'
 check "codegraph installed via pinned npm" '[ "$(calls "npm install -g @colbymchenry/codegraph@")" = 1 ]'
 check "projectmem venv created" '[ -x "$HOME/.local/share/agent-kit/projectmem-venv/bin/pjm" ]'
 check "pjm linked on PATH" '[ -L "$HOME/.local/bin/pjm" ]'
-check "rtk installed via brew and wired" '[ "$(calls "brew install rtk")" = 1 ] && [ -f "$HOME/.claude/hooks/rtk-rewrite.sh" ] && [ -f "$HOME/.gemini/config/plugins/rtk/plugin.json" ] && [ -f "$HOME/.gemini/config/plugins/rtk/rules/AGENTS.md" ]'
+check "rtk installed via brew and wired" '[ "$(calls "brew install rtk")" = 1 ] && [ -f "$HOME/.claude/hooks/rtk-rewrite.sh" ] && [ -f "$HOME/.gemini/config/plugins/rtk/plugin.json" ] && [ -f "$HOME/.gemini/config/plugins/rtk/hooks.json" ] && [ -f "$HOME/.gemini/config/plugins/rtk/rules/AGENTS.md" ]'
 for a in "$CJ:mcpServers" "$VS:servers" "$AG:mcpServers"; do
   f=${a%:*}; k=${a##*:}
   for n in codegraph projectmem context-mode; do

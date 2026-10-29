@@ -27,6 +27,8 @@ main() {
   command -v jq >/dev/null 2>&1 || missing="$missing jq"
   command -v python3 >/dev/null 2>&1 || missing="$missing python3"
   command -v npm >/dev/null 2>&1 || missing="$missing node"
+  command -v xcbeautify >/dev/null 2>&1 || missing="$missing xcbeautify"
+  command -v sg >/dev/null 2>&1 || missing="$missing ast-grep"
   if [ -n "$missing" ]; then
     if command -v brew >/dev/null 2>&1; then
       say "Installing with Homebrew:$missing"
