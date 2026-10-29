@@ -36,5 +36,10 @@ code=$?
 } >> "$log"
 
 lines=$(wc -l < "$log" | tr -d ' ')
-echo "agent-verify[$name] exit=$code lines=$lines log=$log"
+err_lines=$(awk 'NR>3 && (/error:/ || /Fatal error:/ || /(^|[^A-Za-z])FAIL([^A-Za-z]|$)/ || /Test Case .* failed/ || /\*\* .* FAILED \*\*/) { printf "%sL%d", (c++ ? "," : ""), NR; if (c >= 10) exit }' "$log")
+if [ -n "$err_lines" ]; then
+  echo "agent-verify[$name] exit=$code lines=$lines errors_at=$err_lines log=$log"
+else
+  echo "agent-verify[$name] exit=$code lines=$lines log=$log"
+fi
 exit "$code"
