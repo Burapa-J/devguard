@@ -3,6 +3,7 @@
 **`potless`** (`poteto` + `tokless`) มี 2 ส่วน
 - **วิธีทำงาน**: rules และ skill `verified-dev` ที่บังคับให้ agent ทำงานแบบมีหลักฐาน
 - **เครื่องมือ (components)**: codegraph, projectmem และ rtk (เปิดเป็นค่าเริ่มต้น) รวมถึง context-mode (เลือกเปิดเอง) ติดตั้งและเชื่อมเข้ากับ **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI** และ **Gemini CLI**
+- **เครื่องมือเสริม CLI (Companion Tools)**: `ast-grep` (ค้นหาและแก้โค้ดระดับโครงสร้าง AST) และ `xcbeautify` (จัดรูปแบบและย่อ log ของ `xcodebuild`) ติดตั้งและอัปเดตผ่าน Homebrew และ `potless update`
 
 ติดตั้งคำสั่งเดียว แล้วทุกอย่างทำงานเอง (เรียกใช้ได้ทั้งคำสั่ง `potless` และ `agent-kit`) ภาพรวมภาษาอังกฤษอยู่ใน `README.md`
 
@@ -121,7 +122,7 @@ agent-verify build -- swift build
 | `potless` | เปิดเมนูแบบ Interactive เลือกคำสั่งได้ทันที |
 | `potless status` | แสดงตารางสรุปสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติแบบดูง่าย |
 | `potless doctor [--fix]` | ตรวจสุขภาพ 7 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
-| `potless stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`) และตาราง Index ของ `codegraph` ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
+| `potless stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`), ตาราง Index ของ `codegraph`, และอัตราการ Verify ผ่าน (`.verify/*.log` Pass Rate) ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
 | `potless select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar (เหมือน tokless) |
 | `potless update` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงการตั้งค่าเดิม |
 | `potless init` / `init --all` | ตั้งค่า repo นี้ หรือทุก repo ในโฟลเดอร์อัตโนมัติ |

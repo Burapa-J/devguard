@@ -134,6 +134,21 @@ for c in $ALL_COMPONENTS; do
   "${f}_status"
 done
 
+echo
+echo "Companion Tools"
+if command -v ast-grep >/dev/null 2>&1; then
+  sg_ver=$(ast-grep --version 2>/dev/null | awk '{print $2}')
+  mark "$(printf '%-28s %s' "ast-grep ${sg_ver:-}" "$(command -v ast-grep)")" true
+else
+  mark "ast-grep                     (not installed; brew install ast-grep)" false
+fi
+if command -v xcbeautify >/dev/null 2>&1; then
+  xcb_ver=$(xcbeautify --version 2>/dev/null | head -n 1)
+  mark "$(printf '%-28s %s' "xcbeautify ${xcb_ver:-}" "$(command -v xcbeautify)")" true
+else
+  mark "xcbeautify                   (not installed; brew install xcbeautify)" false
+fi
+
 if command -v tokless >/dev/null 2>&1; then
   echo
   echo "Note: tokless is still installed (run 'tokless uninstall' to avoid duplicate wiring)."

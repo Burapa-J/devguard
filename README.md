@@ -14,7 +14,7 @@ Two layers:
 | `skills/verified-dev/SKILL.md` | On-demand instruction | When the agent matches it, or you type `/verified-dev` |
 | `bin/agent-kit` → `potless`, `agent-kit` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
 | `bin/doctor.sh` → `potless doctor` | Health & repair tool | Audits 7 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift) and repairs them with `--fix` |
-| `bin/stats.sh` → `potless stats` | Telemetry & index summary | Shows RTK shell savings, ProjectMem fixes/tokens, and CodeGraph index counts |
+| `bin/stats.sh` → `potless stats` | Telemetry & quality summary | Shows RTK shell savings, ProjectMem fixes/tokens, CodeGraph index counts, and `.verify/*.log` verification pass rates |
 | `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
 | `bin/project.sh` → `agent-kit-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
 | `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load the skill |
@@ -28,6 +28,13 @@ Two layers:
 | `projectmem` | Per-project memory: issues, attempts, fixes, decisions | PyPI `projectmem==0.3.4` in its own venv (`~/.local/share/agent-kit/projectmem-venv`) | One global MCP server for all projects | on |
 | `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` | `rtk init -g` (per-agent flags) | on |
 | `context-mode` | Sandboxed execution + indexed search | npm `context-mode@1.0.169` (Node ≥ 22.5) | MCP only, no hooks | off |
+
+### Companion CLI Tools (installed by `bootstrap.sh` / `potless update`)
+
+| Tool | What it does | Installed from |
+|---|---|---|
+| `ast-grep` | Tree-sitter structural search & refactoring (`ast-grep run -p '<pattern>' -l swift`) | Homebrew `ast-grep` |
+| `xcbeautify` | Condenses `xcodebuild` build/test logs into clean summaries (also used by `rtk` for Xcode output) | Homebrew `xcbeautify` |
 
 `rtk` compresses routine shell output while `verified-dev` captures full verification logs into `.verify/<name>.log` via `agent-verify` and reads them with the file-read tool, so failing lines are never lost.
 

@@ -17,7 +17,7 @@ Kit: $KIT_DIR
   potless                       interactive menu (when run in a terminal)
   potless status                compact overview of what is installed, wired and set up
   potless doctor [--fix]        audit installation health & conflicts (--fix: repair automatically)
-  potless stats [options]       token savings (rtk, projectmem) & codegraph index stats
+  potless stats [options]       token savings, codegraph index & verification pass-rate stats
                                 (-d daily, -p current project, --dashboard, --reset)
   potless select                interactively pick agents and tools to enable/disable
   potless update                pull the latest kit, upgrade tools, and re-apply settings
@@ -166,8 +166,12 @@ case "$cmd" in
     for c in $ALL_COMPONENTS; do
       [ -n "$(state_wired "$c")" ] && component_upgrade "$c"
     done
-    if command -v brew >/dev/null 2>&1 && [ -f "$HOME/.agent-kit/components/rtk/installed-by-kit" ]; then
-      brew upgrade rtk 2>/dev/null || true
+    if command -v brew >/dev/null 2>&1; then
+      if [ -f "$HOME/.agent-kit/components/rtk/installed-by-kit" ]; then
+        brew upgrade rtk 2>/dev/null || true
+      fi
+      command -v xcbeautify >/dev/null 2>&1 && { brew upgrade xcbeautify 2>/dev/null || true; } || { brew install xcbeautify 2>/dev/null || true; }
+      command -v ast-grep >/dev/null 2>&1 && { brew upgrade ast-grep 2>/dev/null || true; } || { brew install ast-grep 2>/dev/null || true; }
     fi
     "$KIT_DIR/install.sh" "$@"
     echo

@@ -299,7 +299,7 @@ else
   fi
 fi
 
-# ---- 7. Component version drift ----------------------------------------------------------------
+# ---- 7. Component & companion CLI versions -----------------------------------------------------
 ver_drift=""
 for c in $ALL_COMPONENTS; do
   f=$(fn_name "$c")
@@ -312,17 +312,25 @@ for c in $ALL_COMPONENTS; do
     fi
   fi
 done
+if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
+  command -v ast-grep >/dev/null 2>&1 || ver_drift="$ver_drift ast-grep(missing)"
+  command -v xcbeautify >/dev/null 2>&1 || ver_drift="$ver_drift xcbeautify(missing)"
+fi
 
 if [ -z "$ver_drift" ]; then
-  ok "7. Component CLI versions match pinned versions"
+  ok "7. Component & companion CLI versions healthy (codegraph, projectmem, rtk, ast-grep, xcbeautify)"
 else
   if [ "$FIX" = 1 ]; then
     for c in $ALL_COMPONENTS; do
       component_upgrade "$c" >/dev/null 2>&1 || true
     done
-    repaired "7. Upgraded components to pinned versions ($ver_drift )"
+    if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
+      command -v ast-grep >/dev/null 2>&1 || brew install ast-grep >/dev/null 2>&1 || true
+      command -v xcbeautify >/dev/null 2>&1 || brew install xcbeautify >/dev/null 2>&1 || true
+    fi
+    repaired "7. Upgraded/installed component & companion CLIs ($ver_drift )"
   else
-    issue "7. Component version drift:$ver_drift"
+    issue "7. Component or companion CLI drift:$ver_drift"
   fi
 fi
 
