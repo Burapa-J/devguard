@@ -85,6 +85,26 @@ if [ "$MODE" = "project" ]; then
   if command -v codegraph >/dev/null 2>&1 && [ -d .codegraph ]; then
     echo "${C_CYAN}▸ CodeGraph (current project)${C_RESET}"
     codegraph status . --no-color 2>/dev/null || true
+    echo
+  fi
+  if [ -d .verify ]; then
+    echo "${C_CYAN}▸ Verification Quality (.verify/*.log)${C_RESET}"
+    v_runs=0 v_pass=0 v_lines=0
+    for vf in .verify/*.log; do
+      [ -f "$vf" ] || continue
+      v_runs=$((v_runs + 1))
+      vl=$(wc -l < "$vf" | tr -d ' ')
+      v_lines=$((v_lines + vl))
+      if grep -qE "^(# exit: [1-9]|EXIT_CODE=[1-9]|exit=[1-9])|\*\* (BUILD|TEST) FAILED \*\*" "$vf" 2>/dev/null; then
+        :
+      else
+        v_pass=$((v_pass + 1))
+      fi
+    done
+    v_fail=$((v_runs - v_pass))
+    v_pct="-"
+    [ "$v_runs" -gt 0 ] && v_pct="$((v_pass * 100 / v_runs))%"
+    echo "  Verifies: $v_runs  |  Passed: $v_pass  |  Failed: $v_fail  |  Pass Rate: $v_pct  |  Lines Captured: $v_lines"
   fi
   exit 0
 fi
@@ -167,4 +187,63 @@ echo "├───────────────────────�
 printf "${C_BOLD}│ %-28s %8s %8s %8s %8s %12s │${C_RESET}\n" \
   "TOTAL ($total_repos repos)" "$total_files" "$total_nodes" "$total_edges" "$total_fixes" "$total_pjm_tokens"
 echo "${C_BOLD}╰────────────────────────────────────────────────────────────────────────────────╯${C_RESET}"
+echo
+
+# ---- 3. Verification & Workflow Quality (.verify/*.log) ----------------------------------------
+echo "${C_BOLD}╭─ 3. Verification & Workflow Quality (.verify/*.log) ───────────────────────────╮${C_RESET}"
+printf "${C_BOLD}│ %-28s %8s %8s %8s %9s %12s │${C_RESET}\n" \
+  "Repository" "Verifies" "Passed" "Failed" "Pass Rate" "Lines Saved"
+echo "├────────────────────────────────────────────────────────────────────────────────┤"
+
+v_total_repos=0
+v_total_runs=0
+v_total_pass=0
+v_total_fail=0
+v_total_lines=0
+
+v_repos_tmp=$(mktemp)
+for root in $scan_roots; do
+  [ -d "$root" ] || continue
+  find "$root" -mindepth 2 -maxdepth 3 -name .git -not -path '*/node_modules/*' 2>/dev/null |
+    while IFS= read -r g; do dirname "$g"; done
+done | LC_ALL=C sort -u > "$v_repos_tmp"
+
+while IFS= read -r repo; do
+  [ -n "$repo" ] || continue
+  [ -d "$repo/.verify" ] || continue
+  runs=0 pass=0 lines=0
+  for vf in "$repo"/.verify/*.log; do
+    [ -f "$vf" ] || continue
+    runs=$((runs + 1))
+    vl=$(wc -l < "$vf" | tr -d ' ')
+    lines=$((lines + vl))
+    if grep -qE "^(# exit: [1-9]|EXIT_CODE=[1-9]|exit=[1-9])|\*\* (BUILD|TEST) FAILED \*\*" "$vf" 2>/dev/null; then
+      :
+    else
+      pass=$((pass + 1))
+    fi
+  done
+  [ "$runs" -gt 0 ] || continue
+  v_total_repos=$((v_total_repos + 1))
+  fail_cnt=$((runs - pass))
+  pct="$((pass * 100 / runs))%"
+  v_total_runs=$((v_total_runs + runs))
+  v_total_pass=$((v_total_pass + pass))
+  v_total_fail=$((v_total_fail + fail_cnt))
+  v_total_lines=$((v_total_lines + lines))
+  name=$(basename "$repo")
+  case "${#name}" in
+    [3-9][0-9]) name="${name:0:25}..." ;;
+  esac
+  printf "│ %-28s %8s %8s %8s %9s %12s │\n" "$name" "$runs" "$pass" "$fail_cnt" "$pct" "$lines"
+done < "$v_repos_tmp"
+rm -f "$v_repos_tmp"
+
+v_total_pct="-"
+[ "$v_total_runs" -gt 0 ] && v_total_pct="$((v_total_pass * 100 / v_total_runs))%"
+echo "├────────────────────────────────────────────────────────────────────────────────┤"
+printf "${C_BOLD}│ %-28s %8s %8s %8s %9s %12s │${C_RESET}\n" \
+  "TOTAL ($v_total_repos repos)" "$v_total_runs" "$v_total_pass" "$v_total_fail" "$v_total_pct" "$v_total_lines"
+echo "${C_BOLD}╰────────────────────────────────────────────────────────────────────────────────╯${C_RESET}"
+echo "${C_OFF}Measured from .verify/*.log (# exit: 0 vs non-zero; Lines Saved = raw log lines kept on disk out of shell stdout).${C_RESET}"
 echo "${C_OFF}Tips: potless stats -d (รายวัน) · potless stats -p (โปรเจกต์นี้) · potless stats --reset (รีเซ็ตสถิติ rtk)${C_RESET}"
