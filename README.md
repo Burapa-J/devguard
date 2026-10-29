@@ -10,12 +10,15 @@ Two layers:
 
 | Path | Kind | Loaded |
 |---|---|---|
-| `rules/core.md` | Always-on instruction (6 lines) | Every prompt, via each agent's global rules file |
+| `rules/core.md` | Always-on instruction (8 lines) | Every prompt, via each agent's global rules file |
 | `skills/verified-dev/SKILL.md` | On-demand instruction | When the agent matches it, or you type `/verified-dev` |
-| `bin/verify.sh` → `agent-verify` | Tool | Agent runs it to capture full output + exit code into `.verify/<name>.log` |
-| `bin/project.sh` → `agent-kit-project` | Tool | You run `agent-kit-project init` once per repo |
+| `bin/agent-kit` → `potless`, `agent-kit` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
+| `bin/doctor.sh` → `potless doctor` | Health & repair tool | Audits 7 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift) and repairs them with `--fix` |
+| `bin/stats.sh` → `potless stats` | Telemetry & index summary | Shows RTK shell savings, ProjectMem fixes/tokens, and CodeGraph index counts |
+| `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
+| `bin/project.sh` → `agent-kit-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
 | `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load the skill |
-| `components/*.sh` | Installers | Install, wire, unwire and remove each tool |
+| `components/*.sh` | Installers | Install, upgrade, wire, unwire and remove each tool |
 
 ## Components
 
@@ -76,9 +79,9 @@ Setup runs in the background, ready repos are skipped instantly, and logs go to 
 
 Unlike tokless, `pjm init` writes into each project: it installs git hooks and adds a "projectmem bridge" section to the project's `CLAUDE.md` and `AGENTS.md`. That is why setup is limited to your own folders.
 
-### Coming from tokless
+### Coming from tokless / caveman / ponytail
 
-Remove it first so tools aren't wired twice: `tokless uninstall`. Install warns while `tokless` is still on your PATH.
+Remove legacy tools first so hooks and plugins aren't wired twice: `tokless uninstall`, or simply run `potless doctor --fix` after installing `potless` to automatically clean up leftover `tokless` blocks, broken symlinks, and conflicting `caveman` / `ponytail` / `cavecrew` plugins.
 
 ### Where things go
 
@@ -106,8 +109,8 @@ Left in place on purpose, because they are the tools' own data: `~/.codegraph/`,
 
 ## Verify after installing
 
-1. Run `agent-kit status`. Every core line should say `ok`, and each enabled component should be `wired` for your agents.
-2. Open a new session in each agent and ask: "What rules are you following for code tasks?" It should mention `verified-dev` and evidence.
+1. Run `potless status` and `potless doctor`. Every core line should say `ok`, each enabled component should be `wired` for your agents, and `potless doctor` should report `0 issues` (if not, run `potless doctor --fix`).
+2. Open a new session in each agent and ask: "What rules are you following for code tasks?" It should stay read-only, mention `verified-dev`, and cite runtime evidence requirements.
 3. Ask it to fix a bug that has a failing test. The reply should include the `agent-verify` log path, exit codes before and after, and the failing/passing lines.
 
 If step 3 comes back without evidence, an always-on rule from another setup is probably winning. See section 9 of the skill.
@@ -142,7 +145,7 @@ agent-kit มี 2 ชั้น
 
 ติดตั้งคำสั่งเดียวด้วย bootstrap (ดูส่วน Install) หรือรัน `./install.sh` ใน repo ที่ clone ไว้ ค่าเริ่มต้นตั้งค่าทุก repo ใน `~/Developer` ให้อัตโนมัติ ผ่าน Claude Code, การ `cd` ใน zsh และการสแกนของ launchd ทุก 30 นาที
 
-ใช้งานผ่านคำสั่ง `agent-kit` เช่น `status`, `update`, `init --all`, `skip` และ `uninstall [--purge]` ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` ถ้าเคยใช้ tokless ให้รัน `tokless uninstall` ก่อน
+ใช้งานผ่านคำสั่ง `potless` (หรือ `agent-kit`) เช่น `status`, `doctor [--fix]`, `stats`, `select`, `update`, `init [--all]`, `skip` และ `uninstall [--purge]` ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` ถ้าเคยใช้ tokless หรือปลั๊กอิน caveman/ponytail ให้รัน `potless doctor --fix` เพื่อเก็บกวาดคราบเก่าอัตโนมัติ
 
 ## Credits
 

@@ -104,7 +104,7 @@ agent จะเรียกเองตามกฎ แต่คุณใช้�
 agent-verify unit-tests -- xcodebuild test -scheme MyApp -destination 'platform=macOS'
 agent-verify build -- swift build
 ```
-ผลเต็มอยู่ที่ `.verify/<ชื่อ>.log` พร้อม exit code และคำสั่งจะคืน exit code เดียวกับคำสั่งที่รัน
+ผลเต็มอยู่ที่ `.verify/<ชื่อ>.log` พร้อม exit code และหากมีบรรทัดที่เกิด `error:` หรือ test `FAIL` คำสั่งจะแสดงเลขบรรทัด (`errors_at=L...`) ในบรรทัดสรุปทันที เพื่อให้เปิดอ่านตรงจุดได้รวดเร็วโดยไม่ตัดทอน log ต้นฉบับ
 
 ### คำสั่งที่ใช้กับ agent ได้
 | พิมพ์ | ผล |
@@ -134,16 +134,26 @@ agent-verify build -- swift build
 
 ---
 
-## 5. ตรวจสถานะ
+## 5. ตรวจสถานะและซ่อมแซมอัตโนมัติ
 
 ```sh
-agent-kit status
+potless status          # ดูตารางสถานะการเชื่อมต่อของทุก Agent และเครื่องมือ
+potless doctor          # ตรวจสุขภาพ 7 จุดเสี่ยงแบบละเอียด (Read-only)
+potless doctor --fix    # ซ่อมจุดที่มีปัญหาทั้ง 7 ข้อให้อัตโนมัติ (พร้อมสำรองไฟล์เดิมไว้ที่ ~/.agent-kit-backup/)
 ```
 - ส่วน **Core** ทุกบรรทัดควรเป็น `ok` ได้แก่ rules, skill, คำสั่ง, hook และการตั้งค่าอัตโนมัติทั้ง Claude Code, zsh และ launchd
 - ส่วน **Components** ตัวที่เลือกไว้ควรเป็น `CLI installed, managed by agent-kit` และ `wired` ในทุก agent
+- ส่วน **`potless doctor`** จะตรวจครบทั้ง 7 จุด:
+  1. คราบ `tokless` เดิม (`~/.local/bin/tokless`, `~/.local/share/tokless`, บล็อกใน `~/.zshrc`)
+  2. Symlink ขาดหรือชี้ผิดที่ใน `~/.local/bin`
+  3. ปลั๊กอินที่ตีกัน (`caveman`, `ponytail`, `cavecrew`)
+  4. ตำแหน่งไฟล์ MCP ของทุก Agent (รวมถึงย้ายจาก `~/.gemini/antigravity/mcp_config.json` มาเข้า `~/.gemini/config/mcp_config.json`)
+  5. ปลั๊กอิน RTK Global ของ Antigravity และการปิด telemetry
+  6. ความตรงกันของบล็อกกฎใน `CLAUDE.md`, `copilot-instructions.md`, `GEMINI.md` เทียบกับ `rules/core.md`
+  7. เวอร์ชันของ CLI (`codegraph`, `projectmem`, `context-mode`) เทียบกับเวอร์ชันที่ Pin ไว้
 
 ทดสอบกับ agent จริงในแต่ละโปรแกรม:
-1. เปิด session ใหม่แล้วถามว่า "What rules are you following for code tasks?" คำตอบควรพูดถึง `verified-dev` และเรื่องหลักฐาน
+1. เปิด session ใหม่แล้วถามว่า "What rules are you following for code tasks?" คำตอบควรอยู่ในโหมดอ่านอย่างเดียว (Read-only) และพูดถึง `verified-dev` กับเรื่องหลักฐาน
 2. สั่งแก้ bug ที่มี test fail อยู่ คำตอบควรมี path ของ log จาก `agent-verify`, exit code ก่อนและหลังแก้ และบรรทัดที่ fail กับ pass
 
 ---
@@ -169,10 +179,11 @@ agent-kit uninstall --purge       # ลบ CLI ที่ agent-kit ติดต�
 | อาการ | วิธีแก้ |
 |---|---|
 | `agent-kit: command not found` | เปิด Terminal ใหม่ ถ้ายังไม่ได้ ให้เพิ่ม `export PATH="$HOME/.local/bin:$PATH"` ใน `~/.zshrc` |
-| agent ไม่พูดถึง verified-dev | พิมพ์ `/verified-dev` เอง และตรวจ `agent-kit status` ว่า skill link เป็น `ok` |
-| คำตอบไม่มีหลักฐาน | มี rule จากที่อื่นชนะอยู่ (เช่น caveman หรือ rtk) ให้ตรวจ `~/.claude/CLAUDE.md` ว่ามี block อื่นที่สั่งให้ตอบสั้นหรือไม่ ดูหัวข้อ 9 ของ skill |
+| ไม่แน่ใจว่าติดตั้งสมบูรณ์หรือมีปลั๊กอินเก่าตีกันไหม | รัน `potless doctor` เพื่อตรวจทั้ง 7 จุด และรัน `potless doctor --fix` เพื่อให้ซ่อมอัตโนมัติ |
+| agent ไม่พูดถึง verified-dev | พิมพ์ `/verified-dev` เอง และตรวจ `potless doctor --fix` ว่ากฎและ skill link ตรงกับเวอร์ชันล่าสุด |
+| คำตอบไม่มีหลักฐาน หรือมีปลั๊กอิน caveman/ponytail ค้าง | รัน `potless doctor --fix` เพื่อถอดปลั๊กอินที่ตีกันออก และดูหัวข้อ 9 ของ skill |
 | `warning: ... already exists and is not managed by agent-kit; skipped` | มีไฟล์หรือโฟลเดอร์ชื่อเดียวกันอยู่ก่อน agent-kit จึงไม่เขียนทับ ให้ย้ายของเดิมออกแล้วรัน install ใหม่ |
-| `tokless is installed` | รัน `tokless uninstall` เพื่อไม่ให้เครื่องมือถูกเชื่อมซ้ำ |
+| `tokless is installed` | รัน `potless doctor --fix` (หรือ `tokless uninstall`) เพื่อล้างคราบ tokless เดิม |
 | VS Code ไม่เห็น MCP server | เปิด VS Code ใหม่ ตรวจ `~/Library/Application Support/Code/User/mcp.json` |
 | repo ใหม่ไม่ถูกตั้งค่าอัตโนมัติ | ตรวจ `agent-kit status` ว่าบรรทัด auto setup เป็น `ok` และ repo อยู่ภายใต้ root ที่แสดง ดู `~/.agent-kit/logs/scan.log` ตรวจว่าไม่มี `.agent-kit-skip` หรือรัน `agent-kit init` เอง |
 | ต้องการย้อนกลับไฟล์ใดไฟล์หนึ่ง | คัดลอกจาก `~/.agent-kit-backup/<เวลา>/` กลับไปที่เดิม |

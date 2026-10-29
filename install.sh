@@ -99,7 +99,7 @@ RULES="$KIT_DIR/rules/core.md"
 SKILL_SRC="$KIT_DIR/skills/$SKILL_NAME"
 
 [ "$DRY_RUN" = 1 ] && say "Dry run: nothing will be changed."
-[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/agent-kit" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/bin/stats.sh" "$KIT_DIR/bin/ui.sh" "$KIT_DIR/hooks/remind.sh"
+[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/agent-kit" "$KIT_DIR/bin/doctor.sh" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/bin/stats.sh" "$KIT_DIR/bin/ui.sh" "$KIT_DIR/hooks/remind.sh"
 
 if command -v tokless >/dev/null 2>&1; then
   warn "tokless is installed. It wires some of the same tools; run 'tokless uninstall' first to avoid duplicates."

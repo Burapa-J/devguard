@@ -32,6 +32,18 @@ usage() {
   exit 64
 }
 
+if [ "$cmd" = "-h" ] || [ "$cmd" = "--help" ] || [ "$cmd" = "help" ]; then
+  cat <<EOF
+Usage: agent-kit-project <subcommand> [options]
+
+  init [--dry-run]            Set up the current git repository (.gitignore, codegraph, projectmem)
+  init-all <dir> [--dry-run]  Set up every git repository under <dir> (1-2 levels deep)
+  auto                        Background setup for current repo if under ~/.agent-kit/auto-roots
+  scan                        Periodic scan of all repos under ~/.agent-kit/auto-roots
+EOF
+  exit 0
+fi
+
 # shellcheck source=lib.sh
 . "$KIT_DIR/lib.sh"
 # shellcheck source=components/common.sh

@@ -5,6 +5,17 @@
 # and exits with the command's exit code.
 set -u
 
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  cat <<EOF
+Usage: agent-verify <name> -- <command> [args...]
+
+Runs <command>, writes full stdout/stderr and exit code to .verify/<name>.log
+(override directory with VERIFY_DIR), and prints a one-line summary including
+error line numbers (errors_at=L...) when errors or test failures are detected.
+EOF
+  exit 0
+fi
+
 if [ $# -lt 3 ] || [ "$2" != "--" ]; then
   echo "usage: agent-verify <name> -- <command> [args...]" >&2
   exit 64
