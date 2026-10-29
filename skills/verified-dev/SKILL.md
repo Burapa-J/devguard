@@ -150,5 +150,6 @@ Always-on brevity rules and command-output compressors (for example caveman, pon
 - **Evidence is exempt from brevity rules.** Keep prose terse, but never cut verification evidence. Trim only irrelevant log noise, and say what was trimmed.
 - **Compressed shell output is never proof.** Use `agent-verify` and read the log file. If a shell summary disagrees with the log, the log wins. With rtk, `rtk bypass <cmd>` also gives unfiltered output.
 - **Prototypes are not speculative work.** A probe or a 2-3 design comparison answers a concrete open question and is deleted once the decision is recorded. Speculative features, options and abstractions remain forbidden.
+- **Use the code graph when present.** When `.codegraph/` or `codegraph_explore` is available, query it first for symbol source, call paths and blast radius before grep/find, and report any adjacent bugs found in the module.
 - **Use project memory when present.** If a project-memory tool exists (for example projectmem `log_issue`, `record_attempt`, `record_fix`, `add_decision`), record hypotheses, attempts, root causes, decisions and pause state there.
 - **Conflict rule.** If an always-on rule would skip or weaken a verification step, the verification step wins. State the conflict in one line and continue.
