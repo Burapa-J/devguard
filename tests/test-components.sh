@@ -47,9 +47,9 @@ case "$1" in
   install) case "$2" in
              --target=claude) put "$HOME/.claude.json" mcpServers ;;
              --target=copilot-vscode) put "$VS" servers ;;
-             --target=antigravity) put "$HOME/.gemini/antigravity/mcp_config.json" mcpServers ;;
+             --target=antigravity) put "$HOME/.gemini/config/mcp_config.json" mcpServers ;;
            esac ;;
-  uninstall) del "$HOME/.claude.json" mcpServers; del "$VS" servers; del "$HOME/.gemini/antigravity/mcp_config.json" mcpServers ;;
+  uninstall) del "$HOME/.claude.json" mcpServers; del "$VS" servers; del "$HOME/.gemini/config/mcp_config.json" mcpServers ;;
   init) mkdir -p .codegraph ;;
 esac
 EOF
@@ -96,7 +96,7 @@ echo '{"numStartups":7,"mcpServers":{"mine":{"command":"my-server"}}}' | jq . > 
 mkdir -p "$HOME/.claude"
 cp -R "$HOME" "$HOME.orig"
 CJ="$HOME/.claude.json"
-AG="$HOME/.gemini/antigravity/mcp_config.json"
+AG="$HOME/.gemini/config/mcp_config.json"
 VS="$HOME/.config/Code/User/mcp.json"; [ "$(uname -s)" = Darwin ] && VS="$HOME/Library/Application Support/Code/User/mcp.json"
 has() { jq -e --arg k "$2" --arg n "$3" '.[$k] | has($n)' "$1" >/dev/null 2>&1; }
 

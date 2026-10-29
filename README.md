@@ -85,7 +85,7 @@ Remove it first so tools aren't wired twice: `tokless uninstall`. Install warns 
 |---|---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/skills/verified-dev` | `~/.claude.json` |
 | VS Code / Copilot | `~/.copilot/copilot-instructions.md` | reads `~/.claude/skills` (or `~/.copilot/skills` if Claude Code is not a target) | `~/Library/Application Support/Code/User/mcp.json` |
-| Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills/verified-dev`, `~/.gemini/antigravity-cli/skills/verified-dev` | `~/.gemini/antigravity/mcp_config.json` (or `~/.gemini/config/mcp_config.json`) |
+| Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills/verified-dev`, `~/.gemini/antigravity-cli/skills/verified-dev` | `~/.gemini/config/mcp_config.json` |
 | OpenCode | `~/.config/opencode/AGENTS.md` | `~/.config/opencode/skills/verified-dev` | `~/.config/opencode/opencode.json` |
 | Cursor | `~/.cursor/rules/agent-kit.mdc` | `~/.cursor/skills/verified-dev` | `~/.cursor/mcp.json` |
 | Codex CLI | `~/.codex/AGENTS.md` | `~/.codex/skills/verified-dev` | `~/.codex/config.toml` |

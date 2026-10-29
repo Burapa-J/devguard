@@ -19,7 +19,7 @@ STATE_DIR="$HOME/.agent-kit"
 
 # MCP config files per agent. VS Code keeps user config under Application Support on macOS.
 CLAUDE_MCP="$HOME/.claude.json"
-AG_MCP="$HOME/.gemini/antigravity/mcp_config.json"
+AG_MCP="$HOME/.gemini/config/mcp_config.json"
 OPENCODE_MCP="$HOME/.config/opencode/opencode.jsonc"
 CURSOR_MCP="$HOME/.cursor/mcp.json"
 CODEX_MCP="$HOME/.codex/config.toml"
@@ -218,8 +218,8 @@ mcp_has() {
   if [ -f "$file" ] && jq -e --arg k "$key" --arg n "$2" '.[$k] | has($n)' "$file" >/dev/null 2>&1; then
     return 0
   fi
-  if [ "$1" = antigravity ] && [ -f "$HOME/.gemini/config/mcp_config.json" ]; then
-    jq -e --arg k "$key" --arg n "$2" '.[$k] | has($n)' "$HOME/.gemini/config/mcp_config.json" >/dev/null 2>&1
+  if [ "$1" = antigravity ] && [ -f "$HOME/.gemini/antigravity/mcp_config.json" ]; then
+    jq -e --arg k "$key" --arg n "$2" '.[$k] | has($n)' "$HOME/.gemini/antigravity/mcp_config.json" >/dev/null 2>&1
     return $?
   fi
   return 1
