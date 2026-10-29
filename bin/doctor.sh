@@ -70,7 +70,9 @@ echo "${C_BOLD}╭─ potless doctor ──────────────�
 tokless_found=0
 if [ -e "$HOME/.local/bin/tokless" ] || [ -L "$HOME/.local/bin/tokless" ] ||
    [ -d "$HOME/.local/share/tokless" ] ||
-   { [ -f "$ZSHRC" ] && grep -q "tokless" "$ZSHRC" 2>/dev/null; }; then
+   [ -f "$HOME/.config/opencode/plugins/tokless-rtk.ts" ] ||
+   { [ -f "$ZSHRC" ] && grep -q "tokless" "$ZSHRC" 2>/dev/null; } ||
+   { [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1 && jq -e '.env.ANTHROPIC_BASE_URL // "" | test("127\\.0\\.0\\.1|localhost")' "$CLAUDE_SETTINGS" >/dev/null 2>&1; }; then
   tokless_found=1
 fi
 
@@ -78,10 +80,22 @@ if [ "$tokless_found" = 0 ]; then
   ok "1. No legacy tokless residue"
 else
   if [ "$FIX" = 1 ]; then
-    rm -f "$HOME/.local/bin/tokless"
+    if [ -x "$HOME/.local/bin/tokless" ]; then
+      "$HOME/.local/bin/tokless" proxy stop >/dev/null 2>&1 || true
+      "$HOME/.local/bin/tokless" disable --agents claude,opencode,antigravity >/dev/null 2>&1 ||
+        "$HOME/.local/bin/tokless" disable >/dev/null 2>&1 || true
+    fi
+    rm -f "$HOME/.local/bin/tokless" "$HOME/.config/opencode/plugins/tokless-rtk.ts"
     if [ -d "$HOME/.local/share/tokless" ]; then
       mkdir -p "$BACKUP_DIR"
       mv "$HOME/.local/share/tokless" "$BACKUP_DIR/tokless-share"
+    fi
+    if [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1 &&
+       jq -e '.env.ANTHROPIC_BASE_URL // "" | test("127\\.0\\.0\\.1|localhost")' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+      backup "$CLAUDE_SETTINGS"
+      tmp=$(mktemp)
+      jq 'if .env then del(.env.ANTHROPIC_BASE_URL) | if .env == {} then del(.env) else . end else . end' "$CLAUDE_SETTINGS" > "$tmp" && cat "$tmp" > "$CLAUDE_SETTINGS"
+      rm -f "$tmp"
     fi
     if [ -f "$ZSHRC" ] && grep -q "tokless" "$ZSHRC" 2>/dev/null; then
       backup "$ZSHRC"
@@ -90,9 +104,9 @@ else
       cat "$tmp" > "$ZSHRC"
       rm -f "$tmp"
     fi
-    repaired "1. Cleaned legacy tokless files and .zshrc block"
+    repaired "1. Stopped/disabled legacy tokless and cleaned residue"
   else
-    issue "1. Legacy tokless residue found (~/.local/bin/tokless, ~/.local/share/tokless, or ~/.zshrc)"
+    issue "1. Legacy tokless residue found (~/.local/bin/tokless, proxy env, ~/.local/share/tokless, or ~/.zshrc)"
   fi
 fi
 
@@ -142,7 +156,7 @@ fi
 # ---- 3. Conflicting brevity/workflow plugins ---------------------------------------------------
 plugin_conflicts=""
 if [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
-  c_plugs=$(jq -r '.enabledPlugins // {} | keys[] | select(test("^(caveman|ponytail|cavecrew)"))' "$CLAUDE_SETTINGS" 2>/dev/null | tr '\n' ' ')
+  c_plugs=$(jq -r '((.enabledPlugins // {}) + (.extraKnownMarketplaces // {})) | keys[] | select(test("^(caveman|ponytail|cavecrew)"))' "$CLAUDE_SETTINGS" 2>/dev/null | tr '\n' ' ')
   [ -n "$c_plugs" ] && plugin_conflicts="$plugin_conflicts claude($c_plugs)"
 fi
 if [ -e "$HOME/.claude/.caveman-active" ] || [ -e "$HOME/.claude/.ponytail-active" ]; then
@@ -163,7 +177,10 @@ else
     if [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
       backup "$CLAUDE_SETTINGS"
       tmp=$(mktemp)
-      jq 'if .enabledPlugins then .enabledPlugins |= with_entries(select(.key | test("^(caveman|ponytail|cavecrew)") | not)) | if .enabledPlugins == {} then del(.enabledPlugins) else . end else . end' "$CLAUDE_SETTINGS" > "$tmp" && cat "$tmp" > "$CLAUDE_SETTINGS"
+      jq '
+        if .enabledPlugins then .enabledPlugins |= with_entries(select(.key | test("^(caveman|ponytail|cavecrew)") | not)) | if .enabledPlugins == {} then del(.enabledPlugins) else . end else . end
+        | if .extraKnownMarketplaces then .extraKnownMarketplaces |= with_entries(select(.key | test("^(caveman|ponytail|cavecrew)") | not)) | if .extraKnownMarketplaces == {} then del(.extraKnownMarketplaces) else . end else . end
+      ' "$CLAUDE_SETTINGS" > "$tmp" && cat "$tmp" > "$CLAUDE_SETTINGS"
       rm -f "$tmp"
     fi
     rm -f "$HOME/.claude/.caveman-active" "$HOME/.claude/.ponytail-active"

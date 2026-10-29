@@ -233,11 +233,11 @@ check "unknown command rejected" '! agent-kit frobnicate 2>/dev/null'
 
 echo "== agent-kit doctor (detect and fix all 7 issue types)"
 # Seed all 7 failure modes into the throwaway HOME:
-: > "$HOME/.local/bin/tokless"
+printf '#!/bin/sh\necho "tokless $*" >> "$STUB_LOG"\n' > "$HOME/.local/bin/tokless"; chmod +x "$HOME/.local/bin/tokless"
 printf '# tokless\n# >>> tokless path >>>\nPATH=":"\n# <<< tokless path <<<\n' >> "$HOME/.zshrc"
 ln -s "$HOME/nonexistent-target" "$HOME/.local/bin/broken-link"
 ln -s "$HOME/nonexistent-uv" "$HOME/.local/bin/pjm-mcp"
-jq '.enabledPlugins = {"caveman@caveman":true,"ponytail@ponytail":true}' "$HOME/.claude/settings.json" > "$STUB/s.json" && mv "$STUB/s.json" "$HOME/.claude/settings.json"
+jq '.enabledPlugins = {"caveman@caveman":true,"ponytail@ponytail":true} | .extraKnownMarketplaces = {"caveman":{},"ponytail":{}} | .env = {"ANTHROPIC_BASE_URL":"http://127.0.0.1:8787"}' "$HOME/.claude/settings.json" > "$STUB/s.json" && mv "$STUB/s.json" "$HOME/.claude/settings.json"
 : > "$HOME/.claude/.caveman-active"
 mkdir -p "$HOME/.gemini/config/skills/caveman" "$HOME/.gemini/antigravity"
 echo '{"mcpServers":{"projectmem":{"command":"old"}}}' > "$HOME/.gemini/antigravity/mcp_config.json"
@@ -249,6 +249,8 @@ agent-kit doctor > "$STUB/doc1.log" 2>&1; code=$?
 check "doctor detects all 7 issues and exits 1" '[ $code = 1 ] && grep -q "Found 7 issue(s)" "$STUB/doc1.log"'
 agent-kit doctor --fix > "$STUB/docfix.log" 2>&1; code=$?
 check "doctor --fix repairs all 7 issues" '[ $code = 0 ] && grep -q "7 repaired" "$STUB/docfix.log"'
+check "doctor ran tokless proxy stop and disable before removing" 'grep -q "tokless proxy stop" "$STUB_LOG" && grep -q "tokless disable" "$STUB_LOG"'
+check "doctor cleaned ANTHROPIC_BASE_URL and extraKnownMarketplaces" '! jq -e ".env or .extraKnownMarketplaces or .enabledPlugins" "$HOME/.claude/settings.json" >/dev/null 2>&1'
 agent-kit doctor > "$STUB/doc2.log" 2>&1; code=$?
 check "doctor clean after --fix" '[ $code = 0 ] && grep -q "0 issues" "$STUB/doc2.log" && [ "$(cat "$STUB/bin/cg.ver")" = "1.6.2" ]'
 
