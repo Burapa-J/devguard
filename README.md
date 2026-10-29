@@ -1,5 +1,8 @@
 # devguard
 
+[![CI](https://github.com/Burapa-J/devguard/actions/workflows/test.yml/badge.svg)](https://github.com/Burapa-J/devguard/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 An evidence-first working mode (`poteto` / `pstack` style) plus token-saving tools (`tokless` style), installed once and shared across **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI**, and **Gemini CLI**.
 
 Two layers:
@@ -43,9 +46,9 @@ Two layers:
 One command on a new Mac (quit Claude Code, VS Code and Antigravity first):
 
 ```sh
-brew install gh && gh auth login     # first time only; the repo is private
-gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/contents/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash
 ```
+*(If the repository is still private on your account, run `gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/devguard/contents/bootstrap.sh | bash` instead.)*
 
 It installs missing prerequisites with Homebrew, clones the kit to `~/.local/share/agent-kit/src` (or reuses an existing clone), and runs `install.sh` with the recommended defaults:
 - rules and skill for all three agents

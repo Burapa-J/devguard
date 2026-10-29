@@ -15,9 +15,9 @@
 
 ปิด Claude Code, VS Code และ Antigravity ก่อน แล้วรัน:
 ```sh
-brew install gh && gh auth login        # ครั้งแรกเท่านั้น: ล็อกอินบัญชี Burapa-J (repo เป็น private)
-gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/contents/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash
 ```
+*(หากยังตั้งค่า Repo เป็น Private อยู่ ให้รัน `gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/devguard/contents/bootstrap.sh | bash`)*
 
 คำสั่งนี้จะ
 - ติดตั้งสิ่งที่ขาดผ่าน Homebrew (git, jq, python3, node)

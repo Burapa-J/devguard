@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-command setup on a new machine:
 #
-#   gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/contents/bootstrap.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash
 #
 # Pass install options after "bash -s --", e.g. ... | bash -s -- --with=codegraph,projectmem,rtk,context-mode
 # Installs missing prerequisites with Homebrew (macOS), clones the kit, and runs install.sh.
@@ -10,7 +10,8 @@ set -eu
 # Wrapped in a function so the whole script is read before anything runs (safe with "| bash").
 main() {
 
-  REPO="Burapa-J/A69-012-agent-kit"
+  REPO="Burapa-J/devguard"
+  FALLBACK_REPO="Burapa-J/A69-012-agent-kit"
   DEST=${AGENT_KIT_DIR:-}
 
   say() { printf '==> %s\n' "$*"; }
@@ -48,9 +49,13 @@ main() {
     say "Cloning $REPO to $DEST"
     mkdir -p "$(dirname "$DEST")"
     if command -v gh >/dev/null 2>&1; then
-      gh repo clone "$REPO" "$DEST" < /dev/null
+      gh repo clone "$REPO" "$DEST" < /dev/null 2>/dev/null ||
+        gh repo clone "$FALLBACK_REPO" "$DEST" < /dev/null 2>/dev/null ||
+        git clone "https://github.com/$REPO.git" "$DEST" < /dev/null ||
+        git clone "https://github.com/$FALLBACK_REPO.git" "$DEST" < /dev/null
     else
-      git clone "https://github.com/$REPO.git" "$DEST" < /dev/null
+      git clone "https://github.com/$REPO.git" "$DEST" < /dev/null 2>/dev/null ||
+        git clone "https://github.com/$FALLBACK_REPO.git" "$DEST" < /dev/null
     fi
   fi
 

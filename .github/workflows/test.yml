@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check all shell scripts
+        run: |
+          for f in bin/devguard bin/doctor.sh bin/project.sh bin/stats.sh bin/ui.sh bin/verify.sh status.sh install.sh uninstall.sh bootstrap.sh lib.sh components/*.sh hooks/*.sh tests/*.sh; do
+            bash -n "$f"
+          done
+      - name: Run core install/uninstall tests
+        run: /bin/bash tests/test-kit.sh
+      - name: Run component & doctor tests
+        run: /bin/bash tests/test-components.sh
