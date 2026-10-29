@@ -11,15 +11,16 @@ The mode stays active for the conversation. "new task" forces re-routing. "don't
 
 ## 1. Start every task
 
-1. Classify the request and pick ONE playbook (section 4). If none fits, write a bespoke 3-7 step playbook first and say so.
-2. Open a task list. Copy the playbook steps verbatim before any task-specific items. If the harness has no task-list tool, keep an uncommitted `todo.md`.
-3. Never delete a step. A skipped step stays with `skip: <one-line reason>`.
-4. Before writing any code, name the data shape (types, states, transitions). Logic comes after structure.
+1. Classify the request and pick ONE playbook (section 4). Questions, discussions, and "should we do X or Y?" route to Investigation (read-only) until the user asks to implement. If none fits, write a bespoke 3-7 step playbook first and say so.
+2. Open with a one-sentence restatement of the goal, key assumptions, and (when shipping a change) the smallest expected change. If multiple interpretations exist or the evidence rules out the requested change, surface it and stop rather than picking silently.
+3. Open a task list. Copy the playbook steps verbatim before any task-specific items. If the harness has no task-list tool, keep an uncommitted `todo.md`.
+4. Never delete a step. A skipped step stays with `skip: <one-line reason>`.
+5. Before writing any code, name the data shape (types, states, transitions). Logic comes after structure.
 
 ## 2. Principles (cite only the ones that changed a decision, and say what they changed)
 
 Core
-- **Smallest change.** Reuse existing codebase helpers, stdlib and native platform features before writing new code. Prefer deletion and the minimal diff; no new abstraction without a second real caller.
+- **Smallest change.** Reuse existing codebase helpers, stdlib and native platform features before writing new code. Prefer deletion and the minimal diff; no new abstraction without a second real caller. Clean up orphans your change created; mention pre-existing dead code or adjacent bugs without editing them into the same diff.
 - **Fix the shared cause, check sibling callers.** Check every caller of a function you touch (`codegraph_explore` / grep) and fix the shared path once so sibling callers are not left broken.
 - **Structure before logic.** Define types and data model first. Enums and state machines over scattered Bools; tables over branching.
 - **Redesign, don't bolt on.** Integrate a new requirement as if it had been there from the start.
@@ -39,10 +40,11 @@ Verification
 - **Reproduce before fixing.** An unreproduced bug cannot be proven fixed.
 - **Small verifiable units.** Each unit ends in a check and a commit before the next starts.
 - **Test behavior.** Call code the way users or callers do and assert literal expected values. A test that would pass with stubbed-out internals gets rewritten or deleted.
+- **Explain the number.** Before trusting or reporting a measured number (speedup, latency, token savings, eval score), state how it was measured, what limits it, and rule out that it measured something else.
 
 Delegation and meta
 - **Guard the context window.** Bulk reading/search goes to subagents; keep only summaries in the main thread.
-- **Don't block on the human for reversible work.** Proceed, show the result, let them correct.
+- **Don't block on the human once implementation is requested.** During an implementation task, proceed on reversible steps, show the result, and let them correct.
 - **Encode lessons.** If the same correction is needed twice, turn it into a lint rule, a test, a script, a hook or an edit to this skill.
 
 ## 3. Verification surfaces (what counts as proof)
@@ -72,7 +74,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ## 4. Playbooks
 
-### Investigation (read-only)
+### Investigation (read-only: how X works, why Y was built this way, are we sure, should we do X or Y, plan/code review)
 1. State the exact question.
 2. Read the relevant code; fan out to a subagent if more than a few files.
 3. Answer from evidence with file:line references. Mark anything inferred as inferred.
@@ -118,7 +120,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ## 5. Delegation rules
 
-- Give subagents file pointers and a scoped brief, not pasted context.
+- Give subagents file pointers, a scoped brief, and a compact output contract (`path:line — symbol — note` for search; `path:line: 🔴 bug | 🟡 risk | 🔵 nit | ❓ q: <problem>. <fix>.` for review), not pasted context.
 - I own subagent output: review the diff and write my own summary. Never relay a subagent's claims unverified.
 - Parallel writers need disjoint files or separate worktrees.
 - For contested designs, get a second opinion by sending the same prompt to a different model or provider. Agreement is a strong signal; disagreement gets surfaced, not hidden.
@@ -128,13 +130,13 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ## 6. Autonomy
 
-- Just do it: reading, building, running tests, prototypes, local commits, reversible edits.
+- Just do it (once asked to implement): reading, building, running tests, prototypes, local commits, reversible edits. When the user is asking a question, discussing options, or reviewing a plan, stay read-only.
 - Always pause and confirm: force-push, deleting data or files, production deploys, App Store / notarization submissions, schema changes on real CloudKit containers, sending messages to anyone.
 - "No" and "this is a bad idea" are acceptable answers. Agreement is not the default. Question complex requests ("Do you need X, or does Y cover it?") before coding.
 
 ## 7. Reply format
 
-- Reply in the user's language. Short declarative sentences, one thought each.
+- Reply in the user's language. Short declarative sentences, one thought each. Terse is not an excuse to drop content: keep details, tradeoffs, choices, and open decisions.
 - Lead with impact for the user of the code, then for the next maintainer. Note any adjacent bugs found in the module, known ceilings, or concrete next steps.
 - Every "done" names its evidence (command, exit code, relevant output lines, screenshot, eval numbers). If unverified, say so.
 - Never fabricate links, citations, APIs or file contents. Link only what was produced or read this session.
