@@ -27,7 +27,7 @@ cat > "$STUB/bin/npm" <<'EOF'
 echo "npm $*" >> "$STUB_LOG"
 d=$(dirname "$0")
 case "$1 $2 $3" in
-  "install -g @colbymchenry/codegraph@"*) cp "$d/codegraph.real" "$d/codegraph"; chmod +x "$d/codegraph" ;;
+  "install -g @colbymchenry/codegraph@"*) cp "$d/codegraph.real" "$d/codegraph"; chmod +x "$d/codegraph"; echo "${3##*@}" > "$d/cg.ver" ;;
   "install -g context-mode@"*) printf '#!/bin/sh\n' > "$d/context-mode"; chmod +x "$d/context-mode" ;;
   "uninstall -g @colbymchenry/codegraph") rm -f "$d/codegraph" ;;
   "uninstall -g context-mode") rm -f "$d/context-mode" ;;
@@ -37,6 +37,7 @@ EOF
 cat > "$STUB/bin/codegraph.real" <<'EOF'
 #!/bin/sh
 echo "codegraph $*" >> "$STUB_LOG"
+d=$(dirname "$0")
 put() { f=$1; k=$2; mkdir -p "$(dirname "$f")"; [ -f "$f" ] || echo '{}' > "$f"
         jq --arg k "$k" '.[$k].codegraph = {"command":"codegraph","args":["serve","--mcp"]}' "$f" > "$f.t" && mv "$f.t" "$f"; }
 del() { f=$1; k=$2; [ -f "$f" ] || return 0
@@ -44,6 +45,7 @@ del() { f=$1; k=$2; [ -f "$f" ] || return 0
         [ "$(jq -c . "$f")" = "{}" ] && rm -f "$f"; return 0; }
 VS="$HOME/.config/Code/User/mcp.json"; [ "$(uname -s)" = Darwin ] && VS="$HOME/Library/Application Support/Code/User/mcp.json"
 case "$1" in
+  --version) [ -f "$d/cg.ver" ] && cat "$d/cg.ver" || echo "1.6.2" ;;
   install) case "$2" in
              --target=claude) put "$HOME/.claude.json" mcpServers ;;
              --target=copilot-vscode) put "$VS" servers ;;
@@ -228,6 +230,27 @@ check "agent-kit init --all sets up nested repos" '[ -d "$DEV/group/lib/.codegra
 (cd "$HOME/elsewhere/other" && agent-kit skip > /dev/null)
 check "agent-kit skip creates marker" '[ -f "$HOME/elsewhere/other/.agent-kit-skip" ]'
 check "unknown command rejected" '! agent-kit frobnicate 2>/dev/null'
+
+echo "== agent-kit doctor (detect and fix all 7 issue types)"
+# Seed all 7 failure modes into the throwaway HOME:
+: > "$HOME/.local/bin/tokless"
+printf '# tokless\n# >>> tokless path >>>\nPATH=":"\n# <<< tokless path <<<\n' >> "$HOME/.zshrc"
+ln -s "$HOME/nonexistent-target" "$HOME/.local/bin/broken-link"
+ln -s "$HOME/nonexistent-uv" "$HOME/.local/bin/pjm-mcp"
+jq '.enabledPlugins = {"caveman@caveman":true,"ponytail@ponytail":true}' "$HOME/.claude/settings.json" > "$STUB/s.json" && mv "$STUB/s.json" "$HOME/.claude/settings.json"
+: > "$HOME/.claude/.caveman-active"
+mkdir -p "$HOME/.gemini/config/skills/caveman" "$HOME/.gemini/antigravity"
+echo '{"mcpServers":{"projectmem":{"command":"old"}}}' > "$HOME/.gemini/antigravity/mcp_config.json"
+"$SKIT/install.sh" --with=codegraph,projectmem,rtk --auto-project="$DEV" > /dev/null 2>&1
+rm -rf "$HOME/.gemini/config/plugins/rtk"
+printf '<!-- agent-kit:begin -->\n# stale rules\n<!-- agent-kit:end -->\n' > "$HOME/.claude/CLAUDE.md"
+echo "1.6.0" > "$STUB/bin/cg.ver"
+agent-kit doctor > "$STUB/doc1.log" 2>&1; code=$?
+check "doctor detects all 7 issues and exits 1" '[ $code = 1 ] && grep -q "Found 7 issue(s)" "$STUB/doc1.log"'
+agent-kit doctor --fix > "$STUB/docfix.log" 2>&1; code=$?
+check "doctor --fix repairs all 7 issues" '[ $code = 0 ] && grep -q "7 repaired" "$STUB/docfix.log"'
+agent-kit doctor > "$STUB/doc2.log" 2>&1; code=$?
+check "doctor clean after --fix" '[ $code = 0 ] && grep -q "0 issues" "$STUB/doc2.log" && [ "$(cat "$STUB/bin/cg.ver")" = "1.6.2" ]'
 
 echo "== turn automatic setup off"
 "$SKIT/install.sh" --with=codegraph,projectmem --auto-project=none > "$STUB/auto-off.log" 2>&1

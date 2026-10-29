@@ -10,6 +10,10 @@ codegraph_desc() { echo "code graph search via MCP (npm @colbymchenry/codegraph@
 
 codegraph_present() { command -v codegraph >/dev/null 2>&1; }
 
+codegraph_pinned_version() { echo "$CODEGRAPH_VERSION"; }
+
+codegraph_installed_version() { codegraph --version 2>/dev/null | head -n 1 | tr -d '[:space:]'; }
+
 codegraph_install() {
   need npm "npm not found; install Node.js first (brew install node)" || return 1
   run npm install -g "@colbymchenry/codegraph@$CODEGRAPH_VERSION" || return 1

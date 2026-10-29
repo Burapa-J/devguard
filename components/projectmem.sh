@@ -12,6 +12,12 @@ projectmem_desc() { echo "project memory via MCP (PyPI projectmem==$PROJECTMEM_V
 
 projectmem_present() { [ -x "$PROJECTMEM_VENV/bin/python" ] && [ -x "$PROJECTMEM_VENV/bin/pjm" ]; }
 
+projectmem_pinned_version() { echo "$PROJECTMEM_VERSION"; }
+
+projectmem_installed_version() {
+  "$PROJECTMEM_VENV/bin/python" -c 'import importlib.metadata as m; print(m.version("projectmem"))' 2>/dev/null | tr -d '[:space:]'
+}
+
 projectmem_install() {
   local b
   need python3 "python3 not found; install it first (xcode-select --install or brew install python)" || return 1

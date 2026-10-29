@@ -120,6 +120,7 @@ agent-verify build -- swift build
 |---|---|
 | `potless` | เปิดเมนูแบบ Interactive เลือกคำสั่งได้ทันที |
 | `potless status` | แสดงตารางสรุปสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติแบบดูง่าย |
+| `potless doctor [--fix]` | ตรวจสุขภาพ 7 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
 | `potless stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`) และตาราง Index ของ `codegraph` ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
 | `potless select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar (เหมือน tokless) |
 | `potless update` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงการตั้งค่าเดิม |

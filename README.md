@@ -50,8 +50,9 @@ Already cloned? Run `./install.sh`. Options (all optional): `--with=LIST`, `--au
 ### Everyday commands
 
 ```sh
-potless                 # interactive menu (status, select tools, stats, update, uninstall)
+potless                 # interactive menu (status, select tools, doctor, stats, update, uninstall)
 potless status          # compact overview table of what is installed, wired and set up
+potless doctor [--fix]  # audit 7 common failure modes and optionally repair them automatically
 potless stats           # unified token savings (rtk, projectmem) & codegraph index stats
 potless select          # interactively pick agents and tools to enable/disable
 potless update          # pull the latest kit, upgrade tools and re-apply settings

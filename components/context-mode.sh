@@ -9,6 +9,12 @@ context_mode_desc() { echo "sandboxed output + search via MCP (npm context-mode@
 
 context_mode_present() { command -v context-mode >/dev/null 2>&1; }
 
+context_mode_pinned_version() { echo "$CONTEXT_MODE_VERSION"; }
+
+context_mode_installed_version() {
+  npm ls -g context-mode --depth=0 2>/dev/null | sed -n 's/.*context-mode@\([0-9.a-zA-Z_-]*\).*/\1/p' | head -n 1
+}
+
 context_mode_install() {
   local major
   need node "Node.js not found; install it first (brew install node)" || return 1

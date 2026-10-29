@@ -16,6 +16,7 @@ Kit: $KIT_DIR
 
   potless                       interactive menu (when run in a terminal)
   potless status                compact overview of what is installed, wired and set up
+  potless doctor [--fix]        audit installation health & conflicts (--fix: repair automatically)
   potless stats [options]       token savings (rtk, projectmem) & codegraph index stats
                                 (-d daily, -p current project, --dashboard, --reset)
   potless select                interactively pick agents and tools to enable/disable
@@ -103,6 +104,7 @@ run_menu() {
   UI_CHOICE=0
   ui_choose "Select an action" \
     "Select & Install   — เลือกเปิด/ปิด Agents และเครื่องมือ (CodeGraph, ProjectMem, RTK)" \
+    "Doctor & Repair    — ตรวจสอบสุขภาพการติดตั้งและซ่อมจุดที่มีปัญหาอัตโนมัติ (--fix)" \
     "Stats & ROI        — ดูสถิติการประหยัด Token (RTK, ProjectMem, CodeGraph)" \
     "Reset RTK Stats    — รีเซ็ตตัวนับสถิติของ RTK เพื่อเริ่มนับใหม่" \
     "Update             — อัปเดต potless และเครื่องมือเป็นเวอร์ชันล่าสุด" \
@@ -111,11 +113,12 @@ run_menu() {
     "Quit               — ออก" || return 0
   case "$UI_CHOICE" in
     0) run_select ;;
-    1) "$KIT_DIR/bin/stats.sh" ;;
-    2) "$KIT_DIR/bin/stats.sh" --reset ;;
-    3) "$0" update ;;
-    4) "$0" init --all ;;
-    5) run_interactive_uninstall ;;
+    1) "$KIT_DIR/bin/doctor.sh" --fix ;;
+    2) "$KIT_DIR/bin/stats.sh" ;;
+    3) "$KIT_DIR/bin/stats.sh" --reset ;;
+    4) "$0" update ;;
+    5) "$0" init --all ;;
+    6) run_interactive_uninstall ;;
     *) ;;
   esac
 }
@@ -136,7 +139,8 @@ shift
 case "$cmd" in
   menu) run_menu ;;
   status | info) exec "$KIT_DIR/status.sh" "$@" ;;
-  stats | doctor) exec "$KIT_DIR/bin/stats.sh" "$@" ;;
+  doctor) exec "$KIT_DIR/bin/doctor.sh" "$@" ;;
+  stats) exec "$KIT_DIR/bin/stats.sh" "$@" ;;
   select) run_select ;;
   install)
     if [ "${1:-}" = "-i" ] || [ "${1:-}" = "--interactive" ]; then
@@ -153,7 +157,15 @@ case "$cmd" in
     fi
     ;;
   update)
-    git -C "$KIT_DIR" pull --ff-only
+    git -C "$KIT_DIR" pull --ff-only 2>/dev/null || true
+    # shellcheck source=lib.sh
+    . "$KIT_DIR/lib.sh"
+    # shellcheck source=components/common.sh
+    . "$KIT_DIR/components/common.sh"
+    load_components
+    for c in $ALL_COMPONENTS; do
+      [ -n "$(state_wired "$c")" ] && component_upgrade "$c"
+    done
     if command -v brew >/dev/null 2>&1 && [ -f "$HOME/.agent-kit/components/rtk/installed-by-kit" ]; then
       brew upgrade rtk 2>/dev/null || true
     fi

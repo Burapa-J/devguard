@@ -252,6 +252,21 @@ component_up() {
   done
 }
 
+# component_upgrade <name>: if installed version differs from pinned version, re-run <name>_install.
+component_upgrade() {
+  local c=$1 f pinned inst
+  f=$(fn_name "$c")
+  "${f}_present" || return 0
+  if type "${f}_pinned_version" >/dev/null 2>&1 && type "${f}_installed_version" >/dev/null 2>&1; then
+    pinned=$("${f}_pinned_version")
+    inst=$("${f}_installed_version")
+    if [ -n "$pinned" ] && [ -n "$inst" ] && [ "$inst" != "$pinned" ]; then
+      say "Component: $c — upgrading $inst -> $pinned"
+      "${f}_install"
+    fi
+  fi
+}
+
 # component_down <name> <purge>: unwire every agent agent-kit wired; remove CLI on purge.
 component_down() {
   local c=$1 purge=$2 f a
