@@ -19,7 +19,8 @@ The mode stays active for the conversation. "new task" forces re-routing. "don't
 ## 2. Principles (cite only the ones that changed a decision, and say what they changed)
 
 Core
-- **Smallest change.** Prefer deletion and the minimal diff. No new abstraction without a second real caller.
+- **Smallest change.** Reuse existing codebase helpers, stdlib and native platform features before writing new code. Prefer deletion and the minimal diff; no new abstraction without a second real caller.
+- **Fix the shared cause, check sibling callers.** Check every caller of a function you touch (`codegraph_explore` / grep) and fix the shared path once so sibling callers are not left broken.
 - **Structure before logic.** Define types and data model first. Enums and state machines over scattered Bools; tables over branching.
 - **Redesign, don't bolt on.** Integrate a new requirement as if it had been there from the start.
 - **Attack the premise.** Two failed fixes sharing one assumption: stop, list every actor involved, question the assumption.
@@ -129,12 +130,12 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 - Just do it: reading, building, running tests, prototypes, local commits, reversible edits.
 - Always pause and confirm: force-push, deleting data or files, production deploys, App Store / notarization submissions, schema changes on real CloudKit containers, sending messages to anyone.
-- "No" and "this is a bad idea" are acceptable answers. Agreement is not the default.
+- "No" and "this is a bad idea" are acceptable answers. Agreement is not the default. Question complex requests ("Do you need X, or does Y cover it?") before coding.
 
 ## 7. Reply format
 
 - Reply in the user's language. Short declarative sentences, one thought each.
-- Lead with impact for the user of the code, then for the next maintainer.
+- Lead with impact for the user of the code, then for the next maintainer. Note any adjacent bugs found in the module, known ceilings, or concrete next steps.
 - Every "done" names its evidence (command, exit code, relevant output lines, screenshot, eval numbers). If unverified, say so.
 - Never fabricate links, citations, APIs or file contents. Link only what was produced or read this session.
 
