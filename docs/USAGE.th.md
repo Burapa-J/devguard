@@ -192,6 +192,7 @@ agent-kit uninstall --purge       # ลบ CLI ที่ agent-kit ติดต�
 
 ## 8. แก้ไขหรือเพิ่มเติม
 
+- **รายการตรวจสอบเมื่อควรอัปเดตจากต้นทาง (`pstack`, `Karpathy`, `Ponytail`, `Caveman`, `tokless`, และเวอร์ชันของเครื่องมือ)**: ดูที่ [`docs/UPSTREAM-RADAR.md`](UPSTREAM-RADAR.md)
 - **ปรับวิธีทำงาน**: แก้ `skills/verified-dev/SKILL.md` แล้ว commit และ push จากนั้นเครื่องอื่นรัน `agent-kit update`
 - **ปรับกฎที่ทำงานตลอดเวลา**: แก้ `rules/core.md` ควรเก็บให้สั้น เพราะกิน token ทุก prompt
 - **เพิ่มเครื่องมือ**: คัดลอก `components/context-mode.sh` แล้วแก้ฟังก์ชันให้ครบ เพิ่มชื่อใน `ALL_COMPONENTS` ใน `components/common.sh` และเพิ่ม test

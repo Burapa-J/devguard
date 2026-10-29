@@ -193,6 +193,7 @@ case "$cmd" in
   docs)
     echo "English:  $KIT_DIR/README.md"
     echo "ภาษาไทย:  $KIT_DIR/docs/USAGE.th.md"
+    echo "Radar:    $KIT_DIR/docs/UPSTREAM-RADAR.md"
     ;;
   help | -h | --help) usage ;;
   *) echo "unknown command: $cmd" >&2; usage >&2; exit 64 ;;

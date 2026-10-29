@@ -137,7 +137,7 @@ The workflow (sections 1, 2 and 4-9 of the skill) is stack-neutral. Section 3's 
 
 ## ภาษาไทย (สรุป)
 
-คู่มือใช้งานฉบับเต็มภาษาไทย: [`docs/USAGE.th.md`](docs/USAGE.th.md)
+คู่มือใช้งานฉบับเต็มภาษาไทย: [`docs/USAGE.th.md`](docs/USAGE.th.md) · รายการตรวจสอบอัปเดตจากต้นทาง (Upstream Radar): [`docs/UPSTREAM-RADAR.md`](docs/UPSTREAM-RADAR.md)
 
 agent-kit มี 2 ชั้น
 - **วิธีทำงาน** (ติดตั้งเสมอ): rules และ skill ที่บังคับให้ agent เลือก playbook ตามประเภทงาน, กำหนด data shape ก่อนเขียนโค้ด, verify บนของจริง และห้ามบอกว่าเสร็จถ้าไม่มีหลักฐาน
