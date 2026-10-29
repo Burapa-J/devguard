@@ -99,15 +99,17 @@ RULES="$KIT_DIR/rules/core.md"
 SKILL_SRC="$KIT_DIR/skills/$SKILL_NAME"
 
 [ "$DRY_RUN" = 1 ] && say "Dry run: nothing will be changed."
-[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/agent-kit" "$KIT_DIR/bin/doctor.sh" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/bin/stats.sh" "$KIT_DIR/bin/ui.sh" "$KIT_DIR/hooks/remind.sh"
+[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/devguard" "$KIT_DIR/bin/doctor.sh" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/bin/stats.sh" "$KIT_DIR/bin/ui.sh" "$KIT_DIR/hooks/remind.sh"
 
 if command -v tokless >/dev/null 2>&1; then
   warn "tokless is installed. It wires some of the same tools; run 'tokless uninstall' first to avoid duplicates."
 fi
 
-say "Commands: potless, agent-kit, agent-verify, agent-kit-project"
-link "$POTLESS_LINK" "$KIT_DIR/bin/agent-kit"
-link "$CLI_LINK" "$KIT_DIR/bin/agent-kit"
+say "Commands: devguard, agent-verify, devguard-project"
+for old_link in $LEGACY_LINKS; do
+  unlink_ours "$old_link"
+done
+link "$CLI_LINK" "$KIT_DIR/bin/devguard"
 link "$VERIFY_LINK" "$KIT_DIR/bin/verify.sh"
 link "$PROJECT_LINK" "$KIT_DIR/bin/project.sh"
 case ":$PATH:" in
@@ -205,8 +207,8 @@ fi
 if [ -n "$failed" ]; then
   warn "components not installed:$failed (see messages above)"
 fi
-say "Done. Restart your agents and open a new terminal. Check with: agent-kit status"
+say "Done. Restart your agents and open a new terminal. Check with: devguard status"
 if [ "$AUTO_PROJECT" != none ] && [ "$DRY_RUN" = 0 ]; then
-  say "Existing repositories get set up by the periodic scan, or right now with: agent-kit init --all"
+  say "Existing repositories get set up by the periodic scan, or right now with: devguard init --all"
 fi
 [ -z "$failed" ]

@@ -1,11 +1,11 @@
-# คู่มือใช้งาน potless (agent-kit)
+# คู่มือใช้งาน devguard
 
-**`potless`** (`poteto` + `tokless`) มี 2 ส่วน
+**`devguard`** มี 2 ส่วน
 - **วิธีทำงาน**: rules และ skill `verified-dev` ที่บังคับให้ agent ทำงานแบบมีหลักฐาน
 - **เครื่องมือ (components)**: codegraph, projectmem และ rtk (เปิดเป็นค่าเริ่มต้น) รวมถึง context-mode (เลือกเปิดเอง) ติดตั้งและเชื่อมเข้ากับ **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI** และ **Gemini CLI**
-- **เครื่องมือเสริม CLI (Companion Tools)**: `ast-grep` (ค้นหาและแก้โค้ดระดับโครงสร้าง AST) และ `xcbeautify` (จัดรูปแบบและย่อ log ของ `xcodebuild`) ติดตั้งและอัปเดตผ่าน Homebrew และ `potless update`
+- **เครื่องมือเสริม CLI (Companion Tools)**: `ast-grep` (ค้นหาและแก้โค้ดระดับโครงสร้าง AST) และ `xcbeautify` (จัดรูปแบบและย่อ log ของ `xcodebuild`) ติดตั้งและอัปเดตผ่าน Homebrew และ `devguard update`
 
-ติดตั้งคำสั่งเดียว แล้วทุกอย่างทำงานเอง (เรียกใช้ได้ทั้งคำสั่ง `potless` และ `agent-kit`) ภาพรวมภาษาอังกฤษอยู่ใน `README.md`
+ติดตั้งคำสั่งเดียว แล้วทุกอย่างทำงานเองผ่านคำสั่ง `devguard` ภาพรวมภาษาอังกฤษอยู่ใน `README.md`
 
 ---
 
@@ -26,19 +26,19 @@ gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/A69-012-agent-kit/
 - เปิดการตั้งค่าโปรเจกต์อัตโนมัติใน `~/Developer`
 - เพิ่ม `~/.local/bin` ใน PATH
 
-จากนั้นเปิด Terminal ใหม่ เปิด agent ใหม่ แล้วรัน `agent-kit status`
+จากนั้นเปิด Terminal ใหม่ เปิด agent ใหม่ แล้วรัน `devguard status`
 
-ถ้าเครื่องนั้นมี tokless อยู่ ให้รัน `tokless uninstall` ก่อน
+ถ้าเครื่องนั้นมี tokless อยู่ ให้รัน `tokless uninstall` ก่อน (หรือรัน `devguard doctor --fix` หลังติดตั้ง)
 
 ### 1.2 เครื่องที่ clone repo ไว้แล้ว
 
 ```sh
-cd <โฟลเดอร์ repo> && git pull --ff-only && ./install.sh && agent-kit status
+cd <โฟลเดอร์ repo> && git pull --ff-only && ./install.sh && devguard status
 ```
 
 ### 1.3 ตัวเลือก (ไม่ใส่ก็ได้ ค่าเริ่มต้นคือแบบที่แนะนำ)
 
-ใส่ต่อท้าย `./install.sh` หรือ `agent-kit install` หรือต่อท้าย bootstrap ด้วย `| bash -s -- <ตัวเลือก>`
+ใส่ต่อท้าย `./install.sh` หรือ `devguard install` หรือต่อท้าย bootstrap ด้วย `| bash -s -- <ตัวเลือก>`
 
 | ตัวเลือก | ผล |
 |---|---|
@@ -79,9 +79,9 @@ cd <โฟลเดอร์ repo> && git pull --ff-only && ./install.sh && agen
 
 **คำสั่งที่เกี่ยวข้อง**
 ```sh
-agent-kit init --all     # ตั้งค่า repo ที่มีอยู่แล้วทั้งหมดทันที ไม่ต้องรอสแกน
-agent-kit init           # ตั้งค่า repo ที่อยู่ตอนนี้ (ใช้กับ repo นอก ~/Developer ได้)
-agent-kit skip           # ยกเว้น repo ที่อยู่ตอนนี้จากการตั้งค่าอัตโนมัติ
+devguard init --all      # ตั้งค่า repo ที่มีอยู่แล้วทั้งหมดทันที ไม่ต้องรอสแกน
+devguard init            # ตั้งค่า repo ที่อยู่ตอนนี้ (ใช้กับ repo นอก ~/Developer ได้)
+devguard skip            # ยกเว้น repo ที่อยู่ตอนนี้จากการตั้งค่าอัตโนมัติ
 ```
 
 ---
@@ -115,21 +115,21 @@ agent-verify build -- swift build
 
 ---
 
-## 4. คำสั่ง potless (หรือ agent-kit)
+## 4. คำสั่ง devguard
 
 | คำสั่ง | ผล |
 |---|---|
-| `potless` | เปิดเมนูแบบ Interactive เลือกคำสั่งได้ทันที |
-| `potless status` | แสดงตารางสรุปสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติแบบดูง่าย |
-| `potless doctor [--fix]` | ตรวจสุขภาพ 7 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
-| `potless stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`), ตาราง Index ของ `codegraph`, และอัตราการ Verify ผ่าน (`.verify/*.log` Pass Rate) ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
-| `potless select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar (เหมือน tokless) |
-| `potless update` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงการตั้งค่าเดิม |
-| `potless init` / `init --all` | ตั้งค่า repo นี้ หรือทุก repo ในโฟลเดอร์อัตโนมัติ |
-| `potless skip` | ยกเว้น repo นี้ |
-| `potless install [ตัวเลือก]` | เปลี่ยนการตั้งค่า (ดูข้อ 1.3 หรือใช้ `-i` เพื่อเปิดเมนูเลือก) |
-| `potless disable` / `uninstall [--purge]` | ถอนการเชื่อมต่อแบบเลือกได้จากเมนู หรือถอนการติดตั้งทั้งหมด (ดูข้อ 6) |
-| `potless docs` | แสดงที่อยู่ของคู่มือ |
+| `devguard` | เปิดเมนูแบบ Interactive เลือกคำสั่งได้ทันที |
+| `devguard status` | แสดงตารางสรุปสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติแบบดูง่าย |
+| `devguard doctor [--fix]` | ตรวจสุขภาพ 7 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
+| `devguard stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`), ตาราง Index ของ `codegraph`, และอัตราการ Verify ผ่าน (`.verify/*.log` Pass Rate) ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
+| `devguard select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar |
+| `devguard update` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงการตั้งค่าเดิม |
+| `devguard init` / `init --all` | ตั้งค่า repo นี้ หรือทุก repo ในโฟลเดอร์อัตโนมัติ |
+| `devguard skip` | ยกเว้น repo นี้ |
+| `devguard install [ตัวเลือก]` | เปลี่ยนการตั้งค่า (ดูข้อ 1.3 หรือใช้ `-i` เพื่อเปิดเมนูเลือก) |
+| `devguard disable` / `uninstall [--purge]` | ถอนการเชื่อมต่อแบบเลือกได้จากเมนู หรือถอนการติดตั้งทั้งหมด (ดูข้อ 6) |
+| `devguard docs` | แสดงที่อยู่ของคู่มือ |
 
 **อย่าย้ายหรือลบโฟลเดอร์ kit** เพราะลิงก์ทั้งหมดชี้มาที่นี่ ถ้าจำเป็นต้องย้าย ให้รัน `./install.sh` ใหม่จากตำแหน่งใหม่
 
@@ -138,13 +138,13 @@ agent-verify build -- swift build
 ## 5. ตรวจสถานะและซ่อมแซมอัตโนมัติ
 
 ```sh
-potless status          # ดูตารางสถานะการเชื่อมต่อของทุก Agent และเครื่องมือ
-potless doctor          # ตรวจสุขภาพ 7 จุดเสี่ยงแบบละเอียด (Read-only)
-potless doctor --fix    # ซ่อมจุดที่มีปัญหาทั้ง 7 ข้อให้อัตโนมัติ (พร้อมสำรองไฟล์เดิมไว้ที่ ~/.agent-kit-backup/)
+devguard status          # ดูตารางสถานะการเชื่อมต่อของทุก Agent และเครื่องมือ
+devguard doctor          # ตรวจสุขภาพ 7 จุดเสี่ยงแบบละเอียด (Read-only)
+devguard doctor --fix    # ซ่อมจุดที่มีปัญหาทั้ง 7 ข้อให้อัตโนมัติ (พร้อมสำรองไฟล์เดิมไว้ที่ ~/.agent-kit-backup/)
 ```
 - ส่วน **Core** ทุกบรรทัดควรเป็น `ok` ได้แก่ rules, skill, คำสั่ง, hook และการตั้งค่าอัตโนมัติทั้ง Claude Code, zsh และ launchd
-- ส่วน **Components** ตัวที่เลือกไว้ควรเป็น `CLI installed, managed by agent-kit` และ `wired` ในทุก agent
-- ส่วน **`potless doctor`** จะตรวจครบทั้ง 7 จุด:
+- ส่วน **Components** ตัวที่เลือกไว้ควรเป็น `CLI installed, managed by devguard` และ `wired` ในทุก agent
+- ส่วน **`devguard doctor`** จะตรวจครบทั้ง 7 จุด:
   1. คราบ `tokless` เดิม (`~/.local/bin/tokless`, `~/.local/share/tokless`, บล็อกใน `~/.zshrc`)
   2. Symlink ขาดหรือชี้ผิดที่ใน `~/.local/bin`
   3. ปลั๊กอินที่ตีกัน (`caveman`, `ponytail`, `cavecrew`)
@@ -162,9 +162,9 @@ potless doctor --fix    # ซ่อมจุดที่มีปัญหาท
 ## 6. ถอนการติดตั้ง
 
 ```sh
-agent-kit uninstall --dry-run     # ดูก่อน
-agent-kit uninstall               # ถอดทุกอย่างที่เพิ่มไว้ แต่เก็บ CLI ของเครื่องมือไว้
-agent-kit uninstall --purge       # ลบ CLI ที่ agent-kit ติดตั้งเองด้วย
+devguard uninstall --dry-run     # ดูก่อน
+devguard uninstall               # ถอดทุกอย่างที่เพิ่มไว้ แต่เก็บ CLI ของเครื่องมือไว้
+devguard uninstall --purge       # ลบ CLI ที่ devguard ติดตั้งเองด้วย
 ```
 
 - ถอดออกครบ: rules, skill, คำสั่ง, hook ทั้งหมด, บล็อกใน `~/.zshrc`, launchd agent และการเชื่อมเครื่องมือใน MCP config
@@ -179,14 +179,14 @@ agent-kit uninstall --purge       # ลบ CLI ที่ agent-kit ติดต�
 
 | อาการ | วิธีแก้ |
 |---|---|
-| `agent-kit: command not found` | เปิด Terminal ใหม่ ถ้ายังไม่ได้ ให้เพิ่ม `export PATH="$HOME/.local/bin:$PATH"` ใน `~/.zshrc` |
-| ไม่แน่ใจว่าติดตั้งสมบูรณ์หรือมีปลั๊กอินเก่าตีกันไหม | รัน `potless doctor` เพื่อตรวจทั้ง 7 จุด และรัน `potless doctor --fix` เพื่อให้ซ่อมอัตโนมัติ |
-| agent ไม่พูดถึง verified-dev | พิมพ์ `/verified-dev` เอง และตรวจ `potless doctor --fix` ว่ากฎและ skill link ตรงกับเวอร์ชันล่าสุด |
-| คำตอบไม่มีหลักฐาน หรือมีปลั๊กอิน caveman/ponytail ค้าง | รัน `potless doctor --fix` เพื่อถอดปลั๊กอินที่ตีกันออก และดูหัวข้อ 9 ของ skill |
-| `warning: ... already exists and is not managed by agent-kit; skipped` | มีไฟล์หรือโฟลเดอร์ชื่อเดียวกันอยู่ก่อน agent-kit จึงไม่เขียนทับ ให้ย้ายของเดิมออกแล้วรัน install ใหม่ |
-| `tokless is installed` | รัน `potless doctor --fix` (หรือ `tokless uninstall`) เพื่อล้างคราบ tokless เดิม |
+| `devguard: command not found` | เปิด Terminal ใหม่ ถ้ายังไม่ได้ ให้เพิ่ม `export PATH="$HOME/.local/bin:$PATH"` ใน `~/.zshrc` |
+| ไม่แน่ใจว่าติดตั้งสมบูรณ์หรือมีปลั๊กอินเก่าตีกันไหม | รัน `devguard doctor` เพื่อตรวจทั้ง 7 จุด และรัน `devguard doctor --fix` เพื่อให้ซ่อมอัตโนมัติ |
+| agent ไม่พูดถึง verified-dev | พิมพ์ `/verified-dev` เอง และตรวจ `devguard doctor --fix` ว่ากฎและ skill link ตรงกับเวอร์ชันล่าสุด |
+| คำตอบไม่มีหลักฐาน หรือมีปลั๊กอิน caveman/ponytail ค้าง | รัน `devguard doctor --fix` เพื่อถอดปลั๊กอินที่ตีกันออก และดูหัวข้อ 9 ของ skill |
+| `warning: ... already exists and is not managed by agent-kit; skipped` | มีไฟล์หรือโฟลเดอร์ชื่อเดียวกันอยู่ก่อน ระบบจึงไม่เขียนทับ ให้ย้ายของเดิมออกแล้วรัน install ใหม่ |
+| `tokless is installed` | รัน `devguard doctor --fix` (หรือ `tokless uninstall`) เพื่อล้างคราบ tokless เดิม |
 | VS Code ไม่เห็น MCP server | เปิด VS Code ใหม่ ตรวจ `~/Library/Application Support/Code/User/mcp.json` |
-| repo ใหม่ไม่ถูกตั้งค่าอัตโนมัติ | ตรวจ `agent-kit status` ว่าบรรทัด auto setup เป็น `ok` และ repo อยู่ภายใต้ root ที่แสดง ดู `~/.agent-kit/logs/scan.log` ตรวจว่าไม่มี `.agent-kit-skip` หรือรัน `agent-kit init` เอง |
+| repo ใหม่ไม่ถูกตั้งค่าอัตโนมัติ | ตรวจ `devguard status` ว่าบรรทัด auto setup เป็น `ok` และ repo อยู่ภายใต้ root ที่แสดง ดู `~/.agent-kit/logs/scan.log` ตรวจว่าไม่มี `.agent-kit-skip` หรือรัน `devguard init` เอง |
 | ต้องการย้อนกลับไฟล์ใดไฟล์หนึ่ง | คัดลอกจาก `~/.agent-kit-backup/<เวลา>/` กลับไปที่เดิม |
 
 ---
@@ -194,7 +194,7 @@ agent-kit uninstall --purge       # ลบ CLI ที่ agent-kit ติดต�
 ## 8. แก้ไขหรือเพิ่มเติม
 
 - **รายการตรวจสอบเมื่อควรอัปเดตจากต้นทาง (`pstack`, `Karpathy`, `Ponytail`, `Caveman`, `tokless`, และเวอร์ชันของเครื่องมือ)**: ดูที่ [`docs/UPSTREAM-RADAR.md`](UPSTREAM-RADAR.md)
-- **ปรับวิธีทำงาน**: แก้ `skills/verified-dev/SKILL.md` แล้ว commit และ push จากนั้นเครื่องอื่นรัน `agent-kit update`
+- **ปรับวิธีทำงาน**: แก้ `skills/verified-dev/SKILL.md` แล้ว commit และ push จากนั้นเครื่องอื่นรัน `devguard update`
 - **ปรับกฎที่ทำงานตลอดเวลา**: แก้ `rules/core.md` ควรเก็บให้สั้น เพราะกิน token ทุก prompt
 - **เพิ่มเครื่องมือ**: คัดลอก `components/context-mode.sh` แล้วแก้ฟังก์ชันให้ครบ เพิ่มชื่อใน `ALL_COMPONENTS` ใน `components/common.sh` และเพิ่ม test
 - **ก่อน push ทุกครั้ง**: `/bin/bash tests/test-kit.sh && /bin/bash tests/test-components.sh`

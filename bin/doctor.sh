@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# agent-kit doctor: audit and optionally repair common installation, wiring, and plugin conflicts.
+# devguard doctor: audit and optionally repair common installation, wiring, and plugin conflicts.
 #
-#   potless doctor          run all 7 health checks (read-only; exits 1 if issues found)
-#   potless doctor --fix    automatically repair all detected issues and back up changed files
+#   devguard doctor          run all 7 health checks (read-only; exits 1 if issues found)
+#   devguard doctor --fix    automatically repair all detected issues and back up changed files
 set -u
 
 KIT_DIR=$(cd "$(dirname "$0")/.." && pwd -P)
@@ -14,7 +14,7 @@ for arg in "$@"; do
     --fix) FIX=1 ;;
     -h | --help)
       cat <<EOF
-Usage: potless doctor [--fix]
+Usage: devguard doctor [--fix]
 
 Checks 7 common failure modes:
   1. Legacy tokless residue (binaries, share dir, broken .zshrc block)
@@ -64,7 +64,7 @@ repaired() {
   echo "  ${C_OK}✓ fixed${C_RESET}  $1"
 }
 
-echo "${C_BOLD}╭─ potless doctor ───────────────────────────────────────────────────────────────╮${C_RESET}"
+echo "${C_BOLD}╭─ devguard doctor ──────────────────────────────────────────────────────────────╮${C_RESET}"
 
 # ---- 1. Legacy tokless residue -----------------------------------------------------------------
 tokless_found=0
@@ -129,6 +129,11 @@ fi
 if [ -L "$HOME/.local/bin/pjm-mcp" ]; then
   bad_links="$bad_links pjm-mcp(legacy-uv)"
 fi
+for old_link in $LEGACY_LINKS; do
+  if [ -L "$old_link" ]; then
+    bad_links="$bad_links $(basename "$old_link")(legacy-name)"
+  fi
+done
 if [ -x "$PROJECTMEM_VENV/bin/pjm" ]; then
   for b in pjm projectmem; do
     if [ ! -L "$HOME/.local/bin/$b" ] || [ "$(readlink "$HOME/.local/bin/$b")" != "$PROJECTMEM_VENV/bin/$b" ]; then
@@ -147,6 +152,9 @@ else
       done
     fi
     rm -f "$HOME/.local/bin/pjm-mcp"
+    for old_link in $LEGACY_LINKS; do
+      [ -L "$old_link" ] && rm -f "$old_link"
+    done
     if [ -x "$PROJECTMEM_VENV/bin/pjm" ]; then
       mkdir -p "$HOME/.local/bin"
       for b in pjm projectmem; do
@@ -340,7 +348,7 @@ if [ "$FIX" = 1 ]; then
   echo "Doctor complete: $fixed repaired."
   exit 0
 elif [ "$issues" -gt 0 ]; then
-  echo "Found $issues issue(s). Run 'potless doctor --fix' to repair automatically."
+  echo "Found $issues issue(s). Run 'devguard doctor --fix' to repair automatically."
   exit 1
 else
   echo "Everything looks healthy (0 issues)."

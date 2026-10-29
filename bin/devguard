@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# agent-kit: one command for everything (interactive menu + direct CLI subcommands).
+# devguard: one command for everything (interactive menu + direct CLI subcommands).
 set -eu
 
 SELF=$0
@@ -11,22 +11,22 @@ KIT_DIR=$(cd "$(dirname "$SELF")/.." && pwd -P)
 
 usage() {
   cat <<EOF
-potless — evidence-first working mode and token-saving tools (poteto + tokless)
+devguard — evidence-first working mode and token-saving tools for AI coding agents
 Kit: $KIT_DIR
 
-  potless                       interactive menu (when run in a terminal)
-  potless status                compact overview of what is installed, wired and set up
-  potless doctor [--fix]        audit installation health & conflicts (--fix: repair automatically)
-  potless stats [options]       token savings, codegraph index & verification pass-rate stats
+  devguard                      interactive menu (when run in a terminal)
+  devguard status               compact overview of what is installed, wired and set up
+  devguard doctor [--fix]       audit installation health & conflicts (--fix: repair automatically)
+  devguard stats [options]      token savings, codegraph index & verification pass-rate stats
                                 (-d daily, -p current project, --dashboard, --reset)
-  potless select                interactively pick agents and tools to enable/disable
-  potless update                pull the latest kit, upgrade tools, and re-apply settings
-  potless init [--all]          set up this repo, or every repo under auto-setup folders
-  potless install [options]     install or change setup (see: potless install --help)
-  potless uninstall [--purge]   remove wiring (--purge: also remove installed tool CLIs)
-  potless disable               interactive alias for uninstall / unwire
-  potless skip                  never set up this repository automatically
-  potless docs                  show where the guides are
+  devguard select               interactively pick agents and tools to enable/disable
+  devguard update               pull the latest kit, upgrade tools, and re-apply settings
+  devguard init [--all]         set up this repo, or every repo under auto-setup folders
+  devguard install [options]    install or change setup (see: devguard install --help)
+  devguard uninstall [--purge]  remove wiring (--purge: also remove installed tool CLIs)
+  devguard disable              interactive alias for uninstall / unwire
+  devguard skip                 never set up this repository automatically
+  devguard docs                 show where the guides are
 EOF
 }
 
@@ -84,9 +84,9 @@ run_interactive_uninstall() {
   # shellcheck source=bin/ui.sh
   . "$KIT_DIR/bin/ui.sh"
   UI_CHOICE=0
-  ui_choose "Uninstall / Disable potless" \
+  ui_choose "Uninstall / Disable devguard" \
     "Unwire only — ถอดการเชื่อมต่อจากทุก Agent (เก็บ CLI ของเครื่องมือไว้)" \
-    "Full Uninstall (--purge) — ถอดทั้งหมดและลบ CLI ที่ potless ติดตั้งด้วย" \
+    "Full Uninstall (--purge) — ถอดทั้งหมดและลบ CLI ที่ devguard ติดตั้งด้วย" \
     "Dry Run — ดูสิ่งที่จะถูกลบโดยไม่ลบจริง" \
     "Cancel — ยกเลิก" || return 0
   case "$UI_CHOICE" in
@@ -105,9 +105,9 @@ run_menu() {
   ui_choose "Select an action" \
     "Select & Install   — เลือกเปิด/ปิด Agents และเครื่องมือ (CodeGraph, ProjectMem, RTK)" \
     "Doctor & Repair    — ตรวจสอบสุขภาพการติดตั้งและซ่อมจุดที่มีปัญหาอัตโนมัติ (--fix)" \
-    "Stats & ROI        — ดูสถิติการประหยัด Token (RTK, ProjectMem, CodeGraph)" \
+    "Stats & ROI        — ดูสถิติการประหยัด Token และอัตราการ Verify ผ่าน" \
     "Reset RTK Stats    — รีเซ็ตตัวนับสถิติของ RTK เพื่อเริ่มนับใหม่" \
-    "Update             — อัปเดต potless และเครื่องมือเป็นเวอร์ชันล่าสุด" \
+    "Update             — อัปเดต devguard และเครื่องมือเป็นเวอร์ชันล่าสุด" \
     "Init All Projects  — ตั้งค่าทุกโปรเจกต์ใน ~/Developer ทันที" \
     "Disable/Uninstall  — ถอดการเชื่อมต่อ หรือถอนการติดตั้ง" \
     "Quit               — ออก" || return 0
@@ -180,7 +180,7 @@ case "$cmd" in
   init)
     if [ "${1:-}" = --all ]; then
       roots="$HOME/.agent-kit/auto-roots"
-      [ -f "$roots" ] || { echo "No auto-setup folders. Use: agent-kit init-all <dir>, or install with --auto-project=<dir>" >&2; exit 1; }
+      [ -f "$roots" ] || { echo "No auto-setup folders. Use: devguard init-all <dir>, or install with --auto-project=<dir>" >&2; exit 1; }
       while IFS= read -r root; do
         [ -d "$root" ] && "$KIT_DIR/bin/project.sh" init-all "$root" < /dev/null
       done < "$roots"

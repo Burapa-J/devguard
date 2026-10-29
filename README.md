@@ -1,4 +1,4 @@
-# potless (agent-kit)
+# devguard
 
 An evidence-first working mode (`poteto` / `pstack` style) plus token-saving tools (`tokless` style), installed once and shared across **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI**, and **Gemini CLI**.
 
@@ -12,11 +12,11 @@ Two layers:
 |---|---|---|
 | `rules/core.md` | Always-on instruction (8 lines) | Every prompt, via each agent's global rules file |
 | `skills/verified-dev/SKILL.md` | On-demand instruction | When the agent matches it, or you type `/verified-dev` |
-| `bin/agent-kit` → `potless`, `agent-kit` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
-| `bin/doctor.sh` → `potless doctor` | Health & repair tool | Audits 7 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift) and repairs them with `--fix` |
-| `bin/stats.sh` → `potless stats` | Telemetry & quality summary | Shows RTK shell savings, ProjectMem fixes/tokens, CodeGraph index counts, and `.verify/*.log` verification pass rates |
+| `bin/devguard` → `devguard` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
+| `bin/doctor.sh` → `devguard doctor` | Health & repair tool | Audits 7 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift) and repairs them with `--fix` |
+| `bin/stats.sh` → `devguard stats` | Telemetry & quality summary | Shows RTK shell savings, ProjectMem fixes/tokens, CodeGraph index counts, and `.verify/*.log` verification pass rates |
 | `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
-| `bin/project.sh` → `agent-kit-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
+| `bin/project.sh` → `devguard-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
 | `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load the skill |
 | `components/*.sh` | Installers | Install, upgrade, wire, unwire and remove each tool |
 
@@ -29,7 +29,7 @@ Two layers:
 | `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` | `rtk init -g` (per-agent flags) | on |
 | `context-mode` | Sandboxed execution + indexed search | npm `context-mode@1.0.169` (Node ≥ 22.5) | MCP only, no hooks | off |
 
-### Companion CLI Tools (installed by `bootstrap.sh` / `potless update`)
+### Companion CLI Tools (installed by `bootstrap.sh` / `devguard update`)
 
 | Tool | What it does | Installed from |
 |---|---|---|
@@ -53,24 +53,23 @@ It installs missing prerequisites with Homebrew, clones the kit to `~/.local/sha
 - codegraph, projectmem and rtk
 - **automatic setup of every git repository under `~/Developer`**
 
-Then open a new terminal, restart your agents, and run `agent-kit status`.
+Then open a new terminal, restart your agents, and run `devguard status`.
 
 Already cloned? Run `./install.sh`. Options (all optional): `--with=LIST`, `--auto-project=DIRS|none`, `--targets=LIST`, `--no-hooks`, `--dry-run`. See `./install.sh --help`. To pass them through bootstrap, use `... | bash -s -- --with=codegraph,projectmem,rtk,context-mode`.
 
 ### Everyday commands
 
 ```sh
-potless                 # interactive menu (status, select tools, doctor, stats, update, uninstall)
-potless status          # compact overview table of what is installed, wired and set up
-potless doctor [--fix]  # audit 7 common failure modes and optionally repair them automatically
-potless stats           # unified token savings (rtk, projectmem) & codegraph index stats
-potless select          # interactively pick agents and tools to enable/disable
-potless update          # pull the latest kit, upgrade tools and re-apply settings
-potless init [--all]    # set up this repo now, or every repo under your auto-setup folders
-potless skip            # never set up this repo automatically
-potless disable         # interactive uninstall / unwire (or: potless uninstall [--purge])
+devguard                 # interactive menu (status, select tools, doctor, stats, update, uninstall)
+devguard status          # compact overview table of what is installed, wired and set up
+devguard doctor [--fix]  # audit 7 common failure modes and optionally repair them automatically
+devguard stats           # unified token savings, codegraph index & verification pass-rate stats
+devguard select          # interactively pick agents and tools to enable/disable
+devguard update          # pull the latest kit, upgrade tools and re-apply settings
+devguard init [--all]    # set up this repo now, or every repo under your auto-setup folders
+devguard skip            # never set up this repo automatically
+devguard disable         # interactive uninstall / unwire (or: devguard uninstall [--purge])
 ```
-*(All commands also work under the `agent-kit` alias.)*
 
 ### Automatic project setup
 
@@ -88,7 +87,7 @@ Unlike tokless, `pjm init` writes into each project: it installs git hooks and a
 
 ### Coming from tokless / caveman / ponytail
 
-Remove legacy tools first so hooks and plugins aren't wired twice: `tokless uninstall`, or simply run `potless doctor --fix` after installing `potless` to automatically clean up leftover `tokless` blocks, broken symlinks, and conflicting `caveman` / `ponytail` / `cavecrew` plugins.
+Remove legacy tools first so hooks and plugins aren't wired twice: `tokless uninstall`, or simply run `devguard doctor --fix` after installing `devguard` to automatically clean up leftover `tokless` blocks, broken symlinks, and conflicting `caveman` / `ponytail` / `cavecrew` plugins.
 
 ### Where things go
 
@@ -98,25 +97,25 @@ Remove legacy tools first so hooks and plugins aren't wired twice: `tokless unin
 | VS Code / Copilot | `~/.copilot/copilot-instructions.md` | reads `~/.claude/skills` (or `~/.copilot/skills` if Claude Code is not a target) | `~/Library/Application Support/Code/User/mcp.json` |
 | Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills/verified-dev`, `~/.gemini/antigravity-cli/skills/verified-dev` | `~/.gemini/config/mcp_config.json` |
 | OpenCode | `~/.config/opencode/AGENTS.md` | `~/.config/opencode/skills/verified-dev` | `~/.config/opencode/opencode.json` |
-| Cursor | `~/.cursor/rules/agent-kit.mdc` | `~/.cursor/skills/verified-dev` | `~/.cursor/mcp.json` |
+| Cursor | `~/.cursor/rules/devguard.mdc` | `~/.cursor/skills/verified-dev` | `~/.cursor/mcp.json` |
 | Codex CLI | `~/.codex/AGENTS.md` | `~/.codex/skills/verified-dev` | `~/.codex/config.toml` |
 | Gemini CLI | `~/.gemini/GEMINI.md` | `~/.gemini/skills/verified-dev` | `~/.gemini/settings.json` |
 
 ## Uninstall
 
 ```sh
-agent-kit uninstall --dry-run
-agent-kit uninstall            # remove rules, skill, hooks, zsh block, launchd agent and component wiring; keep tool CLIs
-agent-kit uninstall --purge    # also remove tool CLIs that agent-kit installed
+devguard uninstall --dry-run
+devguard uninstall            # remove rules, skill, hooks, zsh block, launchd agent and component wiring; keep tool CLIs
+devguard uninstall --purge    # also remove tool CLIs that devguard installed
 ```
 
-`--purge` never removes a CLI you installed yourself. agent-kit records ownership in `~/.agent-kit/` and keeps that record after a plain uninstall, so a later `--purge` still works.
+`--purge` never removes a CLI you installed yourself. devguard records ownership in `~/.agent-kit/` and keeps that record after a plain uninstall, so a later `--purge` still works.
 
 Left in place on purpose, because they are the tools' own data: `~/.codegraph/`, `~/.projectmem/` and per-project `.codegraph/` / `.projectmem/`. Remove per project with `codegraph uninit` and `pjm hooks uninstall`.
 
 ## Verify after installing
 
-1. Run `potless status` and `potless doctor`. Every core line should say `ok`, each enabled component should be `wired` for your agents, and `potless doctor` should report `0 issues` (if not, run `potless doctor --fix`).
+1. Run `devguard status` and `devguard doctor`. Every core line should say `ok`, each enabled component should be `wired` for your agents, and `devguard doctor` should report `0 issues` (if not, run `devguard doctor --fix`).
 2. Open a new session in each agent and ask: "What rules are you following for code tasks?" It should stay read-only, mention `verified-dev`, and cite runtime evidence requirements.
 3. Ask it to fix a bug that has a failing test. The reply should include the `agent-verify` log path, exit codes before and after, and the failing/passing lines.
 
@@ -146,13 +145,13 @@ The workflow (sections 1, 2 and 4-9 of the skill) is stack-neutral. Section 3's 
 
 คู่มือใช้งานฉบับเต็มภาษาไทย: [`docs/USAGE.th.md`](docs/USAGE.th.md) · รายการตรวจสอบอัปเดตจากต้นทาง (Upstream Radar): [`docs/UPSTREAM-RADAR.md`](docs/UPSTREAM-RADAR.md)
 
-agent-kit มี 2 ชั้น
+`devguard` มี 2 ชั้น
 - **วิธีทำงาน** (ติดตั้งเสมอ): rules และ skill ที่บังคับให้ agent เลือก playbook ตามประเภทงาน, กำหนด data shape ก่อนเขียนโค้ด, verify บนของจริง และห้ามบอกว่าเสร็จถ้าไม่มีหลักฐาน
 - **Components** (เลือกได้): เครื่องมือของคนอื่นที่ติดตั้งจาก upstream โดยตรงแบบ pin version แล้ว wire เข้าแต่ละ agent ให้ ค่าเริ่มต้นคือ codegraph + projectmem + rtk ส่วน context-mode ต้องเลือกเอง และไม่มี headroom
 
 ติดตั้งคำสั่งเดียวด้วย bootstrap (ดูส่วน Install) หรือรัน `./install.sh` ใน repo ที่ clone ไว้ ค่าเริ่มต้นตั้งค่าทุก repo ใน `~/Developer` ให้อัตโนมัติ ผ่าน Claude Code, การ `cd` ใน zsh และการสแกนของ launchd ทุก 30 นาที
 
-ใช้งานผ่านคำสั่ง `potless` (หรือ `agent-kit`) เช่น `status`, `doctor [--fix]`, `stats`, `select`, `update`, `init [--all]`, `skip` และ `uninstall [--purge]` ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` ถ้าเคยใช้ tokless หรือปลั๊กอิน caveman/ponytail ให้รัน `potless doctor --fix` เพื่อเก็บกวาดคราบเก่าอัตโนมัติ
+ใช้งานผ่านคำสั่ง `devguard` เช่น `status`, `doctor [--fix]`, `stats`, `select`, `update`, `init [--all]`, `skip` และ `uninstall [--purge]` ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` ถ้าเคยใช้ tokless หรือปลั๊กอิน caveman/ponytail ให้รัน `devguard doctor --fix` เพื่อเก็บกวาดคราบเก่าอัตโนมัติ
 
 ## Credits
 

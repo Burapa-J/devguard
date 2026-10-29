@@ -139,15 +139,15 @@ check "re-install leaves files identical" '[ "$(snap "$HOME")" = "$(cat "$STUB/s
 
 echo "== status"
 "$KIT/status.sh" > "$STUB/status.log" 2>&1
-check "status lists wired components" 'grep -q "projectmem: CLI installed, managed by agent-kit" "$STUB/status.log" && grep -q "rtk: CLI installed, managed by agent-kit" "$STUB/status.log"'
+check "status lists wired components" 'grep -q "projectmem: CLI installed, managed by devguard" "$STUB/status.log" && grep -q "rtk: CLI installed, managed by devguard" "$STUB/status.log"'
 
-echo "== agent-kit-project init"
-repo=$(mktemp -d); (cd "$repo" && git init -q && printf 'build/' > .gitignore && agent-kit-project init > "$STUB/proj.log" 2>&1); code=$?
+echo "== devguard-project init"
+repo=$(mktemp -d); (cd "$repo" && git init -q && printf 'build/' > .gitignore && devguard-project init > "$STUB/proj.log" 2>&1); code=$?
 check "project init exit 0" '[ $code = 0 ]'
 check "codegraph index created" '[ -d "$repo/.codegraph" ]'
 check "projectmem initialized" '[ -d "$repo/.projectmem" ]'
 check ".verify/ added on its own line" '[ "$(cat "$repo/.gitignore")" = "$(printf "build/\n.verify/")" ]'
-(cd "$repo" && agent-kit-project init > /dev/null 2>&1)
+(cd "$repo" && devguard-project init > /dev/null 2>&1)
 check "project init idempotent" '[ "$(grep -c "^.verify/$" "$repo/.gitignore")" = 1 ]'
 
 echo "== uninstall (keep CLIs)"
@@ -216,22 +216,22 @@ P="$HOME/Library/LaunchAgents/com.agent-kit.scan.plist"
 check "launchd plist written and loaded" '[ -f "$P" ] && grep -q "launchctl bootstrap" "$STUB_LOG"'
 check "plist is valid XML pointing at the kit" 'python3 -c "import sys,xml.dom.minidom as m; m.parse(sys.argv[1])" "$P" && grep -q "kit with space/bin/project.sh" "$P"'
 mkdir -p "$DEV/new-from-gui" && (cd "$DEV/new-from-gui" && git init -q)
-agent-kit-project scan > "$STUB/scan.log" 2>&1
+devguard-project scan > "$STUB/scan.log" 2>&1
 check "scan sets up a repo nobody opened from a shell" '[ -d "$DEV/new-from-gui/.codegraph" ] && grep -q "setting up $DEV/new-from-gui" "$STUB/scan.log"'
 check "scan skips ready and skipped repos" '! grep -q "setting up $DEV/app$" "$STUB/scan.log" && ! grep -q "group/lib" "$STUB/scan.log"'
-check "scan is silent when nothing to do" '[ -z "$(agent-kit-project scan 2>&1)" ]'
+check "scan is silent when nothing to do" '[ -z "$(devguard-project scan 2>&1)" ]'
 
-echo "== agent-kit command"
-check "agent-kit status works" 'agent-kit status | grep -q "ok   auto setup (Claude Code)"'
-check "status shows zsh and launchd" 'agent-kit status | grep -q "ok   auto setup on cd (zsh)" && agent-kit status | grep -q "ok   auto setup scan (launchd)"'
+echo "== devguard command"
+check "devguard status works" 'devguard status | grep -q "ok   auto setup (Claude Code)"'
+check "status shows zsh and launchd" 'devguard status | grep -q "ok   auto setup on cd (zsh)" && devguard status | grep -q "ok   auto setup scan (launchd)"'
 rm "$DEV/group/lib/.agent-kit-skip"
-agent-kit init --all > "$STUB/initall.log" 2>&1
-check "agent-kit init --all sets up nested repos" '[ -d "$DEV/group/lib/.codegraph" ] && grep -q "Done: 4 repositories" "$STUB/initall.log"'
-(cd "$HOME/elsewhere/other" && agent-kit skip > /dev/null)
-check "agent-kit skip creates marker" '[ -f "$HOME/elsewhere/other/.agent-kit-skip" ]'
-check "unknown command rejected" '! agent-kit frobnicate 2>/dev/null'
+devguard init --all > "$STUB/initall.log" 2>&1
+check "devguard init --all sets up nested repos" '[ -d "$DEV/group/lib/.codegraph" ] && grep -q "Done: 4 repositories" "$STUB/initall.log"'
+(cd "$HOME/elsewhere/other" && devguard skip > /dev/null)
+check "devguard skip creates marker" '[ -f "$HOME/elsewhere/other/.agent-kit-skip" ]'
+check "unknown command rejected" '! devguard frobnicate 2>/dev/null'
 
-echo "== agent-kit doctor (detect and fix all 7 issue types)"
+echo "== devguard doctor (detect and fix all 7 issue types)"
 # Seed all 7 failure modes into the throwaway HOME:
 printf '#!/bin/sh\necho "tokless $*" >> "$STUB_LOG"\n' > "$HOME/.local/bin/tokless"; chmod +x "$HOME/.local/bin/tokless"
 printf '# tokless\n# >>> tokless path >>>\nPATH=":"\n# <<< tokless path <<<\n' >> "$HOME/.zshrc"
@@ -245,13 +245,13 @@ echo '{"mcpServers":{"projectmem":{"command":"old"}}}' > "$HOME/.gemini/antigrav
 rm -rf "$HOME/.gemini/config/plugins/rtk"
 printf '<!-- agent-kit:begin -->\n# stale rules\n<!-- agent-kit:end -->\n' > "$HOME/.claude/CLAUDE.md"
 echo "1.6.0" > "$STUB/bin/cg.ver"
-agent-kit doctor > "$STUB/doc1.log" 2>&1; code=$?
+devguard doctor > "$STUB/doc1.log" 2>&1; code=$?
 check "doctor detects all 7 issues and exits 1" '[ $code = 1 ] && grep -q "Found 7 issue(s)" "$STUB/doc1.log"'
-agent-kit doctor --fix > "$STUB/docfix.log" 2>&1; code=$?
+devguard doctor --fix > "$STUB/docfix.log" 2>&1; code=$?
 check "doctor --fix repairs all 7 issues" '[ $code = 0 ] && grep -q "7 repaired" "$STUB/docfix.log"'
 check "doctor ran tokless proxy stop and disable before removing" 'grep -q "tokless proxy stop" "$STUB_LOG" && grep -q "tokless disable" "$STUB_LOG"'
 check "doctor cleaned ANTHROPIC_BASE_URL and extraKnownMarketplaces" '! jq -e ".env or .extraKnownMarketplaces or .enabledPlugins" "$HOME/.claude/settings.json" >/dev/null 2>&1'
-agent-kit doctor > "$STUB/doc2.log" 2>&1; code=$?
+devguard doctor > "$STUB/doc2.log" 2>&1; code=$?
 check "doctor clean after --fix" '[ $code = 0 ] && grep -q "0 issues" "$STUB/doc2.log" && [ "$(cat "$STUB/bin/cg.ver")" = "1.6.2" ]'
 
 echo "== turn automatic setup off"
@@ -281,7 +281,7 @@ git -C "$BK" remote set-url origin "$BK" 2>/dev/null || git -C "$BK" remote add 
 git -C "$BK" fetch -q origin 2>/dev/null; git -C "$BK" branch -q -u origin/main main 2>/dev/null
 cat "$KIT/bootstrap.sh" | AGENT_KIT_DIR="$BK" bash -s -- --with=none --auto-project=none > "$STUB/boot.log" 2>&1; code=$?
 check "bootstrap via pipe exit 0" '[ $code = 0 ] && grep -q "Done. Open a new terminal" "$STUB/boot.log"'
-check "bootstrap installed agent-kit command" '[ "$(readlink "$HOME/.local/bin/agent-kit")" = "$BK/bin/agent-kit" ]'
+check "bootstrap installed devguard command" '[ "$(readlink "$HOME/.local/bin/devguard")" = "$BK/bin/devguard" ]'
 "$BK/uninstall.sh" > /dev/null 2>&1
 rm -f "$HOME/.zshrc"
 unset AGENT_KIT_FORCE_LAUNCHD AGENT_KIT_LAUNCHD_DIR

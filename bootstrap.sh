@@ -16,8 +16,10 @@ main() {
   say() { printf '==> %s\n' "$*"; }
   die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
-  # Reuse an existing clone if agent-kit is already installed.
-  if [ -z "$DEST" ] && [ -L "$HOME/.local/bin/agent-kit" ]; then
+  # Reuse an existing clone if devguard is already installed.
+  if [ -z "$DEST" ] && [ -L "$HOME/.local/bin/devguard" ]; then
+    DEST=$(cd "$(dirname "$(readlink "$HOME/.local/bin/devguard")")/.." && pwd -P)
+  elif [ -z "$DEST" ] && [ -L "$HOME/.local/bin/agent-kit" ]; then
     DEST=$(cd "$(dirname "$(readlink "$HOME/.local/bin/agent-kit")")/.." && pwd -P)
   fi
   DEST=${DEST:-$HOME/.local/share/agent-kit/src}
@@ -67,7 +69,7 @@ main() {
       ;;
   esac
 
-  say "Done. Open a new terminal, restart your agents, then run: agent-kit status"
+  say "Done. Open a new terminal, restart your agents, then run: devguard status"
 }
 
 main "$@"

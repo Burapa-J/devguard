@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# agent-kit stats: unified token savings & index statistics across rtk, projectmem and codegraph.
+# devguard stats: unified token savings, index & verification statistics.
 #
-#   agent-kit stats                 compact summary across all tools and projects
-#   agent-kit stats --daily | -d    include daily rtk breakdown
-#   agent-kit stats --project | -p  current project only
-#   agent-kit stats --reset         reset rtk token counter (with confirmation, or --yes)
-#   agent-kit stats --dashboard     generate and open the projectmem HTML dashboard
+#   devguard stats                 compact summary across all tools and projects
+#   devguard stats --daily | -d    include daily rtk breakdown
+#   devguard stats --project | -p  current project only
+#   devguard stats --reset         reset rtk token counter (with confirmation, or --yes)
+#   devguard stats --dashboard     generate and open the projectmem HTML dashboard
 set -u
 
 KIT_DIR=$(cd "$(dirname "$0")/.." && pwd -P)
@@ -31,7 +31,7 @@ for arg in "$@"; do
     --dashboard) MODE="dashboard" ;;
     -h | --help)
       cat <<EOF
-Usage: agent-kit stats [options]
+Usage: devguard stats [options]
 
   (no options)        Unified summary of rtk, projectmem and codegraph stats
   -d, --daily         Show daily rtk token savings breakdown
@@ -246,4 +246,4 @@ printf "${C_BOLD}│ %-28s %8s %8s %8s %9s %12s │${C_RESET}\n" \
   "TOTAL ($v_total_repos repos)" "$v_total_runs" "$v_total_pass" "$v_total_fail" "$v_total_pct" "$v_total_lines"
 echo "${C_BOLD}╰────────────────────────────────────────────────────────────────────────────────╯${C_RESET}"
 echo "${C_OFF}Measured from .verify/*.log (# exit: 0 vs non-zero; Lines Saved = raw log lines kept on disk out of shell stdout).${C_RESET}"
-echo "${C_OFF}Tips: potless stats -d (รายวัน) · potless stats -p (โปรเจกต์นี้) · potless stats --reset (รีเซ็ตสถิติ rtk)${C_RESET}"
+echo "${C_OFF}Tips: devguard stats -d (รายวัน) · devguard stats -p (โปรเจกต์นี้) · devguard stats --reset (รีเซ็ตสถิติ rtk)${C_RESET}"

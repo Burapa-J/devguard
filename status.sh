@@ -38,7 +38,7 @@ rtk_wired() {
   esac
 }
 
-echo "${C_BOLD}╭─ potless overview ─────────────────────────────────────────────────────────────╮${C_RESET}"
+echo "${C_BOLD}╭─ devguard overview ────────────────────────────────────────────────────────────╮${C_RESET}"
 printf "${C_BOLD}│ %-18s %-10s %-10s %-10s %-10s %-10s %-8s │${C_RESET}\n" \
   "Agent" "Rules" "Skill" "codegraph" "projectmem" "rtk" "ctx-mode"
 echo "├────────────────────────────────────────────────────────────────────────────────┤"
@@ -111,7 +111,7 @@ mark "Antigravity rules block      $AG_RULES" 'has_block "$AG_RULES"'
 mark "skill (Claude Code/VS Code)  $CLAUDE_SKILLS/$SKILL_NAME" 'is_ours "$CLAUDE_SKILLS/$SKILL_NAME"'
 mark "skill (Antigravity)          $AG_SKILLS/$SKILL_NAME" 'is_ours "$AG_SKILLS/$SKILL_NAME"'
 mark "agent-verify                 $VERIFY_LINK" 'is_ours "$VERIFY_LINK"'
-mark "agent-kit-project            $PROJECT_LINK" 'is_ours "$PROJECT_LINK"'
+mark "devguard-project             $PROJECT_LINK" 'is_ours "$PROJECT_LINK"'
 mark "compaction hook              $CLAUDE_SETTINGS" '[ -f "$CLAUDE_SETTINGS" ] && grep -qF "$HOOK_CMD" "$CLAUDE_SETTINGS"'
 mark "auto setup (Claude Code)     $AUTO_ROOTS" '[ -f "$AUTO_ROOTS" ] && grep -qF "$AUTO_HOOK_CMD" "$CLAUDE_SETTINGS" 2>/dev/null'
 [ -f "$AUTO_ROOTS" ] && sed 's/^/         root: /' "$AUTO_ROOTS"
@@ -119,8 +119,7 @@ mark "auto setup on cd (zsh)       $ZSHRC" '[ -f "$ZSHRC" ] && grep -qxF "$ZSH_B
 if use_launchd; then
   mark "auto setup scan (launchd)    $LAUNCHD_PLIST" '[ -f "$LAUNCHD_PLIST" ]'
 fi
-mark "potless command              $POTLESS_LINK" 'is_ours "$POTLESS_LINK"'
-mark "agent-kit command            $CLI_LINK" 'is_ours "$CLI_LINK"'
+mark "devguard command             $CLI_LINK" 'is_ours "$CLI_LINK"'
 mark "\$HOME/.local/bin on PATH" 'case ":$PATH:" in *":$HOME/.local/bin:"*) true ;; *) false ;; esac'
 
 echo
@@ -128,7 +127,7 @@ echo "Components"
 for c in $ALL_COMPONENTS; do
   f=$(fn_name "$c")
   managed="not managed"
-  [ -d "$(state_dir "$c")" ] && managed="managed by agent-kit (wired: $(state_wired "$c" | tr '\n' ' '))"
+  [ -d "$(state_dir "$c")" ] && managed="managed by devguard (wired: $(state_wired "$c" | tr '\n' ' '))"
   if "${f}_present"; then cli="CLI installed"; else cli="CLI missing"; fi
   echo "  $c: $cli, $managed"
   "${f}_status"

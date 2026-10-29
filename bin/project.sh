@@ -28,13 +28,13 @@ for a in "$@"; do [ "$a" = --dry-run ] && DRY_RUN=1; done
 BACKUP_DIR=""
 
 usage() {
-  echo "usage: agent-kit-project init [--dry-run] | init-all <dir> [--dry-run] | auto | scan" >&2
+  echo "usage: devguard-project init [--dry-run] | init-all <dir> [--dry-run] | auto | scan" >&2
   exit 64
 }
 
 if [ "$cmd" = "-h" ] || [ "$cmd" = "--help" ] || [ "$cmd" = "help" ]; then
   cat <<EOF
-Usage: agent-kit-project <subcommand> [options]
+Usage: devguard-project <subcommand> [options]
 
   init [--dry-run]            Set up the current git repository (.gitignore, codegraph, projectmem)
   init-all <dir> [--dry-run]  Set up every git repository under <dir> (1-2 levels deep)
