@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -680,12 +680,7 @@ devguard uninstall --purge       # Also uninstall tool CLIs that devguard instal
     const html = document.documentElement;
     const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', next);
-    localStorage.setItem('devguard-theme', next);
   }
-  (function() {
-    const saved = localStorage.getItem('devguard-theme');
-    if (saved) document.documentElement.setAttribute('data-theme', saved);
-  })();
   function copyCode(btn) {
     const pre = btn.closest('.code-block').querySelector('pre');
     navigator.clipboard.writeText(pre.innerText).then(() => {
