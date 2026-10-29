@@ -1,680 +1,699 @@
 <!DOCTYPE html>
-<html lang="th" data-lang="th">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>devguard — Evidence-First Workflow & Token-Saving Toolkit for AI Coding Agents</title>
-  <meta name="description" content="devguard: Guard your AI coding workflow with runtime proof (verified-dev) and 38–90% shell/context token savings across Claude Code, VS Code Copilot, Antigravity, Cursor, OpenCode, Codex CLI, and Gemini CLI.">
+  <title>devguard Documentation — Evidence-First Workflow & Token-Saving Toolkit</title>
+  <meta name="description" content="Official documentation for devguard: an evidence-first working mode (verified-dev) and token-saving CLI/MCP toolkit for Claude Code, VS Code Copilot, Antigravity, Cursor, OpenCode, Codex CLI, and Gemini CLI.">
   <style>
-    :root {
-      --bg: #0b0f17;
-      --bg-card: #121826;
-      --bg-term: #090d14;
-      --border: #1f293d;
+    :root, html[data-theme="light"] {
+      --bg: #ffffff;
+      --bg-subtle: #f6f8fa;
+      --bg-code: #f6f8fa;
+      --border: #d0d7de;
+      --border-muted: #d8dee4;
+      --text: #1f2328;
+      --text-muted: #59636e;
+      --link: #0969da;
+      --accent-bg: #ddf4ff;
+      --accent-border: #54aeff;
+      --ok: #1a7f37;
+      --warn: #9a6700;
+    }
+    html[data-theme="dark"] {
+      --bg: #0d1117;
+      --bg-subtle: #161b22;
+      --bg-code: #161b22;
+      --border: #30363d;
+      --border-muted: #21262d;
       --text: #e6edf3;
-      --muted: #8b949e;
-      --accent: #38bdf8;
-      --accent-2: #34d399;
-      --warn: #fbbf24;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
-      --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      --text-muted: #8b949e;
+      --link: #58a6ff;
+      --accent-bg: rgba(56, 139, 253, 0.1);
+      --accent-border: rgba(56, 139, 253, 0.4);
+      --ok: #3fb950;
+      --warn: #d29922;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: radial-gradient(circle at 50% 0%, #152238 0%, var(--bg) 55%);
+      background: var(--bg);
       color: var(--text);
-      font-family: var(--font-sans);
-      line-height: 1.65;
-      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
     }
-    a { color: var(--accent); text-decoration: none; }
+    a { color: var(--link); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    .container { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
 
-    /* Bilingual toggle */
-    html[data-lang="th"] .lang-en { display: none !important; }
-    html[data-lang="en"] .lang-th { display: none !important; }
-
-    /* Navbar */
-    header {
+    /* Top Header (GitHub / VitePress style) */
+    .topbar {
       position: sticky;
       top: 0;
-      z-index: 20;
-      backdrop-filter: blur(12px);
-      background: rgba(11, 15, 23, 0.82);
+      z-index: 30;
+      height: 56px;
+      background: var(--bg);
       border-bottom: 1px solid var(--border);
-    }
-    .nav {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 64px;
+      padding: 0 24px;
     }
-    .brand {
+    .topbar-left {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 1.15rem;
-      letter-spacing: -0.02em;
+      gap: 12px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: var(--text);
     }
-    .brand-badge {
+    .topbar-left a { color: var(--text); text-decoration: none; }
+    .version-tag {
+      font-size: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.875rem;
+    }
+    .lang-switch {
       display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      color: #06101a;
-      font-family: var(--font-mono);
-      font-weight: 800;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
     }
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      font-size: 0.92rem;
+    .lang-switch a {
+      padding: 4px 10px;
+      color: var(--text-muted);
+      background: var(--bg);
+      font-size: 0.82rem;
+      font-weight: 500;
+      text-decoration: none;
     }
-    .lang-btn {
-      background: var(--bg-card);
+    .lang-switch a.active {
+      background: var(--bg-subtle);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .theme-btn {
+      background: var(--bg-subtle);
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 6px 12px;
       border-radius: 6px;
+      padding: 4px 10px;
       cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-    .lang-btn:hover { border-color: var(--accent); }
-
-    /* Hero */
-    .hero {
-      padding: 68px 0 44px;
-      text-align: center;
-    }
-    .pill {
-      display: inline-block;
-      padding: 5px 14px;
-      border-radius: 999px;
       font-size: 0.82rem;
-      font-weight: 600;
-      background: rgba(56, 189, 248, 0.12);
-      color: var(--accent);
-      border: 1px solid rgba(56, 189, 248, 0.28);
-      margin-bottom: 20px;
+    }
+
+    /* Main Layout with Sticky Sidebar */
+    .layout {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 40px;
+      padding: 32px 24px 64px;
+    }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      position: sticky;
+      top: 80px;
+      align-self: start;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      padding-right: 12px;
+      font-size: 0.875rem;
+    }
+    .nav-group { margin-bottom: 20px; }
+    .nav-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .nav-list { list-style: none; }
+    .nav-list li { margin-bottom: 4px; }
+    .nav-list a {
+      display: block;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+    .nav-list a:hover {
+      background: var(--bg-subtle);
+      color: var(--text);
+    }
+
+    /* Documentation Content */
+    .content { max-width: 860px; }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
     }
     h1 {
-      font-size: clamp(2.1rem, 4.5vw, 3.25rem);
-      line-height: 1.18;
-      letter-spacing: -0.03em;
-      margin-bottom: 18px;
+      font-size: 2rem;
+      font-weight: 600;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-muted);
+      margin-bottom: 16px;
     }
-    .gradient-text {
-      background: linear-gradient(90deg, #38bdf8, #34d399);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    h2 {
+      font-size: 1.45rem;
+      font-weight: 600;
+      margin-top: 38px;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-muted);
+      scroll-margin-top: 72px;
     }
-    .subtitle {
-      max-width: 740px;
-      margin: 0 auto 32px;
-      color: var(--muted);
-      font-size: 1.08rem;
-    }
-
-    /* Install Box */
-    .install-card {
-      max-width: 780px;
-      margin: 0 auto 40px;
-      background: var(--bg-term);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 20px;
-      text-align: left;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-    }
-    .install-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    h3 {
+      font-size: 1.12rem;
+      font-weight: 600;
+      margin-top: 24px;
       margin-bottom: 10px;
-      font-size: 0.82rem;
-      color: var(--muted);
+      scroll-margin-top: 72px;
     }
-    .install-row {
+    p { margin-bottom: 14px; color: var(--text); }
+    ul, ol { margin-bottom: 16px; padding-left: 24px; }
+    li { margin-bottom: 6px; }
+
+    /* Callouts */
+    .callout {
+      background: var(--accent-bg);
+      border-left: 4px solid var(--accent-border);
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      margin: 16px 0;
+      font-size: 0.94rem;
+    }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    /* Code & Pre */
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85em;
+      background: var(--bg-code);
+      border: 1px solid var(--border-muted);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    .code-block {
+      position: relative;
+      margin: 14px 0 20px;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .code-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      font-family: var(--font-mono);
-      font-size: 0.9rem;
-      overflow-x: auto;
-      color: #a5f3fc;
+      align-items: center;
+      padding: 6px 12px;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     }
     .copy-btn {
-      flex-shrink: 0;
-      background: rgba(56, 189, 248, 0.15);
-      color: var(--accent);
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      padding: 7px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-family: var(--font-sans);
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
-    .copy-btn:hover { background: rgba(56, 189, 248, 0.25); }
-
-    /* Terminal Showcase */
-    .term-window {
-      background: var(--bg-term);
+      background: var(--bg);
+      color: var(--text-muted);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 56px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-    }
-    .term-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      background: #141c2b;
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .term-dots { display: flex; gap: 7px; }
-    .dot { width: 11px; height: 11px; border-radius: 50%; }
-    .dot.r { background: #ef4444; }
-    .dot.y { background: #f59e0b; }
-    .dot.g { background: #10b981; }
-    .term-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-    .term-tab {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid transparent;
-      padding: 5px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-    }
-    .term-tab.active {
-      background: rgba(56, 189, 248, 0.14);
-      color: var(--accent);
-      border-color: rgba(56, 189, 248, 0.35);
-    }
-    .term-body {
-      padding: 20px;
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-      line-height: 1.55;
-      overflow-x: auto;
-      white-space: pre;
-      color: #d1d5db;
-    }
-    .c-ok { color: var(--accent-2); }
-    .c-cyan { color: var(--accent); }
-    .c-warn { color: var(--warn); }
-    .c-dim { color: #6b7280; }
-
-    /* Sections */
-    section { padding: 44px 0; border-top: 1px solid var(--border); }
-    h2 {
-      font-size: 1.7rem;
-      margin-bottom: 12px;
-      letter-spacing: -0.02em;
-    }
-    .sec-lead {
-      color: var(--muted);
-      margin-bottom: 28px;
-      max-width: 760px;
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
-      gap: 20px;
-    }
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 18px;
-    }
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 22px;
-    }
-    .card h3 {
-      font-size: 1.1rem;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .card p, .card li { color: var(--muted); font-size: 0.94rem; }
-    .card ul { padding-left: 18px; margin-top: 8px; }
-    .card li { margin-bottom: 6px; }
-    code {
-      font-family: var(--font-mono);
-      font-size: 0.86em;
-      background: rgba(255, 255, 255, 0.07);
-      padding: 2px 6px;
       border-radius: 4px;
-      color: #e2e8f0;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--text-muted); }
+    pre {
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
     }
 
     /* Tables */
     .table-wrap {
       overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--bg-card);
+      margin: 14px 0 22px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.92rem;
+      font-size: 0.9rem;
     }
     th, td {
-      padding: 13px 16px;
+      border: 1px solid var(--border);
+      padding: 8px 13px;
       text-align: left;
-      border-bottom: 1px solid var(--border);
     }
     th {
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text);
+      background: var(--bg-subtle);
       font-weight: 600;
     }
-    td { color: var(--muted); }
-    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: rgba(127, 127, 127, 0.03); }
 
-    /* Agent badges */
-    .agents-bar {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 22px;
-    }
-    .agent-pill {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 7px 14px;
-      border-radius: 8px;
-      font-size: 0.86rem;
-      color: var(--text);
-    }
+    .ok { color: var(--ok); font-weight: 600; }
+    .muted { color: var(--text-muted); }
 
     footer {
+      margin-top: 56px;
+      padding-top: 20px;
       border-top: 1px solid var(--border);
-      padding: 36px 0 56px;
-      color: var(--muted);
-      font-size: 0.88rem;
-      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
     }
   </style>
 </head>
 <body>
 
-<header>
-  <div class="container nav">
-    <div class="brand">
-      <span class="brand-badge">dg</span>
-      <span>devguard</span>
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="index.html">devguard</a>
+    <span class="version-tag">MIT License</span>
+  </div>
+  <div class="topbar-right">
+    <div class="lang-switch">
+      <a href="index.html" class="active">English</a>
+      <a href="th.html">ภาษาไทย</a>
     </div>
-    <div class="nav-links">
-      <a href="#features"><span class="lang-th">จุดเด่น</span><span class="lang-en">Features</span></a>
-      <a href="#tools"><span class="lang-th">เครื่องมือ</span><span class="lang-en">Tools</span></a>
-      <a href="#commands"><span class="lang-th">คำสั่งใช้งาน</span><span class="lang-en">Commands</span></a>
-      <a href="https://github.com/Burapa-J/devguard" target="_blank" rel="noopener">GitHub ↗</a>
-      <button class="lang-btn" id="langToggle" onclick="toggleLang()">EN / ไทย</button>
-    </div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle dark/light theme">Theme ☾/☀</button>
+    <a href="https://github.com/Burapa-J/devguard" target="_blank" rel="noopener">GitHub ↗</a>
   </div>
 </header>
 
-<main class="container">
-  <!-- Hero -->
-  <div class="hero">
-    <span class="pill">
-      <span class="lang-th">การ์ดคุมคุณภาพงานพัฒนา + ประหยัด Token สำหรับ AI Coding Agents</span>
-      <span class="lang-en">Evidence-First Workflow + Token-Saving Toolkit for AI Agents</span>
-    </span>
-    <h1>
-      <span class="lang-th">ห้ามบอกว่า "เสร็จ" ถ้าไม่มีหลักฐาน<br><span class="gradient-text">พร้อมประหยัด Token อัตโนมัติทั้งเครื่อง</span></span>
-      <span class="lang-en">No "Done" Without Runtime Proof.<br><span class="gradient-text">38–90% Leaner Context Across Every Agent.</span></span>
-    </h1>
-    <p class="subtitle">
-      <span class="lang-th">
-        ติดตั้งครั้งเดียว เชื่อมทั้งวิธีทำงาน <code>verified-dev</code> (สกัดจาก <code>pstack</code>, <code>Karpathy</code>, <code>Ponytail</code>) และเครื่องมือประหยัด Token (<code>codegraph</code>, <code>projectmem</code>, <code>rtk</code>, <code>ast-grep</code>, <code>xcbeautify</code>) เข้ากับทุก AI Agent ในเครื่องของคุณ
-      </span>
-      <span class="lang-en">
-        Install once to wire the <code>verified-dev</code> engineering workflow and pinned token-saving tools (<code>codegraph</code>, <code>projectmem</code>, <code>rtk</code>, <code>ast-grep</code>, <code>xcbeautify</code>) across all your AI coding agents.
-      </span>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="nav-group">
+      <div class="nav-title">Getting Started</div>
+      <ul class="nav-list">
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#install">Installation</a></li>
+        <li><a href="#quickstart">Quickstart</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Architecture</div>
+      <ul class="nav-list">
+        <li><a href="#working-mode">1. Working Mode (verified-dev)</a></li>
+        <li><a href="#components">2. Components & CLI Tools</a></li>
+        <li><a href="#supported-agents">Supported Agents</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Usage & Reference</div>
+      <ul class="nav-list">
+        <li><a href="#commands">CLI Commands</a></li>
+        <li><a href="#verification">Verification (agent-verify)</a></li>
+        <li><a href="#metrics">Measuring ROI (stats)</a></li>
+        <li><a href="#doctor">Health Checks (doctor)</a></li>
+        <li><a href="#auto-setup">Automatic Repo Setup</a></li>
+        <li><a href="#uninstall">Uninstalling</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="badges">
+      <span class="badge">Platform: macOS · Linux</span>
+      <span class="badge">Shell: Bash 3.2+ · Zsh</span>
+      <span class="badge">Agents: Claude Code · Copilot · Antigravity · Cursor · OpenCode · Codex · Gemini</span>
+    </div>
+
+    <h1 id="overview">devguard</h1>
+    <p>
+      <strong>devguard</strong> is an evidence-first engineering workflow (<code>verified-dev</code>) combined with a curated, version-pinned toolkit of token-saving MCP servers and CLI tools. Install it once and share the exact same engineering discipline and tool wiring across <strong>Claude Code</strong>, <strong>VS Code (Copilot)</strong>, <strong>Google Antigravity</strong>, <strong>Cursor</strong>, <strong>OpenCode</strong>, <strong>Codex CLI</strong>, and <strong>Gemini CLI</strong>.
     </p>
 
-    <div class="install-card">
-      <div class="install-header">
-        <span>
-          <span class="lang-th">ติดตั้งในคำสั่งเดียว (macOS / Linux)</span>
-          <span class="lang-en">One-Command Install (macOS / Linux)</span>
-        </span>
-        <span>bash / zsh</span>
-      </div>
-      <div class="install-row">
-        <span id="installCmd">curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash</span>
-        <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
-      </div>
+    <div class="callout">
+      <strong>Design Philosophy</strong>
+      Two layers that never interfere with each other:
+      (1) <strong>Working mode</strong> enforces task-specific playbooks, read-only investigation on questions, and mandatory runtime proof before claiming "done".
+      (2) <strong>Token-saving tools</strong> compress routine shell output and index your codebase's AST call graph while keeping verification logs completely intact.
     </div>
 
-    <div class="agents-bar">
-      <span class="agent-pill">✓ Claude Code</span>
-      <span class="agent-pill">✓ VS Code (Copilot)</span>
-      <span class="agent-pill">✓ Google Antigravity</span>
-      <span class="agent-pill">✓ Cursor IDE</span>
-      <span class="agent-pill">✓ OpenCode</span>
-      <span class="agent-pill">✓ Codex CLI</span>
-      <span class="agent-pill">✓ Gemini CLI</span>
-    </div>
-  </div>
+    <h2 id="install">Installation</h2>
+    <p>Quit running instances of Claude Code, VS Code, and Antigravity first (so they do not overwrite their config files on exit), then run:</p>
 
-  <!-- Interactive Terminal Preview -->
-  <div class="term-window">
-    <div class="term-bar">
-      <div class="term-dots">
-        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh — One-command bootstrap (macOS / Linux)</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
       </div>
-      <div class="term-tabs">
-        <button class="term-tab active" onclick="showTab('status', this)">$ devguard status</button>
-        <button class="term-tab" onclick="showTab('stats', this)">$ devguard stats</button>
-        <button class="term-tab" onclick="showTab('doctor', this)">$ devguard doctor</button>
-        <button class="term-tab" onclick="showTab('verify', this)">$ agent-verify</button>
-      </div>
+      <pre><code>curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash</code></pre>
     </div>
-    <div class="term-body" id="termContent"></div>
-  </div>
 
-  <!-- Why devguard -->
-  <section id="features">
-    <h2>
-      <span class="lang-th">ทำไมต้องใช้ devguard?</span>
-      <span class="lang-en">Why devguard?</span>
-    </h2>
-    <p class="sec-lead">
-      <span class="lang-th">แก้ 2 ปัญหาใหญ่ของการใช้ AI เขียนโค้ด: <strong>(1) AI ชอบสรุปว่าเสร็จทั้งที่โค้ดยังรันไม่ผ่าน</strong> และ <strong>(2) เปลือง Token ไปกับการอ่านไฟล์ซ้ำและ log ยาวเหยียด</strong></span>
-      <span class="lang-en">Solves the two biggest failure modes of AI coding agents: <strong>(1) unverified "done" claims</strong> and <strong>(2) context windows bloated by raw shell output and blind file searches</strong>.</span>
+    <p>The bootstrap script performs the following idempotent steps:</p>
+    <ol>
+      <li>Installs missing prerequisites via Homebrew (<code>git</code>, <code>jq</code>, <code>python3</code>, <code>node</code>, <code>xcbeautify</code>, <code>ast-grep</code>).</li>
+      <li>Clones the repository to <code>~/.local/share/agent-kit/src</code> (or updates an existing clone).</li>
+      <li>Runs <code>./install.sh</code> with the default setup: global rules, the <code>verified-dev</code> skill, compaction reminder hook, <code>codegraph</code>, <code>projectmem</code>, <code>rtk</code>, and automatic repository indexing under <code>~/Developer</code>.</li>
+      <li>Ensures <code>~/.local/bin</code> is on your <code>PATH</code>.</li>
+    </ol>
+
+    <h3>Custom Install Options</h3>
+    <p>If you already cloned the repository, run <code>./install.sh</code> directly or pass flags through bootstrap after <code>bash -s --</code>:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>./install.sh --dry-run                                        # Preview changes without modifying any files
+./install.sh --with=codegraph,projectmem,rtk,context-mode     # Enable optional context-mode component
+./install.sh --targets=claude,vscode,antigravity              # Configure specific agents only
+./install.sh --auto-project=~/Developer,~/Work                # Customize auto-indexed directories</code></pre>
+    </div>
+
+    <h2 id="quickstart">Quickstart</h2>
+    <p>After installation, open a new terminal and verify your setup:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>devguard status        # View the agent &amp; tool wiring matrix
+devguard doctor        # Run all 7 installation health checks
+devguard stats         # View token savings, AST graph coverage, and verification pass rates</code></pre>
+    </div>
+
+    <h2 id="working-mode">1. Working Mode (<code>verified-dev</code>)</h2>
+    <p>
+      Adapted from ideas in Lauren Tan's <a href="https://github.com/cursor/plugins/tree/main/pstack" target="_blank" rel="noopener">pstack</a>, Andrej Karpathy's coding guidelines, and Ponytail, the working mode consists of an 8-line always-on block (<code>rules/core.md</code>) and an on-demand skill (<code>skills/verified-dev/SKILL.md</code>):
     </p>
+    <ul>
+      <li><strong>Route by task type:</strong> Every request routes to one explicit playbook: <em>Investigation</em>, <em>Bug fix</em>, <em>Feature</em>, <em>Refactor</em>, <em>Perf issue</em>, or <em>Prompt / LLM pipeline</em>.</li>
+      <li><strong>Read-only on questions &amp; plan reviews:</strong> When you ask a question, discuss tradeoffs, or review a plan, the agent stays strictly read-only until you ask to implement.</li>
+      <li><strong>Smallest change &amp; sibling-caller checks:</strong> Checks every caller of a modified function via <code>codegraph_explore</code> and fixes the shared path once.</li>
+      <li><strong>Runtime evidence required:</strong> A successful build is never proof. Every "done" must cite the command, exit code, and relevant passing/failing lines from <code>.verify/&lt;name&gt;.log</code>.</li>
+    </ul>
 
-    <div class="grid-2">
-      <div class="card">
-        <h3>🛡️ <span class="lang-th">ชั้นที่ 1: Evidence-First Working Mode</span><span class="lang-en">Layer 1: Evidence-First Working Mode</span></h3>
-        <ul>
-          <li>
-            <span class="lang-th"><strong>โหมดอ่านอย่างเดียวเมื่อถามคำถาม:</strong> เมื่อคุณถามหรือปรึกษาแนวทาง AI จะไม่แอบแก้ไฟล์จนกว่าคุณจะสั่งให้ลงมือ</span>
-            <span class="lang-en"><strong>Read-only on questions & plans:</strong> Discussing options or asking "should we do X or Y?" never mutates files until you ask to implement.</span>
-          </li>
-          <li>
-            <span class="lang-th"><strong>เลือก Playbook ตามงาน:</strong> แยกขั้นตอนชัดเจนสำหรับ Investigation, Bug fix, Feature, Refactor, Perf และ LLM Pipeline</span>
-            <span class="lang-en"><strong>Task-specific playbooks:</strong> Dedicated workflows for Investigation, Bug fix, Feature, Refactor, Perf, and Prompt/LLM evals.</span>
-          </li>
-          <li>
-            <span class="lang-th"><strong>ต้องมีหลักฐานจริงจาก <code>agent-verify</code>:</strong> บันทึกผลรันและ exit code ลง <code>.verify/&lt;name&gt;.log</code> พร้อมชี้บรรทัดที่พัง (<code>errors_at=L...</code>)</span>
-            <span class="lang-en"><strong>Mandatory runtime proof via <code>agent-verify</code>:</strong> Captures full output to <code>.verify/&lt;name&gt;.log</code> and pinpoints failing lines (<code>errors_at=L...</code>).</span>
-          </li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h3>⚡ <span class="lang-th">ชั้นที่ 2: ประหยัด Token แบบไม่ทำลายหลักฐาน</span><span class="lang-en">Layer 2: Lossless Token Efficiency</span></h3>
-        <ul>
-          <li>
-            <span class="lang-th"><strong>บีบอัด Shell Output ด้วย <code>rtk</code>:</strong> ลดขนาดผลลัพธ์คำสั่งทั่วไปลง 38–90% โดยไม่แตะต้องไฟล์หลักฐานใน <code>.verify/*.log</code></span>
-            <span class="lang-en"><strong>Shell output compression via <code>rtk</code>:</strong> Condenses routine command output by 38–90% while keeping <code>.verify/*.log</code> untouched.</span>
-          </li>
-          <li>
-            <span class="lang-th"><strong>ค้นหาผ่านกราฟ AST ด้วย <code>codegraph</code> & <code>ast-grep</code>:</strong> รู้จุดเรียกใช้ฟังก์ชัน (Callers/Callees) ทันทีโดยไม่ต้องไล่ grep ทั้งโปรเจกต์</span>
-            <span class="lang-en"><strong>Structural AST navigation via <code>codegraph</code> & <code>ast-grep</code>:</strong> Instant caller/callee blast-radius checks without blind file reads.</span>
-          </li>
-          <li>
-            <span class="lang-th"><strong>จำสาเหตุและวิธีแก้บั๊กด้วย <code>projectmem</code>:</strong> บันทึกสิ่งที่เคยลองแล้วไม่เวิร์กและวิธีแก้ที่ผ่านแล้วไว้รายโปรเจกต์</span>
-            <span class="lang-en"><strong>Persistent issue memory via <code>projectmem</code>:</strong> Tracks root causes, failed attempts, and verified fixes per repository.</span>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- Tools Inside -->
-  <section id="tools">
-    <h2>
-      <span class="lang-th">เครื่องมือที่ติดตั้งและดูแลให้อัตโนมัติ</span>
-      <span class="lang-en">Included Components & Companion Tools</span>
-    </h2>
-    <p class="sec-lead">
-      <span class="lang-th">ติดตั้งตรงจากต้นทาง (Upstream) ด้วยเวอร์ชันที่ทดสอบแล้วว่าเสถียร ไม่มีโค้ดแปลกปลอมแฝง และไม่ใช้ local proxy ที่ทำให้เน็ตหลุด</span>
-      <span class="lang-en">Installed directly from upstream at pinned versions. No vendored binaries and no fragile local prompt proxies.</span>
-    </p>
+    <h2 id="components">2. Components &amp; Companion CLI Tools</h2>
+    <p>All third-party tools are installed directly from upstream at pinned versions. No prompt-modifying local proxies (such as headroom) are used.</p>
 
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Tool</th>
-            <th><span class="lang-th">หน้าที่หลัก</span><span class="lang-en">Role</span></th>
-            <th>Source</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Purpose</th>
+            <th>Upstream Package</th>
             <th>Default</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td><code>codegraph</code></td>
-            <td><span class="lang-th">สร้างกราฟ AST ค้นหา Symbol และจุดเรียกใช้ (รองรับ Swift, ObjC, TS, Python ฯลฯ)</span><span class="lang-en">AST symbol & call-graph index via MCP (<code>codegraph_explore</code>)</span></td>
+            <td>MCP Component</td>
+            <td>AST symbol index &amp; caller/callee graph (<code>codegraph_explore</code>)</td>
             <td>npm <code>@colbymchenry/codegraph@1.6.2</code></td>
-            <td><span class="c-ok">✓ On</span></td>
+            <td><span class="ok">Enabled</span></td>
           </tr>
           <tr>
             <td><code>projectmem</code></td>
-            <td><span class="lang-th">ความจำรายโปรเจกต์ (บั๊ก, สมมติฐานที่ลองแล้ว, วิธีแก้, การตัดสินใจ)</span><span class="lang-en">Per-project memory of issues, attempts, fixes & decisions via MCP</span></td>
+            <td>MCP Component</td>
+            <td>Per-project SQLite memory for issues, failed attempts, fixes &amp; decisions</td>
             <td>PyPI <code>projectmem==0.3.4</code> (isolated venv)</td>
-            <td><span class="c-ok">✓ On</span></td>
+            <td><span class="ok">Enabled</span></td>
           </tr>
           <tr>
             <td><code>rtk</code></td>
-            <td><span class="lang-th">ย่อผลลัพธ์คำสั่งใน Terminal ก่อนส่งเข้า Context ของ AI</span><span class="lang-en">Global shell-output compression hooks & plugins</span></td>
+            <td>Hook / Plugin</td>
+            <td>Compresses routine shell command output by 38–90% before it enters context</td>
             <td>Homebrew <code>rtk</code> (<code>1.1.0+</code>)</td>
-            <td><span class="c-ok">✓ On</span></td>
-          </tr>
-          <tr>
-            <td><code>ast-grep</code></td>
-            <td><span class="lang-th">ค้นหาและแก้โค้ดตามโครงสร้าง Tree-sitter AST แบบหลายบรรทัด</span><span class="lang-en">Tree-sitter structural search & rewriting CLI</span></td>
-            <td>Homebrew <code>ast-grep</code></td>
-            <td><span class="c-ok">✓ Companion</span></td>
-          </tr>
-          <tr>
-            <td><code>xcbeautify</code></td>
-            <td><span class="lang-th">ย่อ log ของ <code>xcodebuild</code> ให้เหลือเฉพาะสรุปและบรรทัดที่เกิด error</span><span class="lang-en">Condenses raw <code>xcodebuild</code> build and test logs</span></td>
-            <td>Homebrew <code>xcbeautify</code></td>
-            <td><span class="c-ok">✓ Companion</span></td>
+            <td><span class="ok">Enabled</span></td>
           </tr>
           <tr>
             <td><code>context-mode</code></td>
-            <td><span class="lang-th">รันคำสั่งใน Sandbox และทำดัชนีค้นหาสำหรับ Output ขนาดใหญ่</span><span class="lang-en">Sandboxed execution & indexed search via MCP (Node ≥ 22.5)</span></td>
+            <td>MCP Component</td>
+            <td>Sandboxed command execution &amp; FTS5 indexed output search (Node ≥ 22.5)</td>
             <td>npm <code>context-mode@1.0.169</code></td>
-            <td>Opt-in</td>
+            <td><span class="muted">Opt-in</span></td>
+          </tr>
+          <tr>
+            <td><code>ast-grep</code></td>
+            <td>Companion CLI</td>
+            <td>Tree-sitter structural search and multi-line AST refactoring</td>
+            <td>Homebrew <code>ast-grep</code></td>
+            <td><span class="ok">Installed</span></td>
+          </tr>
+          <tr>
+            <td><code>xcbeautify</code></td>
+            <td>Companion CLI</td>
+            <td>Condenses raw <code>xcodebuild</code> build and test logs into clean summaries</td>
+            <td>Homebrew <code>xcbeautify</code></td>
+            <td><span class="ok">Installed</span></td>
           </tr>
         </tbody>
       </table>
     </div>
-  </section>
 
-  <!-- Commands -->
-  <section id="commands">
-    <h2>
-      <span class="lang-th">คำสั่งใช้งานประจำวัน</span>
-      <span class="lang-en">Everyday Commands</span>
-    </h2>
-    <p class="sec-lead">
-      <span class="lang-th">ควบคุมทุกอย่างผ่านคำสั่งเดียว <code>devguard</code> (พิมพ์ใน Terminal แค่ <code>devg</code> แล้วกด <code>&lt;Tab&gt;</code> ได้ทันที)</span>
-      <span class="lang-en">Manage everything from a single CLI command: <code>devguard</code>.</span>
-    </p>
+    <h2 id="supported-agents">Supported Agents &amp; Config Paths</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Global Rules File</th>
+            <th>Skill Path</th>
+            <th>MCP Configuration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Claude Code</strong></td>
+            <td><code>~/.claude/CLAUDE.md</code></td>
+            <td><code>~/.claude/skills/verified-dev</code></td>
+            <td><code>~/.claude.json</code></td>
+          </tr>
+          <tr>
+            <td><strong>VS Code (Copilot)</strong></td>
+            <td><code>~/.copilot/copilot-instructions.md</code></td>
+            <td>Shared via <code>~/.claude/skills</code></td>
+            <td><code>~/Library/Application Support/Code/User/mcp.json</code></td>
+          </tr>
+          <tr>
+            <td><strong>Google Antigravity</strong></td>
+            <td><code>~/.gemini/GEMINI.md</code></td>
+            <td><code>~/.gemini/config/skills/verified-dev</code></td>
+            <td><code>~/.gemini/config/mcp_config.json</code></td>
+          </tr>
+          <tr>
+            <td><strong>Cursor</strong></td>
+            <td><code>~/.cursor/rules/devguard.mdc</code></td>
+            <td><code>~/.cursor/skills/verified-dev</code></td>
+            <td><code>~/.cursor/mcp.json</code></td>
+          </tr>
+          <tr>
+            <td><strong>OpenCode</strong></td>
+            <td><code>~/.config/opencode/AGENTS.md</code></td>
+            <td><code>~/.config/opencode/skills/verified-dev</code></td>
+            <td><code>~/.config/opencode/opencode.jsonc</code></td>
+          </tr>
+          <tr>
+            <td><strong>Codex CLI</strong></td>
+            <td><code>~/.codex/AGENTS.md</code></td>
+            <td><code>~/.codex/skills/verified-dev</code></td>
+            <td><code>~/.codex/config.toml</code></td>
+          </tr>
+          <tr>
+            <td><strong>Gemini CLI</strong></td>
+            <td><code>~/.gemini/GEMINI.md</code></td>
+            <td><code>~/.gemini/skills/verified-dev</code></td>
+            <td><code>~/.gemini/settings.json</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
+    <h2 id="commands">CLI Command Reference</h2>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Command</th>
-            <th><span class="lang-th">การทำงาน</span><span class="lang-en">Description</span></th>
+            <th>Description</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td><code>devguard</code></td>
-            <td><span class="lang-th">เปิดเมนูแบบ Interactive เลือกคำสั่งด้วยปุ่มลูกศร</span><span class="lang-en">Open the interactive terminal menu</span></td>
+            <td>Launch the interactive terminal menu</td>
           </tr>
           <tr>
             <td><code>devguard status</code></td>
-            <td><span class="lang-th">ดูตารางสถานะการเชื่อมต่อของทุก Agent และเครื่องมือในเครื่อง</span><span class="lang-en">Show the overview matrix of agents, rules, skills, and tools</span></td>
+            <td>Display the overview matrix of agents, rules, skills, components, and companion tools</td>
           </tr>
           <tr>
             <td><code>devguard doctor [--fix]</code></td>
-            <td><span class="lang-th">ตรวจสุขภาพ 7 จุดเสี่ยง (คราบปลั๊กอินเก่า, symlink, MCP, เวอร์ชัน) และซ่อมอัตโนมัติด้วย <code>--fix</code></span><span class="lang-en">Audit 7 failure modes and auto-repair with <code>--fix</code></span></td>
+            <td>Audit 7 installation failure modes; pass <code>--fix</code> to repair issues automatically</td>
           </tr>
           <tr>
-            <td><code>devguard stats [-p | -d]</code></td>
-            <td><span class="lang-th">วัดผลการประหยัด Token (<code>rtk</code>, <code>projectmem</code>), ขนาดกราฟ <code>codegraph</code> และอัตราการ Verify ผ่าน (<code>.verify/*.log</code>)</span><span class="lang-en">Measure token savings, AST graph coverage, and <code>.verify/*.log</code> pass rates</span></td>
+            <td><code>devguard stats [options]</code></td>
+            <td>Show token savings, AST index coverage, and verification pass rates (<code>-p</code> current repo, <code>-d</code> daily, <code>--dashboard</code>, <code>--reset</code>)</td>
           </tr>
           <tr>
             <td><code>devguard select</code></td>
-            <td><span class="lang-th">เลือกเปิด/ปิด Agents และเครื่องมือแบบกด Spacebar</span><span class="lang-en">Interactively enable or disable agents and components</span></td>
+            <td>Interactively choose which agents and tool components to enable or disable</td>
           </tr>
           <tr>
             <td><code>devguard update</code></td>
-            <td><span class="lang-th">ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือทั้งหมด และซิงก์การตั้งค่าใหม่</span><span class="lang-en">Pull latest updates, upgrade tools, and re-apply configuration</span></td>
+            <td>Pull the latest repository commits, upgrade tools, and re-apply all configurations</td>
           </tr>
           <tr>
             <td><code>devguard init [--all]</code></td>
-            <td><span class="lang-th">ตั้งค่าโปรเจกต์ปัจจุบัน หรือทุกโปรเจกต์ใน <code>~/Developer</code> ทันที</span><span class="lang-en">Initialize the current repo or all repos under <code>~/Developer</code></span></td>
+            <td>Initialize <code>.gitignore</code>, <code>codegraph</code>, and <code>projectmem</code> in the current repo (or all repos under auto-setup roots)</td>
+          </tr>
+          <tr>
+            <td><code>devguard skip</code></td>
+            <td>Create a <code>.agent-kit-skip</code> marker so the current repo is excluded from automatic setup</td>
           </tr>
           <tr>
             <td><code>devguard uninstall [--purge]</code></td>
-            <td><span class="lang-th">ถอดการเชื่อมต่อคืนสภาพเดิมทุกไบต์ (ใส่ <code>--purge</code> เพื่อลบ CLI ที่ระบบติดตั้งให้ด้วย)</span><span class="lang-en">Cleanly unwire everything and restore original config files</span></td>
+            <td>Remove all rules, links, hooks, and MCP wiring (<code>--purge</code> also uninstalls CLIs installed by <code>devguard</code>)</td>
           </tr>
         </tbody>
       </table>
     </div>
-  </section>
 
-  <!-- Automatic Project Setup & Safety -->
-  <section>
-    <div class="grid-3">
-      <div class="card">
-        <h3>🔄 <span class="lang-th">ตั้งค่าโปรเจกต์ให้อัตโนมัติ</span><span class="lang-en">Zero-Touch Repo Setup</span></h3>
-        <p>
-          <span class="lang-th">ทุก Git Repo ใน <code>~/Developer</code> จะถูกเพิ่ม <code>.verify/</code> ลง <code>.gitignore</code> และสร้างดัชนี <code>codegraph</code> + <code>projectmem</code> อัตโนมัติเมื่อคุณ <code>cd</code> เข้าโฟลเดอร์ หรือผ่านการสแกนเบื้องหลังทุก 30 นาที</span>
-          <span class="lang-en">Repos under <code>~/Developer</code> are automatically indexed when you <code>cd</code> into them in zsh, start Claude Code, or via a lightweight 30-minute launchd scan.</span>
-        </p>
-      </div>
-      <div class="card">
-        <h3>🩺 <span class="lang-th">ซ่อมแซมตัวเองได้ (Self-Healing)</span><span class="lang-en">Self-Healing Doctor</span></h3>
-        <p>
-          <span class="lang-th"><code>devguard doctor --fix</code> ตรวจจับและเก็บกวาดปลั๊กอินที่ตีกัน (เช่น <code>tokless</code>, <code>caveman</code>, <code>ponytail</code>), ย้ายไฟล์ MCP ให้ถูกตำแหน่ง และสำรองไฟล์เดิมไว้ที่ <code>~/.agent-kit-backup/</code> เสมอ</span>
-          <span class="lang-en"><code>devguard doctor --fix</code> detects and cleans conflicting plugins, fixes broken symlinks, migrates MCP paths, and backs up every modified file.</span>
-        </p>
-      </div>
-      <div class="card">
-        <h3>📊 <span class="lang-th">วัดผลได้จริง (Real Telemetry)</span><span class="lang-en">Verifiable ROI Metrics</span></h3>
-        <p>
-          <span class="lang-th">ไม่มีการคูณตัวเลขสมมติ <code>devguard stats</code> วัดจากจำนวน Token ที่ <code>rtk</code> ย่อจริง, จำนวนบั๊กที่บันทึกใน <code>projectmem</code> และอัตราการรันผ่านจริงจากไฟล์ <code>.verify/*.log</code></span>
-          <span class="lang-en">No fake multipliers. <code>devguard stats</code> reports real token savings from <code>rtk</code>, recorded fixes in <code>projectmem</code>, and actual pass rates from <code>.verify/*.log</code>.</span>
-        </p>
-      </div>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <div class="container">
+    <h2 id="verification">Capturing Verification Evidence (<code>agent-verify</code>)</h2>
     <p>
-      <strong>devguard</strong> — Released under the MIT License.<br>
-      Workflow adapted from ideas in <a href="https://github.com/cursor/plugins/tree/main/pstack" target="_blank" rel="noopener">pstack</a> (Lauren Tan), Karpathy Guidelines, and Ponytail.<br>
-      <a href="https://github.com/Burapa-J/devguard">GitHub Repository</a> · <a href="https://github.com/Burapa-J/devguard/blob/main/docs/USAGE.th.md">คู่มือภาษาไทย (USAGE.th.md)</a> · <a href="https://github.com/Burapa-J/devguard/blob/main/docs/UPSTREAM-RADAR.md">Upstream Radar</a>
+      Because shell compressors like <code>rtk</code> condense stdout, verification commands are run through <code>agent-verify</code>, which writes the complete unfiltered output and exit code to <code>.verify/&lt;name&gt;.log</code> and extracts failing line numbers (<code>errors_at=L...</code>):
     </p>
-  </div>
-</footer>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>agent-verify unit-tests -- swift test
+# Output: agent-verify[unit-tests] exit=0 lines=42 log=.verify/unit-tests.log
 
-<script>
-  const TABS = {
-    status: `<span class="c-cyan">╭─ devguard overview ────────────────────────────────────────────────────────────╮</span>
-│ Agent              Rules      Skill      codegraph  projectmem rtk        ctx-mode │
-├────────────────────────────────────────────────────────────────────────────────┤
-│ Claude Code        <span class="c-ok">✓ ok</span>       <span class="c-ok">✓ ok</span>       <span class="c-ok">✓ wired</span>    <span class="c-ok">✓ wired</span>    <span class="c-ok">✓ on</span>       <span class="c-ok">✓ wired</span>  │
-│ VS Code (Copilot)  <span class="c-ok">✓ ok</span>       <span class="c-ok">✓ ok</span>       <span class="c-ok">✓ wired</span>    <span class="c-ok">✓ wired</span>    <span class="c-ok">✓ on</span>       <span class="c-dim">○ off</span>    │
-│ Antigravity        <span class="c-ok">✓ ok</span>       <span class="c-ok">✓ ok</span>       <span class="c-ok">✓ wired</span>    <span class="c-ok">✓ wired</span>    <span class="c-ok">✓ on</span>       <span class="c-ok">✓ wired</span>  │
+agent-verify build-check -- xcodebuild test -scheme MyApp -destination 'platform=macOS'
+# Output: agent-verify[build-check] exit=65 lines=184 errors_at=L92,L141 log=.verify/build-check.log</code></pre>
+    </div>
+
+    <h2 id="metrics">Measuring ROI &amp; Workflow Quality (<code>devguard stats</code>)</h2>
+    <p>Run <code>devguard stats</code> to view three real-data telemetry tables across your machine:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>Terminal Output — devguard stats</span>
+      </div>
+      <pre><code>╭─ 1. RTK Shell Compression Savings ─────────────────────────────────────────────╮
+Total commands:    2446                 Tokens saved:      194.2K (38.6%)
+Efficiency meter:  █████████░░░░░░░░░░░░░░░ 38.6%
 ╰────────────────────────────────────────────────────────────────────────────────╯
-
-Companion Tools
-  <span class="c-ok">ok</span>   ast-grep 0.51.0              /opt/homebrew/bin/ast-grep
-  <span class="c-ok">ok</span>   xcbeautify 3.2.1             /opt/homebrew/bin/xcbeautify`,
-
-    stats: `<span class="c-cyan">╭─ 1. RTK Shell Compression Savings ─────────────────────────────────────────────╮</span>
-Total commands:    2446                 Tokens saved:      <span class="c-ok">194.2K (38.6%)</span>
-Efficiency meter:  <span class="c-ok">█████████░░░░░░░░░░░░░░░ 38.6%</span>
-╰────────────────────────────────────────────────────────────────────────────────╯
-<span class="c-cyan">╭─ 2. Repositories (CodeGraph & ProjectMem) ─────────────────────────────────────╮</span>
+╭─ 2. Repositories (CodeGraph &amp; ProjectMem) ─────────────────────────────────────╮
 │ Repository                      Files  Symbols    Edges    Fixes Tokens Saved │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│ TOTAL (8 repos)                   655    16207    46092       51       <span class="c-ok">134000</span> │
+│ TOTAL (8 repos)                   655    16207    46092       51       134000 │
 ╰────────────────────────────────────────────────────────────────────────────────╯
-<span class="c-cyan">╭─ 3. Verification & Workflow Quality (.verify/*.log) ───────────────────────────╮</span>
+╭─ 3. Verification &amp; Workflow Quality (.verify/*.log) ───────────────────────────╮
 │ Repository                   Verifies   Passed   Failed Pass Rate  Lines Saved │
 ├────────────────────────────────────────────────────────────────────────────────┤
-│ TOTAL (5 repos)                   135      127        8       <span class="c-ok">94%</span>        <span class="c-ok">22497</span> │
-╰────────────────────────────────────────────────────────────────────────────────╯`,
+│ TOTAL (5 repos)                   135      127        8       94%        22497 │
+╰────────────────────────────────────────────────────────────────────────────────╯</code></pre>
+    </div>
 
-    doctor: `<span class="c-cyan">╭─ devguard doctor ──────────────────────────────────────────────────────────────╮</span>
-  <span class="c-ok">✓ ok</span>     1. No legacy tokless residue
-  <span class="c-ok">✓ ok</span>     2. ~/.local/bin symlinks healthy
-  <span class="c-ok">✓ ok</span>     3. No conflicting plugins (caveman, ponytail, cavecrew)
-  <span class="c-ok">✓ ok</span>     4. MCP configurations in canonical paths
-  <span class="c-ok">✓ ok</span>     5. RTK global plugin and hooks healthy
-  <span class="c-ok">✓ ok</span>     6. Core rules blocks match rules/core.md
-  <span class="c-ok">✓ ok</span>     7. Component & companion CLI versions healthy (codegraph, projectmem, rtk, ast-grep, xcbeautify)
-╰────────────────────────────────────────────────────────────────────────────────╯
-Everything looks healthy (0 issues).`,
+    <h2 id="doctor">Self-Healing Health Checks (<code>devguard doctor</code>)</h2>
+    <p><code>devguard doctor</code> audits 7 common configuration problems and repairs them automatically when invoked with <code>--fix</code>:</p>
+    <ol>
+      <li>Legacy <code>tokless</code> residue (leftover binaries, <code>ANTHROPIC_BASE_URL</code> proxy env in <code>~/.claude/settings.json</code>, and <code>.zshrc</code> blocks).</li>
+      <li>Broken or stale symlinks in <code>~/.local/bin</code>.</li>
+      <li>Conflicting brevity/workflow plugins (<code>caveman</code>, <code>ponytail</code>, <code>cavecrew</code>).</li>
+      <li>MCP server configuration drift across canonical agent files.</li>
+      <li>RTK global plugin &amp; hook registration for Google Antigravity.</li>
+      <li>Synchronization of <code>&lt;!-- agent-kit:begin --&gt;</code> blocks against <code>rules/core.md</code>.</li>
+      <li>Version drift of pinned components and presence of companion tools (<code>ast-grep</code>, <code>xcbeautify</code>).</li>
+    </ol>
 
-    verify: `$ agent-verify unit-tests -- swift test
-<span class="c-ok">agent-verify[unit-tests] exit=0 lines=42 log=.verify/unit-tests.log</span>
+    <h2 id="auto-setup">Automatic Repository Setup</h2>
+    <p>
+      Every Git repository under <code>~/Developer</code> (1–2 levels deep) is automatically configured once: <code>.verify/</code> is appended to <code>.gitignore</code>, <code>codegraph init</code> builds the AST index, and <code>pjm init</code> initializes per-repo memory. Setup is triggered via:
+    </p>
+    <ul>
+      <li><strong>Claude Code SessionStart hook</strong> when opening a project in Claude Code.</li>
+      <li><strong>zsh <code>chpwd</code> hook</strong> when you <code>cd</code> into a repository in any terminal.</li>
+      <li><strong>macOS <code>launchd</code> background scan</strong> every 30 minutes (covering GUI-cloned repositories in VS Code and Antigravity).</li>
+    </ul>
 
-$ agent-verify build-check -- xcodebuild test -scheme MyApp
-<span class="c-warn">agent-verify[build-check] exit=65 lines=184 errors_at=L92,L141 log=.verify/build-check.log</span>
-<span class="c-dim"># Jump straight to lines 92 and 141 in .verify/build-check.log with read_file — zero truncated output.</span>`
-  };
+    <h2 id="uninstall">Uninstalling</h2>
+    <p>Every modified file is backed up to <code>~/.agent-kit-backup/&lt;timestamp&gt;/</code> before editing, and uninstalling restores your original files byte-for-byte:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>devguard uninstall --dry-run     # Preview what will be removed
+devguard uninstall               # Remove rules, skills, hooks, and MCP wiring (keep tool CLIs)
+devguard uninstall --purge       # Also uninstall tool CLIs that devguard installed</code></pre>
+    </div>
 
-  function showTab(key, btn) {
-    document.getElementById('termContent').innerHTML = TABS[key];
-    document.querySelectorAll('.term-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
+    <footer>
+      <span>Released under the <a href="https://github.com/Burapa-J/devguard/blob/main/LICENSE">MIT License</a>.</span>
+      <span><a href="th.html">อ่านคู่มือภาษาไทย →</a></span>
+    </footer>
+  </main>
+</div>
 
-  function toggleLang() {
+<script>
+  function toggleTheme() {
     const html = document.documentElement;
-    const next = html.getAttribute('data-lang') === 'th' ? 'en' : 'th';
-    html.setAttribute('data-lang', next);
-    html.setAttribute('lang', next);
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('devguard-theme', next);
   }
-
-  function copyInstall(btn) {
-    const text = document.getElementById('installCmd').innerText;
-    navigator.clipboard.writeText(text).then(() => {
+  (function() {
+    const saved = localStorage.getItem('devguard-theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  })();
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
       const old = btn.innerText;
-      btn.innerText = 'Copied ✓';
-      setTimeout(() => { btn.innerText = old; }, 1600);
+      btn.innerText = 'Copied!';
+      setTimeout(() => { btn.innerText = old; }, 1400);
     });
   }
-
-  showTab('status', document.querySelector('.term-tab'));
 </script>
 </body>
 </html>
