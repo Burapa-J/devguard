@@ -118,7 +118,7 @@ Unlike tokless, `pjm init` writes into each project: it installs git hooks, veri
 
 When iCloud Drive is signed in, `projectmem` automatically syncs project and global memories across all your Macs via `~/Library/Mobile Documents/com~apple~CloudDocs/devguard-sync/` using an append-only CRDT merge (`bin/pjm_sync.py`):
 - **Conflict-free per-device files:** Each Mac writes only to its own `nodes/<device_id>.jsonl`, `docs/<device_id>-PROJECT_MAP.md`, `docs/<device_id>-plan.md`, and `global/nodes/<device_id>.json`, avoiding iCloud `events 2.jsonl` conflict copies.
-- **Git root commit matching (`root-<sha12>`):** Repositories are matched across Macs by their initial Git commit SHA even if folder names differ.
+- **Git root commit matching (`root-<sha12>`):** Repositories are matched across Macs by their initial Git commit SHA even if folder names differ. A repo with no commit falls back to its remote URL; with neither it is not synced until its first commit, because a folder name alone (two unrelated `test` repos) would merge unrelated memory.
 - **Offline `issue_id` collision resolution:** Concurrent offline issues with the same number are deterministically renumbered with `parent_issue_key` linkage and `.projectmem/.current_issue` marker updates.
 - **Zero-touch real-time sync:** A `.pth` runtime hook inside `projectmem-venv` syncs automatically on every MCP read/write, complemented by `cd`, `launchd`, and `devguard sync`.
 - **Is it synced?** `devguard sync --check` compares every Mac's node file per project: `in-sync`, `diverged` (a Mac lacks events another has: still travelling through iCloud, or that Mac has not synced since; it names the Mac and how many events) or `single` (only one Mac has written). `devguard status` shows the totals.

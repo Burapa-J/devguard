@@ -342,6 +342,16 @@ for case in slow-writer hook-lock remap-rescue; do
 done
 rm -rf "$HOME/.agent-kit/locks"; rmdir "$HOME/.agent-kit" 2>/dev/null || true
 
+echo "== sync refuses projects it cannot identify across machines"
+NOID="$STUB/noid/test"; mkdir -p "$NOID/.projectmem"; git -C "$NOID" init -q
+printf '[project]\nname = "test"\n' > "$NOID/.projectmem/config.toml"
+printf '{"id":"e1","type":"note","summary":"s","timestamp":"t"}\n' > "$NOID/.projectmem/events.jsonl"
+noid_out=$(DEVGUARD_SYNC_DIR="$STUB/noid-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B -c '
+import sys; sys.path.insert(0, sys.argv[1] + "/bin"); import pjm_sync
+from pathlib import Path; print(pjm_sync.sync_project_memory(Path(sys.argv[2]), regenerate=False))' "$KIT" "$NOID" 2>&1)
+check "repo with no commit and no remote is not synced" 'printf "%s" "$noid_out" | grep -q "synced.: False" && [ ! -d "$STUB/noid-hub/projects" -o -z "$(ls "$STUB/noid-hub/projects" 2>/dev/null)" ]'
+check "the refusal says why" 'printf "%s" "$noid_out" | grep -q "no commit or remote"'
+
 echo "== sync --check (hub convergence, read-only)"
 CK="$STUB/check-hub/projects"
 mkdir -p "$CK/root-aaa/nodes" "$CK/root-bbb/nodes" "$CK/root-ccc/nodes"
@@ -371,7 +381,9 @@ check "sync hook ok when .pth loads this kit" '[ $code = 0 ]'
 printf "import sys; sys.path.insert(0, '/moved/kit/bin'); import pjm_sync\n" > "$SP/devguard_pjm_sync.pth"
 sync_helper projectmem_sync_hook_ok; code=$?
 check "sync hook flagged when .pth points at another kit" '[ $code != 0 ]'
+# Two minutes old: ps etime has one-second resolution, so a same-second mtime is ambiguous.
 touch "$STUB/sync-old-file"
+/usr/bin/python3 -c 'import os, sys, time; t = time.time() - 120; os.utime(sys.argv[1], (t, t))' "$STUB/sync-old-file"
 # Same argv shape as a real macOS venv server: the framework binary is named "Python".
 bash -c 'exec -a "/x/Python.app/Contents/MacOS/Python -m projectmem.mcp_server" sleep 30' & fake_mcp=$!
 sleep 2; touch "$STUB/sync-new-file"

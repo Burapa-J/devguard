@@ -692,6 +692,10 @@ def sync_project_memory(
     dev = device_id or get_device_id()
     ident = project_identity(repo_root)
     proj_key = ident["project_key"]
+    if proj_key.startswith("dir-"):
+        # Only the folder name identifies this repo, and two unrelated repos named e.g. "test" on
+        # two Macs would merge their memory. Wait for a first commit (or a remote) instead.
+        return {"synced": False, "reason": "no commit or remote to identify this project across machines"}
 
     bucket = sdir / "projects" / proj_key
     nodes_dir = bucket / "nodes"
