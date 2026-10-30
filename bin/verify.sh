@@ -33,7 +33,8 @@ mkdir -p "$dir"
 log="$dir/$name.log"
 
 {
-  echo "# cmd: $*"
+  # One line, whatever the command holds: the error scan below skips exactly 3 header lines.
+  printf '# cmd: %s\n' "$(printf '%s' "$*" | tr '\n' ' ')"
   echo "# cwd: $PWD"
   echo "# started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$log"

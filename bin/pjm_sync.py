@@ -905,6 +905,16 @@ def install_runtime_hooks() -> None:
     gm.read_patterns = hooked_read_patterns
 
 
+SF_DATALESS = 0x40000000  # macOS st_flags bit: contents live in iCloud, not on disk
+
+
+def _is_dataless(path: Path) -> bool:
+    try:
+        return bool(getattr(os.stat(path), "st_flags", 0) & SF_DATALESS)
+    except OSError:
+        return False
+
+
 def _event_key(ev: dict[str, Any]) -> str:
     """Identity used to compare devices. Backfilled or auto-captured commit events get a random id
     on each Mac, and the merge keeps one of them per signature (merge_event_streams step 3), so two
@@ -932,10 +942,13 @@ def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
     if not projects.is_dir():
         return out
     for bucket in sorted(p for p in projects.iterdir() if p.is_dir()):
-        nodes = sorted((bucket / "nodes").glob("*.jsonl"))
-        # iCloud "Optimize Storage" replaces a file with a .<name>.icloud placeholder; such a device
-        # cannot be compared until macOS downloads it again (a sync run does that via brctl).
+        all_nodes = sorted((bucket / "nodes").glob("*.jsonl"))
+        nodes = [n for n in all_nodes if not _is_dataless(n)]
+        # iCloud "Optimize Storage" evicts a file either as a .<name>.icloud placeholder or in place
+        # (dataless). Neither can be compared until macOS downloads it (a sync run does that via
+        # brctl), and reading a dataless file here would block `devguard status` on the network.
         evicted = [f.name[1 : -len(".jsonl.icloud")] for f in (bucket / "nodes").glob(".*.jsonl.icloud")]
+        evicted += [n.stem for n in all_nodes if n not in nodes]
         if not nodes and not evicted:
             continue
         try:

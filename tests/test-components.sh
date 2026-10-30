@@ -381,6 +381,18 @@ ev e1 e2 > "$CK/root-ggg/nodes/mac-a.jsonl"; ev e1 > "$CK/root-ggg/nodes/mac-b.j
 ck3=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check 2>&1)
 check "project with every node evicted is still listed" 'printf "%s\n" "$ck3" | grep "root-fff" | grep -q "incomplete"'
 check "divergence is not hidden by an evicted third node" 'printf "%s\n" "$ck3" | grep "root-ggg" | grep -q "diverged"'
+# macOS can also evict a file in place ("dataless": same name, contents in iCloud); reading it
+# blocks until it downloads. Simulate the flag and check the file is reported, not read.
+dl_out=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B -c '
+import sys; sys.path.insert(0, sys.argv[1] + "/bin"); import pjm_sync
+pjm_sync._is_dataless = lambda p: p.name == "mac-b.jsonl"
+real = pjm_sync._parse_jsonl_events
+def guard(p, tag):
+    assert p.name != "mac-b.jsonl", "read a dataless file"
+    return real(p, tag)
+pjm_sync._parse_jsonl_events = guard
+pjm_sync.print_convergence()' "$KIT" 2>&1)
+check "dataless (evicted in place) node files are reported, not read" 'printf "%s\n" "$dl_out" | grep "root-aaa" | grep -q "mac-b: not downloaded"'
 rm -rf "${CK:?}/root-ddd" "${CK:?}/root-eee" "${CK:?}/root-fff" "${CK:?}/root-ggg"
 rm -rf "${CK:?}/root-bbb"
 DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check > /dev/null 2>&1; code=$?

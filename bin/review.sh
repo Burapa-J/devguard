@@ -41,14 +41,22 @@ command -v "$with" >/dev/null 2>&1 || { echo "devguard review: '$with' is not in
 top=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "devguard review: not inside a git repository" >&2; exit 64; }
 cd "$top" || exit 64
 
+# New files nobody has `git add`ed yet are part of the change too (ignored files are not).
+untracked_diff() {
+  local f
+  git ls-files --others --exclude-standard -z | while IFS= read -r -d '' f; do
+    git diff --no-index -- /dev/null "$f"
+  done
+}
+
 if [ -n "$base" ]; then
   git rev-parse --verify --quiet "$base^{commit}" >/dev/null ||
     { echo "devguard review: --base '$base' is not a commit" >&2; exit 64; }
   what="changes since $base"
-  diff=$(git diff "$base...HEAD"; git diff HEAD)
-elif [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  diff=$(git diff "$base...HEAD"; git diff HEAD; untracked_diff)
+elif [ -n "$(git status --porcelain)" ]; then
   what="uncommitted changes"
-  diff=$(git diff HEAD)
+  diff=$(git diff HEAD; untracked_diff)
 else
   what="last commit $(git rev-parse --short HEAD)"
   diff=$(git show --format='commit %H%n%n%B' HEAD)
@@ -87,7 +95,7 @@ case "$with" in
 esac
 
 mkdir -p .verify
-report=".verify/review-$(date +%Y%m%d-%H%M%S).md"
+report=".verify/review-$(date +%Y%m%d-%H%M%S)-$with-$$.md"  # reviewer + pid: parallel runs must not share a file
 {
   echo "# devguard review: $what (reviewer: $with)"
   echo
@@ -96,7 +104,7 @@ report=".verify/review-$(date +%Y%m%d-%H%M%S).md"
 code=$?
 
 verdict=$(grep -Eo 'VERDICT: (SHIP|CHANGES NEEDED)' "$report" | tail -n 1)
-findings=$(grep -cE '^[-*] *\[(BLOCKER|MAJOR|MINOR)\]' "$report")
+findings=$(grep -cE '^[-*] *(\*\*)?\[(BLOCKER|MAJOR|MINOR)\]' "$report")
 echo "devguard review [$with]: ${verdict:-no verdict} · $findings finding(s) · $report"
 if [ "$code" != 0 ]; then
   echo "devguard review: $with exited $code; see $report" >&2

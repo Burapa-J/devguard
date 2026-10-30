@@ -68,6 +68,9 @@ check "failure exit propagated" '[ $code = 3 ]'
 check "exit recorded in log" 'grep -qx "# exit: 3" .verify/bad.log'
 check "error line numbers reported" 'printf "%s" "$out" | grep -q "errors_at=L5,L6"'
 agent-verify ../x -- true 2>/dev/null; check "path traversal rejected" '[ $? = 64 ]'
+agent-verify multi -- sh -c 'echo one
+echo two' > /dev/null
+check "multi-line command keeps a 3-line header" 'sed -n 2p .verify/multi.log | grep -q "^# cwd:" && sed -n 3p .verify/multi.log | grep -q "^# started:"'
 "$KIT/hooks/remind.sh" | grep -q verified-dev; check "hook prints reminder" '[ $? = 0 ]'
 
 echo "== uninstall"; "$KIT/uninstall.sh" 2>&1

@@ -44,6 +44,13 @@ checks "commit sigpipe: test -z \"\$( { bash -c 'sleep 0.2; echo b' | true; } 2>
 out=$( (trap '' PIPE; "$GATE" run all) 2>&1); code=$?
 check "checks run with default SIGPIPE even when the caller ignores it" '[ $code = 0 ]'
 
+# A repo file named like a stdlib module must not hijack the gate's own Python helper.
+new_repo shadow
+printf 'raise SystemExit("shadowed")\n' > signal.py
+checks 'commit ok: true'
+out=$("$GATE" run all 2>&1); code=$?
+check "a repo's own signal.py does not break the gate" '[ $code = 0 ]'
+
 echo "== hooks"
 new_repo hooks
 checks 'commit ok: true'

@@ -20,7 +20,8 @@ die() { echo "devguard gate: $*" >&2; exit 2; }
 # python3, which sets it back to default first (the default disposition survives exec).
 RUNNER=(sh -c)
 if command -v python3 >/dev/null 2>&1; then
-  RUNNER=(python3 -c 'import os, signal, sys
+  # -I: isolated, so a repo file named signal.py (cwd is the repo) cannot replace the stdlib module.
+  RUNNER=(python3 -I -c 'import os, signal, sys
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 os.execvp("sh", ["sh", "-c", sys.argv[1]])')
 fi

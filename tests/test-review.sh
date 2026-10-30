@@ -26,6 +26,11 @@ git init -q; printf '.verify/\n' > .gitignore; echo one > a.txt; g add .; g comm
 out=$("$REVIEW" 2>&1); code=$?
 check "clean tree with one commit reviews HEAD" '[ $code = 0 ] && grep -q "a.txt" "$T/claude.args"'
 rm -f "$T"/*.args
+echo brand-new > new.txt
+"$REVIEW" --with gemini > /dev/null 2>&1
+check "untracked new files are part of the review" 'grep -q "^+brand-new" "$T/gemini.args"'
+rm -f new.txt
+rm -f "$T"/*.args
 
 echo two >> a.txt
 out=$("$REVIEW" 2>&1); code=$?
@@ -37,6 +42,13 @@ report=$(ls .verify/review-*.md 2>/dev/null | head -n 1)
 check "report saved under .verify" '[ -n "$report" ] && grep -q "stub finding" "$report"'
 check "summary names verdict and report" 'printf "%s" "$out" | grep -q "CHANGES NEEDED" && printf "%s" "$out" | grep -q "review-"'
 
+cp "$T/bin/agy" "$T/agy.recording"
+printf '#!/bin/sh\ncat > /dev/null\necho "- **[MAJOR] a.txt:1** bold finding"\necho "VERDICT: CHANGES NEEDED"\n' > "$T/bin/agy"
+out=$("$REVIEW" --with agy 2>&1)
+check "bold-formatted findings are counted" 'printf "%s" "$out" | grep -q "1 finding(s)"'
+"$REVIEW" --with agy > /dev/null 2>&1 & "$REVIEW" --with agy > /dev/null 2>&1; wait
+check "parallel reviews write separate reports" '[ "$(ls .verify/review-*-agy-*.md | wc -l | tr -d " ")" -ge 3 ]'
+cp "$T/agy.recording" "$T/bin/agy"
 rm -f "$T"/*.args
 "$REVIEW" --with gemini > /dev/null 2>&1
 check "--with gemini uses gemini read-only" '[ -f "$T/gemini.args" ] && grep -qx -- "--approval-mode" "$T/gemini.args" && grep -qx plan "$T/gemini.args"'
