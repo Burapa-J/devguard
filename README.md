@@ -13,7 +13,7 @@ Two layers:
 
 | Path | Kind | Loaded |
 |---|---|---|
-| `rules/core.md` | Always-on instruction (8 lines) | Every prompt, via each agent's global rules file |
+| `rules/core.md` | Always-on instruction (9 lines) | Every prompt, via each agent's global rules file |
 | `skills/verified-dev/SKILL.md` | On-demand instruction | When the agent matches it, or you type `/verified-dev` |
 | `bin/devguard` → `devguard` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
 | `bin/doctor.sh` → `devguard doctor` | Health & repair tool | Audits 7 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift) and repairs them with `--fix` |

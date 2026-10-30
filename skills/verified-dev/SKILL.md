@@ -77,7 +77,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 ### Investigation (read-only: how X works, why Y was built this way, are we sure, should we do X or Y, plan/code review)
 1. State the exact question.
 2. Read the actual implementation source (not just `--help`, filenames, or one sample config): cover the read path, write path, ID/state lifecycle, and ignore/conflict rules. Fan out to a subagent if more than a few files.
-3. Answer from evidence with `file:line` references for every claim. Mark anything inferred as inferred.
+3. Answer from evidence. Tag every claim with its source: `(read file:line)`, `(ran: <command> → exit N)`, `(inferred)` or `(unchecked)`. If the answer differs from an earlier one, say which new evidence changed it.
 
 ### Bug fix
 1. Reproduce it myself on the same surface. If it won't reproduce, force it: synthesize the trigger, tighten conditions, add logging.
@@ -91,11 +91,12 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 ### Feature
 1. Explore the affected subsystem by reading its actual source code (read/write paths, ID/state rules, and edge/conflict cases — never extrapolate from `--help` or filenames alone) and cite `file:line`.
 2. Name the data shape. If more than one design is viable, compare 2-3 options in a table and pick one with a reason.
-3. Throughput checkpoint, four lines (mark n/a with reason when not relevant): blocking first steps; independent workstreams; shared mutable state; smallest safe decomposition.
-4. Implement (or delegate with a scoped brief: file paths, data model, success criteria). Review every diff myself.
-5. Verify on the matching surface (section 3).
-6. Commit in small ordered units: build, verify, commit, next.
-7. Report: what was built, what was chosen and why, open decisions.
+3. Pre-mortem, before any code: assume the feature shipped and broke. Fill a table `| what breaks | when it happens | design that prevents it | test that proves it |` covering at least concurrency or multi-device use, partial failure and rerun, upgrade or rollback, and data loss. A row with no test is an open risk: name it in the report.
+4. Throughput checkpoint, four lines (mark n/a with reason when not relevant): blocking first steps; independent workstreams; shared mutable state; smallest safe decomposition.
+5. Implement (or delegate with a scoped brief: file paths, data model, pre-mortem table, success criteria). Review every diff myself.
+6. Verify on the matching surface (section 3), including the pre-mortem tests.
+7. Commit in small ordered units: build, verify, commit, next.
+8. Report: what was built, what was chosen and why, open risks from the pre-mortem, open decisions.
 
 ### Refactor (behavior-preserving)
 1. Pin current behavior with tests or a recorded run before touching code.
