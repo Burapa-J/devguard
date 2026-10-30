@@ -206,9 +206,16 @@ JQ_REMOVE_HOOK='
   | if .hooks.SessionStart == [] then del(.hooks.SessionStart) else . end
   | if .hooks == {} then del(.hooks) else . end'
 
-JQ_ADD_HOOK="$JQ_REMOVE_HOOK"'
-  | .hooks.SessionStart = ((.hooks.SessionStart // [])
-      + [{"matcher": $matcher, "hooks": [{"type": "command", "command": $cmd}]}])'
+# Leaves the file alone when the hook is already there with the same matcher: removing and
+# re-appending would reorder it behind our other SessionStart hook and rewrite settings.json on
+# every install.
+JQ_ADD_HOOK='
+  if any(.hooks.SessionStart[]?; .matcher == $matcher
+         and ((.hooks | type) == "array") and any(.hooks[]; .command == $cmd)) then .
+  else '"$JQ_REMOVE_HOOK"'
+    | .hooks.SessionStart = ((.hooks.SessionStart // [])
+        + [{"matcher": $matcher, "hooks": [{"type": "command", "command": $cmd}]}])
+  end'
 
 # ---- automatic project setup: zsh hook and launchd agent ---------------------------------------
 

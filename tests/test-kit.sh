@@ -48,6 +48,17 @@ echo "== install again"; sleep 1; "$KIT/install.sh" --with-hooks --with=none 2>&
 tmp=$(mktemp -d); cp -R "$HOME/." "$tmp"; rm -rf "$tmp/.agent-kit-backup"
 check "re-install is idempotent" 'same_tree "$tmp" "$HOME.after1"'
 
+echo "== hook filter is a no-op when the hook is already present"
+both=$(KIT_DIR="$KIT" bash -c '. "$KIT_DIR/lib.sh"
+  echo "{}" | jq --arg cmd "$HOOK_CMD" --arg matcher compact "$JQ_ADD_HOOK" \
+    | jq --arg cmd "$AUTO_HOOK_CMD" --arg matcher startup "$JQ_ADD_HOOK"')
+again=$(KIT_DIR="$KIT" bash -c '. "$KIT_DIR/lib.sh"
+  jq --arg cmd "$HOOK_CMD" --arg matcher compact "$JQ_ADD_HOOK"' <<< "$both")
+moved=$(KIT_DIR="$KIT" bash -c '. "$KIT_DIR/lib.sh"
+  jq --arg cmd "$HOOK_CMD" --arg matcher startup "$JQ_ADD_HOOK"' <<< "$both")
+check "re-adding a present hook keeps order (no rewrite)" '[ "$(jq -c . <<< "$again")" = "$(jq -c . <<< "$both")" ]'
+check "changed matcher still replaces the hook" '[ "$(jq "[.hooks.SessionStart[] | select(.matcher==\"startup\")] | length" <<< "$moved")" = 2 ] && [ "$(jq "[.hooks.SessionStart[] | select(.matcher==\"compact\")] | length" <<< "$moved")" = 0 ]'
+
 echo "== agent-verify"; cd "$(mktemp -d)" || exit 1
 agent-verify ok -- sh -c 'echo hello; echo err >&2'; code=$?
 check "success exit 0" '[ $code = 0 ]'
