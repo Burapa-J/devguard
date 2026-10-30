@@ -414,8 +414,9 @@ devguard stats         # ดูสถิติการประหยัด Tok
     <ul>
       <li><strong>เลือก Playbook ตามประเภทงาน:</strong> แยกขั้นตอนชัดเจนสำหรับ <em>Investigation</em>, <em>Bug fix</em>, <em>Feature</em>, <em>Refactor</em>, <em>Perf issue</em> และ <em>Prompt / LLM pipeline</em></li>
       <li><strong>โหมดอ่านอย่างเดียวเมื่อถามคำถามหรือรีวิวแผน:</strong> เมื่อคุณถามคำถามหรือปรึกษาทางเลือก AI จะไม่แก้ไขไฟล์ใดๆ จนกว่าคุณจะสั่งให้ลงมือ</li>
+      <li><strong>ห้ามเดาจาก <code>--help</code> หรือชื่อไฟล์:</strong> ก่อนอธิบายการทำงานของระบบหรือเสนอแผนออกแบบ AI ต้องอ่านโค้ดจริงทั้งขาอ่าน, ขาเขียน, การจัดการ ID/State และกรณีชนกัน พร้อมอ้างอิง <code>file:line</code> เสมอ</li>
       <li><strong>เช็คผู้เรียกใช้ทั้งหมด (Sibling-Caller Check):</strong> ตรวจสอบทุกจุดที่เรียกใช้ฟังก์ชันผ่าน <code>codegraph_explore</code> ก่อนแก้ เพื่อให้จุดที่เกี่ยวข้องไม่พังตาม</li>
-      <li><strong>ต้องมีหลักฐานจากการรันจริงเสมอ:</strong> การ build ผ่านไม่ใช่ข้อพิสูจน์ ทุกครั้งที่บอกว่า "เสร็จ" ต้องแสดงคำสั่ง, exit code และบรรทัดผลลัพธ์จากไฟล์ <code>.verify/&lt;name&gt;.log</code></li>
+      <li><strong>ต้องมีหลักฐานจากการรันจริงเสมอ:</strong> การ build ผ่านไม่ใช่ข้อพิสูจน์ ทุกครั้งที่บอกว่า "เสร็จ" ต้องอ่านไฟล์ <code>.verify/&lt;name&gt;.log</code> และสรุปใบเสร็จตรวจสอบสั้นๆ 1 บรรทัด (คำสั่ง, exit code, ผลลัพธ์หลัก และลิงก์ไฟล์ log) โดยแปะ log เต็มเฉพาะเมื่อพัง</li>
     </ul>
 
     <h2 id="components">2. เครื่องมือที่ติดตั้งและดูแลให้ (Components &amp; Companion Tools)</h2>
@@ -443,7 +444,7 @@ devguard stats         # ดูสถิติการประหยัด Tok
           <tr>
             <td><code>projectmem</code></td>
             <td>MCP Component</td>
-            <td>ฐานข้อมูลความจำรายโปรเจกต์ (บั๊ก, สิ่งที่ลองแล้ว, วิธีแก้, การตัดสินใจ)</td>
+            <td>ความจำรายโปรเจกต์และระดับเครื่อง (บั๊ก, สิ่งที่ลองแล้ว, วิธีแก้, การตัดสินใจ) พร้อมซิงค์ข้ามเครื่องแบบ CRDT ผ่าน iCloud Drive อัตโนมัติ</td>
             <td>PyPI <code>projectmem==0.3.4</code> (แยก venv)</td>
             <td><span class="ok">เปิด (On)</span></td>
           </tr>
@@ -564,6 +565,10 @@ devguard stats         # ดูสถิติการประหยัด Tok
             <td>ดูสถิติประหยัด Token, ขนาดกราฟ AST และอัตราการ Verify ผ่าน (<code>-p</code> โปรเจกต์นี้, <code>-d</code> รายวัน, <code>--dashboard</code>, <code>--reset</code>)</td>
           </tr>
           <tr>
+            <td><code>devguard sync [--quiet]</code></td>
+            <td>ซิงค์ความจำของ <code>projectmem</code> ข้ามเครื่องผ่าน iCloud Drive แบบ Append-Only CRDT</td>
+          </tr>
+          <tr>
             <td><code>devguard select</code></td>
             <td>เลือกเปิด/ปิด Agents และเครื่องมือแบบ Interactive</td>
           </tr>
@@ -637,13 +642,22 @@ Efficiency meter:  █████████░░░░░░░░░░░�
       <li>เวอร์ชันของ CLI ทั้งหมดและเครื่องมือเสริม (<code>ast-grep</code>, <code>xcbeautify</code>)</li>
     </ol>
 
-    <h2 id="auto-setup">การตั้งค่าโปรเจกต์อัตโนมัติ</h2>
+    <h2 id="auto-setup">การตั้งค่าโปรเจกต์อัตโนมัติ และซิงค์ความจำข้ามเครื่อง</h2>
     <p>
-      ทุก Git repository ภายใต้ <code>~/Developer</code> (ลึก 1–2 ชั้น) จะถูกตั้งค่าให้อัตโนมัติผ่าน 3 ช่องทาง: ตอนเปิด Claude Code, ตอนสั่ง <code>cd</code> เข้าโฟลเดอร์ใน zsh และการสแกนเบื้องหลังของ <code>launchd</code> ทุก 30 นาที
+      ทุก Git repository ภายใต้ <code>~/Developer</code> (ลึก 1–2 ชั้น) จะถูกตั้งค่าให้อัตโนมัติผ่าน 3 ช่องทาง: ตอนเปิด Claude Code, ตอนสั่ง <code>cd</code> เข้าโฟลเดอร์ใน zsh และการสแกนเบื้องหลังของ <code>launchd</code> ทุก 30 นาที โดยตรวจซ่อมทั้ง <code>.gitignore</code>, <code>.codegraph/</code>, <code>.projectmem/config.toml</code>, <code>.git/hooks/post-commit</code> และทะเบียนใน <code>~/.projectmem/projects.json</code>
     </p>
+    <p>
+      <strong>ซิงค์ความจำข้ามเครื่องผ่าน iCloud Drive (Multi-Mac CRDT Sync):</strong> เมื่อเปิดใช้งาน iCloud Drive ระบบจะซิงค์ความจำของ <code>projectmem</code> ข้ามเครื่องอัตโนมัติผ่าน <code>~/Library/Mobile Documents/com~apple~CloudDocs/devguard-sync/</code>:
+    </p>
+    <ul>
+      <li><strong>แยกไฟล์ตามเครื่อง (Per-Device Node Files):</strong> แต่ละเครื่องเขียนลงไฟล์ของตัวเอง (<code>nodes/&lt;device_id&gt;.jsonl</code>, <code>docs/&lt;device_id&gt;-PROJECT_MAP.md</code>, <code>docs/&lt;device_id&gt;-plan.md</code>, <code>global/nodes/&lt;device_id&gt;.json</code>) จึงไม่เกิดไฟล์ซ้ำของ iCloud</li>
+      <li><strong>จับคู่โปรเจกต์ด้วย Git Root Commit (<code>root-&lt;sha12&gt;</code>):</strong> แม้ตั้งชื่อโฟลเดอร์คนละชื่อกันในแต่ละเครื่อง ระบบก็จับคู่เข้าถังความจำเดียวกันอัตโนมัติ</li>
+      <li><strong>แก้เลข Issue ชนกันขณะออฟไลน์:</strong> เรียงลำดับตามเวลาพร้อมผูก <code>parent_issue_key</code> และอัปเดต <code>.projectmem/.current_issue</code> ให้เองโดยข้อมูลไม่ปนกัน</li>
+      <li><strong>ซิงค์แบบ Real-time โดยไม่ต้องคอยรันเอง:</strong> ทำงานอัตโนมัติทุกครั้งที่ MCP อ่านหรือเขียนความจำ (ผ่าน <code>.pth</code> hook) รวมถึงตอน <code>cd</code>, ตอน <code>launchd</code> สแกน หรือสั่ง <code>devguard sync</code></li>
+    </ul>
 
     <h2 id="uninstall">การถอนการติดตั้ง (Uninstalling)</h2>
-    <p>ทุกไฟล์ที่ถูกแก้ไขจะมีสำเนาสำรองอยู่ที่ <code>~/.agent-kit-backup/&lt;เวลา&gt;/</code> เสมอ และการสั่ง uninstall จะคืนสภาพไฟล์เดิมกลับมาทุกไบต์:</p>
+    <p>ทุกไฟล์ที่ถูกแก้ไขจะมีสำเนาสำรองอยู่ที่ <code>~/.agent-kit-backup/&lt;เวลา&gt;/</code> (เก็บชุดสำรองล่าสุดไว้สูงสุด 10 ชุดโดยอัตโนมัติ) และการสั่ง uninstall จะคืนสภาพไฟล์เดิมกลับมาทุกไบต์:</p>
     <div class="code-block">
       <div class="code-header">
         <span>sh</span>

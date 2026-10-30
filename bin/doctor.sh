@@ -173,10 +173,16 @@ if [ -f "$CLAUDE_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
   c_plugs=$(jq -r '((.enabledPlugins // {}) + (.extraKnownMarketplaces // {})) | keys[] | select(test("^(caveman|ponytail|cavecrew)"))' "$CLAUDE_SETTINGS" 2>/dev/null | tr '\n' ' ')
   [ -n "$c_plugs" ] && plugin_conflicts="$plugin_conflicts claude($c_plugs)"
 fi
-if [ -e "$HOME/.claude/.caveman-active" ] || [ -e "$HOME/.claude/.ponytail-active" ]; then
+for cf in "$HOME/.claude"/.caveman* "$HOME/.claude"/.ponytail*; do
+  [ -e "$cf" ] || [ -L "$cf" ] || continue
   plugin_conflicts="$plugin_conflicts claude-flags"
+  break
+done
+if [ -f "$OPENCODE_MCP" ] && command -v jq >/dev/null 2>&1; then
+  oc_plugs=$(jq -r '(.plugin // [])[] | select(test("caveman|ponytail|cavecrew|tokless"))' "$OPENCODE_MCP" 2>/dev/null | tr '\n' ' ')
+  [ -n "$oc_plugs" ] && plugin_conflicts="$plugin_conflicts opencode.jsonc($oc_plugs)"
 fi
-for d in "$HOME/.gemini/config/skills" "$HOME/.gemini/config/plugins" "$HOME/.config/opencode/plugins"; do
+for d in "$HOME/.gemini/config/skills" "$HOME/.gemini/config/plugins" "$HOME/.config/opencode/plugins" "$HOME/.config/opencode/skills"; do
   [ -d "$d" ] || continue
   for p in "$d"/caveman* "$d"/ponytail* "$d"/cavecrew* "$d"/tokless*; do
     [ -e "$p" ] || [ -L "$p" ] || continue
@@ -197,8 +203,19 @@ else
       ' "$CLAUDE_SETTINGS" > "$tmp" && cat "$tmp" > "$CLAUDE_SETTINGS"
       rm -f "$tmp"
     fi
-    rm -f "$HOME/.claude/.caveman-active" "$HOME/.claude/.ponytail-active"
-    for d in "$HOME/.gemini/config/skills" "$HOME/.gemini/config/plugins" "$HOME/.config/opencode/plugins"; do
+    for cf in "$HOME/.claude"/.caveman* "$HOME/.claude"/.ponytail*; do
+      [ -e "$cf" ] || [ -L "$cf" ] || continue
+      backup "$cf"
+      rm -f "$cf"
+    done
+    if [ -f "$OPENCODE_MCP" ] && command -v jq >/dev/null 2>&1 &&
+       jq -e '(.plugin // []) | any(test("caveman|ponytail|cavecrew|tokless"))' "$OPENCODE_MCP" >/dev/null 2>&1; then
+      backup "$OPENCODE_MCP"
+      tmp=$(mktemp)
+      jq 'if .plugin then .plugin |= map(select(test("caveman|ponytail|cavecrew|tokless") | not)) | if .plugin == [] then del(.plugin) else . end else . end' "$OPENCODE_MCP" > "$tmp" && cat "$tmp" > "$OPENCODE_MCP"
+      rm -f "$tmp"
+    fi
+    for d in "$HOME/.gemini/config/skills" "$HOME/.gemini/config/plugins" "$HOME/.config/opencode/plugins" "$HOME/.config/opencode/skills"; do
       [ -d "$d" ] || continue
       for p in "$d"/caveman* "$d"/ponytail* "$d"/cavecrew* "$d"/tokless*; do
         [ -e "$p" ] || [ -L "$p" ] || continue
@@ -226,8 +243,7 @@ for c in codegraph projectmem context-mode; do
   [ -d "$(state_dir "$c")" ] || continue
   for a in $(state_wired "$c"); do
     f=$(agent_mcp_file "$a")
-    k=$(agent_mcp_key "$a")
-    if [ ! -f "$f" ] || ! jq -e --arg k "$k" --arg n "$c" '.[$k] | has($n)' "$f" >/dev/null 2>&1; then
+    if [ ! -f "$f" ] || ! mcp_has "$a" "$c" || { [ "$a" = antigravity ] && ! jq -e --arg n "$c" '.mcpServers | has($n)' "$f" >/dev/null 2>&1; }; then
       mcp_issues="$mcp_issues $a:$c(missing-in-$(basename "$f"))"
     fi
   done
@@ -285,7 +301,7 @@ fi
 # ---- 6. Core rules block synchronization -------------------------------------------------------
 rules_drift=""
 expected_rules=$(cat "$KIT_DIR/rules/core.md")
-for rf in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES"; do
+for rf in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES" "$OPENCODE_RULES" "$CURSOR_RULES" "$CODEX_RULES"; do
   if has_block "$rf"; then
     actual_rules=$(awk -v b="$BEGIN_MARK" -v e="$END_MARK" '$0==b{s=1;next} $0==e{s=0;next} s' "$rf")
     if [ "$actual_rules" != "$expected_rules" ]; then
@@ -293,13 +309,21 @@ for rf in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES"; do
     fi
   fi
 done
+for old_cr in $LEGACY_CURSOR_RULES; do
+  if has_block "$old_cr"; then
+    rules_drift="$rules_drift $(basename "$old_cr")(legacy-cursor-rule)"
+  fi
+done
 
 if [ -z "$rules_drift" ]; then
   ok "6. Core rules blocks match rules/core.md"
 else
   if [ "$FIX" = 1 ]; then
-    for rf in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES"; do
+    for rf in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES" "$OPENCODE_RULES" "$CURSOR_RULES" "$CODEX_RULES"; do
       has_block "$rf" && set_block "$rf" "$KIT_DIR/rules/core.md" >/dev/null
+    done
+    for old_cr in $LEGACY_CURSOR_RULES; do
+      has_block "$old_cr" && remove_block "$old_cr" >/dev/null
     done
     repaired "6. Updated core rules blocks ($rules_drift )"
   else
@@ -344,7 +368,7 @@ fi
 
 echo "${C_BOLD}╰────────────────────────────────────────────────────────────────────────────────╯${C_RESET}"
 if [ "$FIX" = 1 ]; then
-  [ -d "${BACKUP_DIR:-}" ] && echo "Backups: $BACKUP_DIR"
+  [ -d "${BACKUP_DIR:-}" ] && { echo "Backups: $BACKUP_DIR"; prune_backups; }
   echo "Doctor complete: $fixed repaired."
   exit 0
 elif [ "$issues" -gt 0 ]; then

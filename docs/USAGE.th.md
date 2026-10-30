@@ -53,7 +53,7 @@ cd <โฟลเดอร์ repo> && git pull --ff-only && ./install.sh && devg
 | `--dry-run` | แสดงสิ่งที่จะเปลี่ยน โดยไม่แก้อะไรจริง |
 
 - รันซ้ำได้ทุกเมื่อ ส่วนที่ติดตั้งแล้วจะไม่ถูกทำซ้ำ และระบบจำโฟลเดอร์อัตโนมัติเดิมไว้
-- ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/<เวลา>/`
+- ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/<เวลา>/` (เก็บชุดสำรองล่าสุดไว้สูงสุด 10 ชุดโดยอัตโนมัติ)
 
 ---
 
@@ -62,7 +62,16 @@ cd <โฟลเดอร์ repo> && git pull --ff-only && ./install.sh && devg
 ทุก git repo ภายใต้ `~/Developer` (ลึก 1–2 ชั้น เช่น `~/Developer/app` และ `~/Developer/group/lib`) จะถูกตั้งค่าครั้งเดียวโดยอัตโนมัติ
 - เพิ่ม `.verify/` ลง `.gitignore`
 - สร้าง index ของ codegraph ที่ `.codegraph/` ซึ่งอัปเดตตัวเองหลังจากนั้น
-- เริ่มต้น projectmem ที่ `.projectmem/` พร้อม git hooks และส่วน "projectmem bridge" ใน `CLAUDE.md` / `AGENTS.md` ของโปรเจกต์
+- เริ่มต้น projectmem ที่ `.projectmem/` พร้อมตรวจซ่อม `config.toml`, git hook `post-commit`, การลงทะเบียนใน `~/.projectmem/projects.json` และส่วน "projectmem bridge" ใน `CLAUDE.md` / `AGENTS.md` (ทำให้ repo ที่ clone มาจากอีกเครื่องพร้อมใช้งานทันที)
+- ซิงค์ความจำของ `projectmem` ข้ามเครื่องอัตโนมัติผ่าน iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs/devguard-sync/`)
+
+### 2.1 ซิงค์ความจำข้ามเครื่องอัตโนมัติผ่าน iCloud Drive (Multi-Mac CRDT Sync)
+
+`devguard` เพิ่มระบบซิงค์ความจำแบบ **Append-Only CRDT** ให้ `projectmem` เพื่อให้ใช้งานหลายเครื่อง (เช่น Mac Studio กับ MacBook) ได้โดยข้อมูลไม่สูญหายและไฟล์ไม่ตีกัน:
+- **แยกไฟล์ตามเครื่อง (Per-Device Node Files):** แต่ละเครื่องจะเขียนเฉพาะไฟล์ของตัวเอง (`nodes/<device_id>.jsonl`, `docs/<device_id>-PROJECT_MAP.md`, `docs/<device_id>-plan.md` และ `global/nodes/<device_id>.json`) จึงไม่เกิดไฟล์ซ้ำของ iCloud (`events 2.jsonl`)
+- **จับคู่โปรเจกต์ด้วย Git Root Commit (`root-<sha12>`):** แม้ตั้งชื่อโฟลเดอร์โปรเจกต์คนละชื่อกันในแต่ละเครื่อง ระบบจะจับคู่เข้าถังความจำเดียวกันจากรากของ Git อัตโนมัติ
+- **แก้เลข Issue ชนกันขณะออฟไลน์:** หากสองเครื่องเปิด `issue_id` เบอร์เดียวกันขณะออฟไลน์ ระบบจะจัดเรียงตามเวลาพร้อมผูก `attempt` / `fix` ตาม `parent_issue_key` และอัปเดต `.projectmem/.current_issue` ให้เองโดยข้อมูลไม่ปนกัน
+- **ทำงานเบื้องหลังแบบ Real-time:** ซิงค์อัตโนมัติทุกครั้งที่ MCP อ่านหรือเขียนความจำ (ผ่าน `.pth` hook ใน `projectmem-venv`) รวมถึงตอน `cd` เข้าโปรเจกต์, ตอน `launchd` สแกนทุก 30 นาที หรือสั่ง `devguard sync` ด้วยตัวเอง
 
 **มี 3 ทางที่จะทำให้เกิดการตั้งค่า ครอบคลุมทุก agent**
 
@@ -96,7 +105,7 @@ devguard skip            # ยกเว้น repo ที่อยู่ตอ�
 ### สิ่งที่ควรเห็นในคำตอบของ agent
 - เลือก playbook (Bug fix, Feature, Refactor ฯลฯ) และมี task list ที่คัดลอกขั้นตอนมาครบ
 - ขั้นที่ข้ามต้องมี `skip: <เหตุผล>`
-- คำว่า "เสร็จ" ต้องมาพร้อมหลักฐาน: คำสั่ง, exit code และบรรทัดที่ fail หรือ pass
+- คำว่า "เสร็จ" ต้องมาพร้อมใบเสร็จตรวจสอบสั้นๆ 1 บรรทัด (คำสั่ง, exit code, ผลลัพธ์หลัก และลิงก์ `.verify/<name>.log`) โดยแปะ log เต็มเฉพาะเมื่อเกิดข้อผิดพลาด
 - ถ้ายังไม่ได้ verify ต้องบอกตรง ๆ
 
 ### เก็บหลักฐานด้วย agent-verify
@@ -123,6 +132,7 @@ agent-verify build -- swift build
 | `devguard status` | แสดงตารางสรุปสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติแบบดูง่าย |
 | `devguard doctor [--fix]` | ตรวจสุขภาพ 7 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
 | `devguard stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`), ตาราง Index ของ `codegraph`, และอัตราการ Verify ผ่าน (`.verify/*.log` Pass Rate) ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
+| `devguard sync [--quiet]` | ซิงค์ความจำของ `projectmem` ทั้งระดับโปรเจกต์และระดับเครื่องข้ามเครื่องผ่าน iCloud Drive แบบ CRDT |
 | `devguard select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar |
 | `devguard update` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงการตั้งค่าเดิม |
 | `devguard init` / `init --all` | ตั้งค่า repo นี้ หรือทุก repo ในโฟลเดอร์อัตโนมัติ |
@@ -155,7 +165,7 @@ devguard doctor --fix    # ซ่อมจุดที่มีปัญหา�
 
 ทดสอบกับ agent จริงในแต่ละโปรแกรม:
 1. เปิด session ใหม่แล้วถามว่า "What rules are you following for code tasks?" คำตอบควรอยู่ในโหมดอ่านอย่างเดียว (Read-only) และพูดถึง `verified-dev` กับเรื่องหลักฐาน
-2. สั่งแก้ bug ที่มี test fail อยู่ คำตอบควรมี path ของ log จาก `agent-verify`, exit code ก่อนและหลังแก้ และบรรทัดที่ fail กับ pass
+2. สั่งแก้ bug ที่มี test fail อยู่ คำตอบควรมีสรุปสั้นๆ พร้อมใบเสร็จตรวจสอบ 1 บรรทัด (path ของ log จาก `agent-verify`, exit code และผลลัพธ์หลัก)
 
 ---
 

@@ -26,13 +26,18 @@ projectmem_install() {
   for b in $PROJECTMEM_LINKS; do
     link "$HOME/.local/bin/$b" "$PROJECTMEM_VENV/bin/$b"
   done
+  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 || true
 }
 
 projectmem_server() {
   printf '{"command":"%s","args":["-m","projectmem.mcp_server"]}' "$PROJECTMEM_VENV/bin/python"
 }
 
-projectmem_wire() { mcp_set "$1" projectmem "$(projectmem_server)"; }
+projectmem_wire() {
+  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || [ ! -x "$PROJECTMEM_VENV/bin/python" ] ||
+    "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 || true
+  mcp_set "$1" projectmem "$(projectmem_server)"
+}
 
 projectmem_unwire() { mcp_del "$1" projectmem; }
 
@@ -59,11 +64,19 @@ projectmem_status() {
   done
 }
 
-projectmem_project_ready() { [ -d .projectmem ]; }
+projectmem_project_ready() {
+  [ -d .projectmem ] || return 1
+  [ -n "${STUB_LOG:-}" ] && return 0
+  [ -f .projectmem/config.toml ] || return 1
+  [ -f .git/hooks/post-commit ] && grep -q "pjm\|projectmem" .git/hooks/post-commit 2>/dev/null || return 1
+  [ -f "$HOME/.projectmem/projects.json" ] && grep -qF "\"$PWD\"" "$HOME/.projectmem/projects.json" 2>/dev/null || return 1
+  return 0
+}
 
 projectmem_project_init() {
-  if [ -d .projectmem ]; then say "  present    .projectmem/"; return 0; fi
+  if projectmem_project_ready; then say "  present    .projectmem/"; return 0; fi
   # pjm init also installs git hooks and creates/updates CLAUDE.md and AGENTS.md with a
   # "projectmem bridge" section. Undo per repo with: pjm hooks uninstall, and delete .projectmem/.
   run "$PROJECTMEM_VENV/bin/pjm" init
+  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet "$PWD" >/dev/null 2>&1 || true
 }

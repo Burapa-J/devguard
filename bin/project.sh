@@ -110,7 +110,7 @@ lock_path() { printf '%s/locks/%s' "$STATE_DIR" "$(printf '%s' "$1" | cksum | cu
 
 case "$cmd" in
   init)
-    top=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "agent-kit-project: not inside a git repository" >&2; exit 1; }
+    top=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "devguard-project: not inside a git repository" >&2; exit 1; }
     cd "$top"
     init_here
     say "Done."
@@ -150,6 +150,9 @@ case "$cmd" in
       done < "${TMPDIR:-/tmp}/agent-kit-scan.$$"
       rm -f "${TMPDIR:-/tmp}/agent-kit-scan.$$"
     done < "$AUTO_ROOTS"
+    if [ -z "${STUB_LOG:-}" ] && [ -x "$PROJECTMEM_VENV/bin/python" ]; then
+      "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet >/dev/null 2>&1 || true
+    fi
     ;;
 
   auto)
@@ -160,7 +163,12 @@ case "$cmd" in
     under_auto_root "$top" || exit 0
     [ -e "$top/.agent-kit-skip" ] && exit 0
     cd "$top"
-    project_ready && exit 0
+    if project_ready; then
+      if [ -z "${STUB_LOG:-}" ] && [ -x "$PROJECTMEM_VENV/bin/python" ]; then
+        nohup "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet "$top" </dev/null >/dev/null 2>&1 &
+      fi
+      exit 0
+    fi
     mkdir -p "$STATE_DIR/logs" "$STATE_DIR/locks"
     lock=$(lock_path "$top")
     mkdir "$lock" 2>/dev/null || exit 0
@@ -168,7 +176,7 @@ case "$cmd" in
     # shellcheck disable=SC2016  # positional args expand inside the child shell
     nohup /bin/sh -c '"$1" init > "$2" 2>&1; rmdir "$3"' sh "$SELF" "$log" "$lock" \
       < /dev/null > /dev/null 2>&1 &
-    echo "[agent-kit] Setting up this repository in the background (code index, project memory). Log: $log"
+    echo "[devguard] Setting up this repository in the background (code index, project memory). Log: $log"
     ;;
 
   *) usage ;;

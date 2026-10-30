@@ -33,6 +33,7 @@ AG_CLI_SKILLS="$HOME/.gemini/antigravity-cli/skills"
 OPENCODE_RULES="$HOME/.config/opencode/AGENTS.md"
 OPENCODE_SKILLS="$HOME/.config/opencode/skills"
 CURSOR_RULES="$HOME/.cursor/rules/devguard.mdc"
+LEGACY_CURSOR_RULES="$HOME/.cursor/rules/potless.mdc $HOME/.cursor/rules/agent-kit.mdc"
 CURSOR_SKILLS="$HOME/.cursor/skills"
 CODEX_RULES="$HOME/.codex/AGENTS.md"
 CODEX_SKILLS="$HOME/.codex/skills"
@@ -51,6 +52,20 @@ backup() {
   if [ -e "$dest" ] || [ -L "$dest" ]; then return 0; fi
   mkdir -p "$(dirname "$dest")"
   cp -RP "$f" "$dest"
+}
+
+# Keep at most the 10 newest backup snapshots under ~/.agent-kit-backup.
+prune_backups() {
+  local root="$HOME/.agent-kit-backup" count=0 d
+  [ -d "$root" ] || return 0
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    count=$((count + 1))
+    if [ "$count" -gt 10 ]; then rm -rf "$d"; fi
+  done <<EOF
+$(ls -1dt "$root"/* 2>/dev/null || true)
+EOF
+  return 0
 }
 
 # Print a file without the agent-kit block. Callers use $(...) so trailing blank lines are dropped.

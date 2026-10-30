@@ -40,12 +40,21 @@ need() {
 }
 
 run() {
+  local out rc
   if [ "$DRY_RUN" = 1 ]; then
     say "  would run: $*"
     return 0
   fi
   say "  run: $*"
-  "$@"
+  out=$(mktemp)
+  if "$@" > "$out" 2>&1; then
+    rm -f "$out"
+    return 0
+  fi
+  rc=$?
+  cat "$out" >&2
+  rm -f "$out"
+  return "$rc"
 }
 
 state_dir() { printf '%s/components/%s' "$STATE_DIR" "$1"; }
@@ -167,9 +176,14 @@ mcp_del() {
     backup "$file"
     tmp=$(mktemp)
     awk -v s="[mcp_servers.$2]" '$0==s{skip=1;next} /^\[/{skip=0} !skip' "$file" > "$tmp"
-    cat "$tmp" > "$file"
+    if [ -z "$(tr -d '[:space:]' < "$tmp")" ]; then
+      rm -f "$file"
+      say "  removed    $file (only contained '$2')"
+    else
+      cat "$tmp" > "$file"
+      say "  updated    $file (removed $2)"
+    fi
     rm -f "$tmp"
-    say "  updated    $file (removed $2)"
     return 0
   fi
   if [ "$1" = opencode ]; then
@@ -179,9 +193,14 @@ mcp_del() {
     backup "$file"
     tmp=$(mktemp)
     jq --arg n "$2" 'del(.mcp.servers[$n]) | if .mcp.servers == {} then del(.mcp.servers) else . end | if .mcp == {} then del(.mcp) else . end' "$file" > "$tmp"
-    cat "$tmp" > "$file"
+    if [ "$(jq -c . "$tmp")" = "{}" ]; then
+      rm -f "$file"
+      say "  removed    $file (only contained '$2')"
+    else
+      cat "$tmp" > "$file"
+      say "  updated    $file (removed $2)"
+    fi
     rm -f "$tmp"
-    say "  updated    $file (removed $2)"
     return 0
   fi
   command -v jq >/dev/null 2>&1 || { warn "jq missing; remove '$2' from $file by hand"; return 0; }

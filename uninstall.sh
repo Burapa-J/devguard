@@ -32,7 +32,7 @@ for c in $ALL_COMPONENTS; do
   [ -d "$(state_dir "$c")" ] && component_down "$c" "$PURGE"
 done
 
-for f in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES" "$OPENCODE_RULES" "$CURSOR_RULES" "$CODEX_RULES"; do
+for f in "$CLAUDE_RULES" "$VSCODE_RULES" "$AG_RULES" "$OPENCODE_RULES" "$CURSOR_RULES" $LEGACY_CURSOR_RULES "$CODEX_RULES"; do
   remove_block "$f"
 done
 
@@ -52,11 +52,11 @@ if [ -f "$CLAUDE_SETTINGS" ] && grep -qF "$AUTO_HOOK_CMD" "$CLAUDE_SETTINGS"; th
 fi
 zsh_hook_remove
 launchd_remove
-if [ -e "$AUTO_ROOTS" ] || [ -d "$STATE_DIR/logs" ] || [ -d "$STATE_DIR/locks" ]; then
+if [ -e "$AUTO_ROOTS" ] || [ -d "$STATE_DIR/logs" ] || [ -d "$STATE_DIR/locks" ] || [ -e "$STATE_DIR/device-id" ]; then
   if [ "$DRY_RUN" = 1 ]; then
     say "  would remove automatic project setup ($AUTO_ROOTS, logs)"
   else
-    rm -rf "$AUTO_ROOTS" "$STATE_DIR/logs" "$STATE_DIR/locks"
+    rm -rf "$AUTO_ROOTS" "$STATE_DIR/logs" "$STATE_DIR/locks" "$STATE_DIR/device-id"
     rmdir "$STATE_DIR" 2>/dev/null || true
     say "  removed    automatic project setup"
   fi
@@ -66,7 +66,10 @@ fi
 if [ "$DRY_RUN" = 0 ]; then
   for d in "$CLAUDE_SKILLS" "$VSCODE_SKILLS" "$HOME/.copilot" \
            "$AG_SKILLS" "$HOME/.gemini/config" "$AG_CLI_SKILLS" "$HOME/.gemini/antigravity-cli" \
-           "$HOME/.gemini/antigravity" "$HOME/.gemini" \
+           "$GEMINI_SKILLS" "$HOME/.gemini/antigravity" "$HOME/.gemini" \
+           "$OPENCODE_SKILLS" "$HOME/.config/opencode" \
+           "$CURSOR_SKILLS" "$(dirname "$CURSOR_RULES")" "$HOME/.cursor" \
+           "$CODEX_SKILLS" "$HOME/.codex" \
            "$(dirname "$VSCODE_MCP")" "$(dirname "$(dirname "$VSCODE_MCP")")" "$HOME/.config" \
            "${AGENT_KIT_LAUNCHD_DIR:-}" \
            "$HOME/.local/bin" "$HOME/.local/share" "$HOME/.local"; do
@@ -76,5 +79,6 @@ fi
 
 if [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
   say "Backups of changed files: $BACKUP_DIR"
+  prune_backups
 fi
 say "Done."

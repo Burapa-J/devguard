@@ -130,7 +130,6 @@ for c in $ALL_COMPONENTS; do
   [ -d "$(state_dir "$c")" ] && managed="managed by devguard (wired: $(state_wired "$c" | tr '\n' ' '))"
   if "${f}_present"; then cli="CLI installed"; else cli="CLI missing"; fi
   echo "  $c: $cli, $managed"
-  "${f}_status"
 done
 
 echo

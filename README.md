@@ -18,6 +18,7 @@ Two layers:
 | `bin/devguard` → `devguard` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
 | `bin/doctor.sh` → `devguard doctor` | Health & repair tool | Audits 7 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift) and repairs them with `--fix` |
 | `bin/stats.sh` → `devguard stats` | Telemetry & quality summary | Shows RTK shell savings, ProjectMem fixes/tokens, CodeGraph index counts, and `.verify/*.log` verification pass rates |
+| `bin/pjm_sync.py` → `devguard sync` | Multi-Mac memory sync | Real-time & batch CRDT sync of `projectmem` across machines over iCloud Drive |
 | `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
 | `bin/project.sh` → `devguard-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
 | `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load the skill |
@@ -28,7 +29,7 @@ Two layers:
 | Component | What it does | Installed from | Wired as | Default |
 |---|---|---|---|---|
 | `codegraph` | Code graph search (`codegraph_explore`); supports Swift and ObjC | npm `@colbymchenry/codegraph@1.6.2` | Its own `codegraph install` (MCP + marked CLAUDE.md section + prompt hook); telemetry turned off | on |
-| `projectmem` | Per-project memory: issues, attempts, fixes, decisions | PyPI `projectmem==0.3.4` in its own venv (`~/.local/share/agent-kit/projectmem-venv`) | One global MCP server for all projects | on |
+| `projectmem` | Per-project & global memory (issues, attempts, fixes, decisions) with real-time iCloud Drive CRDT sync | PyPI `projectmem==0.3.4` in its own venv (`~/.local/share/agent-kit/projectmem-venv`) | One global MCP server for all projects + `.pth` real-time sync hook | on |
 | `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` | `rtk init -g` (per-agent flags) | on |
 | `context-mode` | Sandboxed execution + indexed search | npm `context-mode@1.0.169` (Node ≥ 22.5) | MCP only, no hooks | off |
 
@@ -67,6 +68,7 @@ devguard                 # interactive menu (status, select tools, doctor, stats
 devguard status          # compact overview table of what is installed, wired and set up
 devguard doctor [--fix]  # audit 7 common failure modes and optionally repair them automatically
 devguard stats           # unified token savings, codegraph index & verification pass-rate stats
+devguard sync [--quiet]  # sync projectmem across machines over iCloud Drive (CRDT merge)
 devguard select          # interactively pick agents and tools to enable/disable
 devguard update          # pull the latest kit, upgrade tools and re-apply settings
 devguard init [--all]    # set up this repo now, or every repo under your auto-setup folders
@@ -86,7 +88,15 @@ Each repository under your auto-setup folders (default `~/Developer`, 1–2 leve
 
 Setup runs in the background, ready repos are skipped instantly, and logs go to `~/.agent-kit/logs/`. Repositories outside the folders are never touched, and a `.agent-kit-skip` file opts one out (the kit's own repo has one).
 
-Unlike tokless, `pjm init` writes into each project: it installs git hooks and adds a "projectmem bridge" section to the project's `CLAUDE.md` and `AGENTS.md`. That is why setup is limited to your own folders.
+Unlike tokless, `pjm init` writes into each project: it installs git hooks, verifies `config.toml` and `~/.projectmem/projects.json` registration, and adds a "projectmem bridge" section to the project's `CLAUDE.md` and `AGENTS.md`. That is why setup is limited to your own folders.
+
+### Cross-machine memory sync (iCloud Drive)
+
+When iCloud Drive is signed in, `projectmem` automatically syncs project and global memories across all your Macs via `~/Library/Mobile Documents/com~apple~CloudDocs/devguard-sync/` using an append-only CRDT merge (`bin/pjm_sync.py`):
+- **Conflict-free per-device files:** Each Mac writes only to its own `nodes/<device_id>.jsonl`, `docs/<device_id>-PROJECT_MAP.md`, `docs/<device_id>-plan.md`, and `global/nodes/<device_id>.json`, avoiding iCloud `events 2.jsonl` conflict copies.
+- **Git root commit matching (`root-<sha12>`):** Repositories are matched across Macs by their initial Git commit SHA even if folder names differ.
+- **Offline `issue_id` collision resolution:** Concurrent offline issues with the same number are deterministically renumbered with `parent_issue_key` linkage and `.projectmem/.current_issue` marker updates.
+- **Zero-touch real-time sync:** A `.pth` runtime hook inside `projectmem-venv` syncs automatically on every MCP read/write, complemented by `cd`, `launchd`, and `devguard sync`.
 
 ### Coming from tokless / caveman / ponytail
 
@@ -99,7 +109,7 @@ Remove legacy tools first so hooks and plugins aren't wired twice: `tokless unin
 | Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/skills/verified-dev` | `~/.claude.json` |
 | VS Code / Copilot | `~/.copilot/copilot-instructions.md` | reads `~/.claude/skills` (or `~/.copilot/skills` if Claude Code is not a target) | `~/Library/Application Support/Code/User/mcp.json` |
 | Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills/verified-dev`, `~/.gemini/antigravity-cli/skills/verified-dev` | `~/.gemini/config/mcp_config.json` |
-| OpenCode | `~/.config/opencode/AGENTS.md` | `~/.config/opencode/skills/verified-dev` | `~/.config/opencode/opencode.json` |
+| OpenCode | `~/.config/opencode/AGENTS.md` | `~/.config/opencode/skills/verified-dev` | `~/.config/opencode/opencode.jsonc` |
 | Cursor | `~/.cursor/rules/devguard.mdc` | `~/.cursor/skills/verified-dev` | `~/.cursor/mcp.json` |
 | Codex CLI | `~/.codex/AGENTS.md` | `~/.codex/skills/verified-dev` | `~/.codex/config.toml` |
 | Gemini CLI | `~/.gemini/GEMINI.md` | `~/.gemini/skills/verified-dev` | `~/.gemini/settings.json` |
@@ -120,7 +130,7 @@ Left in place on purpose, because they are the tools' own data: `~/.codegraph/`,
 
 1. Run `devguard status` and `devguard doctor`. Every core line should say `ok`, each enabled component should be `wired` for your agents, and `devguard doctor` should report `0 issues` (if not, run `devguard doctor --fix`).
 2. Open a new session in each agent and ask: "What rules are you following for code tasks?" It should stay read-only, mention `verified-dev`, and cite runtime evidence requirements.
-3. Ask it to fix a bug that has a failing test. The reply should include the `agent-verify` log path, exit codes before and after, and the failing/passing lines.
+3. Ask it to fix a bug that has a failing test. The reply should include a compact summary and a one-line verification receipt (`agent-verify` log path, exit code, and key verdict), pasting raw log lines only for failures.
 
 If step 3 comes back without evidence, an always-on rule from another setup is probably winning. See section 9 of the skill.
 
@@ -154,7 +164,7 @@ The workflow (sections 1, 2 and 4-9 of the skill) is stack-neutral. Section 3's 
 
 ติดตั้งคำสั่งเดียวด้วย bootstrap (ดูส่วน Install) หรือรัน `./install.sh` ใน repo ที่ clone ไว้ ค่าเริ่มต้นตั้งค่าทุก repo ใน `~/Developer` ให้อัตโนมัติ ผ่าน Claude Code, การ `cd` ใน zsh และการสแกนของ launchd ทุก 30 นาที
 
-ใช้งานผ่านคำสั่ง `devguard` เช่น `status`, `doctor [--fix]`, `stats`, `select`, `update`, `init [--all]`, `skip` และ `uninstall [--purge]` ไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` ถ้าเคยใช้ tokless หรือปลั๊กอิน caveman/ponytail ให้รัน `devguard doctor --fix` เพื่อเก็บกวาดคราบเก่าอัตโนมัติ
+ใช้งานผ่านคำสั่ง `devguard` เช่น `status`, `doctor [--fix]`, `stats`, `sync [--quiet]`, `select`, `update`, `init [--all]`, `skip` และ `uninstall [--purge]` ความจำของ `projectmem` จะซิงค์ข้ามเครื่องผ่าน iCloud Drive แบบ CRDT อัตโนมัติ (จับคู่โปรเจกต์ด้วย Git root commit SHA แม้ชื่อโฟลเดอร์ต่างกัน) และไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` (เก็บล่าสุดสูงสุด 10 ชุด) ถ้าเคยใช้ tokless หรือปลั๊กอิน caveman/ponytail ให้รัน `devguard doctor --fix` เพื่อเก็บกวาดคราบเก่าอัตโนมัติ
 
 ## Credits
 

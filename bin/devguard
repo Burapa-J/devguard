@@ -19,6 +19,7 @@ Kit: $KIT_DIR
   devguard doctor [--fix]       audit installation health & conflicts (--fix: repair automatically)
   devguard stats [options]      token savings, codegraph index & verification pass-rate stats
                                 (-d daily, -p current project, --dashboard, --reset)
+  devguard sync [--quiet]       sync projectmem (global + all projects) via iCloud Drive CRDT hub
   devguard select               interactively pick agents and tools to enable/disable
   devguard update               pull the latest kit, upgrade tools, and re-apply settings
   devguard init [--all]         set up this repo, or every repo under auto-setup folders
@@ -105,6 +106,7 @@ run_menu() {
   ui_choose "Select an action" \
     "Select & Install   — เลือกเปิด/ปิด Agents และเครื่องมือ (CodeGraph, ProjectMem, RTK)" \
     "Doctor & Repair    — ตรวจสอบสุขภาพการติดตั้งและซ่อมจุดที่มีปัญหาอัตโนมัติ (--fix)" \
+    "Sync Memory        — ซิงก์ความจำ ProjectMem ข้ามเครื่องผ่าน iCloud Drive ทันที" \
     "Stats & ROI        — ดูสถิติการประหยัด Token และอัตราการ Verify ผ่าน" \
     "Reset RTK Stats    — รีเซ็ตตัวนับสถิติของ RTK เพื่อเริ่มนับใหม่" \
     "Update             — อัปเดต devguard และเครื่องมือเป็นเวอร์ชันล่าสุด" \
@@ -114,11 +116,12 @@ run_menu() {
   case "$UI_CHOICE" in
     0) run_select ;;
     1) "$KIT_DIR/bin/doctor.sh" --fix ;;
-    2) "$KIT_DIR/bin/stats.sh" ;;
-    3) "$KIT_DIR/bin/stats.sh" --reset ;;
-    4) "$0" update ;;
-    5) "$0" init --all ;;
-    6) run_interactive_uninstall ;;
+    2) "$0" sync ;;
+    3) "$KIT_DIR/bin/stats.sh" ;;
+    4) "$KIT_DIR/bin/stats.sh" --reset ;;
+    5) "$0" update ;;
+    6) "$0" init --all ;;
+    7) run_interactive_uninstall ;;
     *) ;;
   esac
 }
@@ -141,6 +144,11 @@ case "$cmd" in
   status | info) exec "$KIT_DIR/status.sh" "$@" ;;
   doctor) exec "$KIT_DIR/bin/doctor.sh" "$@" ;;
   stats) exec "$KIT_DIR/bin/stats.sh" "$@" ;;
+  sync)
+    PY="$HOME/.local/share/agent-kit/projectmem-venv/bin/python"
+    [ -x "$PY" ] || PY="python3"
+    exec "$PY" "$KIT_DIR/bin/pjm_sync.py" "$@"
+    ;;
   select) run_select ;;
   install)
     if [ "${1:-}" = "-i" ] || [ "${1:-}" = "--interactive" ]; then
@@ -174,6 +182,9 @@ case "$cmd" in
       command -v ast-grep >/dev/null 2>&1 && { brew upgrade ast-grep 2>/dev/null || true; } || { brew install ast-grep 2>/dev/null || true; }
     fi
     "$KIT_DIR/install.sh" "$@"
+    if [ -x "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" ]; then
+      "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet || true
+    fi
     echo
     exec "$KIT_DIR/status.sh"
     ;;

@@ -233,13 +233,16 @@ check "unknown command rejected" '! devguard frobnicate 2>/dev/null'
 
 echo "== devguard doctor (detect and fix all 7 issue types)"
 # Seed all 7 failure modes into the throwaway HOME:
-printf '#!/bin/sh\necho "tokless $*" >> "$STUB_LOG"\n' > "$HOME/.local/bin/tokless"; chmod +x "$HOME/.local/bin/tokless"
+printf '#!/bin/sh\necho "tokless $*" >> "$STUB_LOG"\n' > "$HOME/.local/bin/tokless"; chmod +x "$STUB/bin/tokless" 2>/dev/null || chmod +x "$HOME/.local/bin/tokless"
 printf '# tokless\n# >>> tokless path >>>\nPATH=":"\n# <<< tokless path <<<\n' >> "$HOME/.zshrc"
 ln -s "$HOME/nonexistent-target" "$HOME/.local/bin/broken-link"
 ln -s "$HOME/nonexistent-uv" "$HOME/.local/bin/pjm-mcp"
 jq '.enabledPlugins = {"caveman@caveman":true,"ponytail@ponytail":true} | .extraKnownMarketplaces = {"caveman":{},"ponytail":{}} | .env = {"ANTHROPIC_BASE_URL":"http://127.0.0.1:8787"}' "$HOME/.claude/settings.json" > "$STUB/s.json" && mv "$STUB/s.json" "$HOME/.claude/settings.json"
 : > "$HOME/.claude/.caveman-active"
-mkdir -p "$HOME/.gemini/config/skills/caveman" "$HOME/.gemini/antigravity"
+: > "$HOME/.claude/.caveman-history.jsonl"
+mkdir -p "$HOME/.gemini/config/skills/caveman" "$HOME/.config/opencode/skills/caveman" "$HOME/.gemini/antigravity" "$HOME/.cursor/rules"
+echo '{"plugin":["./plugins/caveman/plugin.js","@dietrichgebert/ponytail"],"mcp":{"servers":{"projectmem":{"type":"local","command":["pjm"],"disabled":false}}}}' > "$HOME/.config/opencode/opencode.jsonc"
+printf '<!-- agent-kit:begin -->\n# legacy potless rule\n<!-- agent-kit:end -->\n' > "$HOME/.cursor/rules/potless.mdc"
 echo '{"mcpServers":{"projectmem":{"command":"old"}}}' > "$HOME/.gemini/antigravity/mcp_config.json"
 "$SKIT/install.sh" --with=codegraph,projectmem,rtk --auto-project="$DEV" > /dev/null 2>&1
 rm -rf "$HOME/.gemini/config/plugins/rtk"
@@ -251,6 +254,8 @@ devguard doctor --fix > "$STUB/docfix.log" 2>&1; code=$?
 check "doctor --fix repairs all 7 issues" '[ $code = 0 ] && grep -q "7 repaired" "$STUB/docfix.log"'
 check "doctor ran tokless proxy stop and disable before removing" 'grep -q "tokless proxy stop" "$STUB_LOG" && grep -q "tokless disable" "$STUB_LOG"'
 check "doctor cleaned ANTHROPIC_BASE_URL and extraKnownMarketplaces" '! jq -e ".env or .extraKnownMarketplaces or .enabledPlugins" "$HOME/.claude/settings.json" >/dev/null 2>&1'
+check "doctor cleaned opencode.jsonc plugins and legacy potless.mdc" '! jq -e ".plugin" "$HOME/.config/opencode/opencode.jsonc" >/dev/null 2>&1 && [ ! -e "$HOME/.cursor/rules/potless.mdc" ] && [ ! -e "$HOME/.claude/.caveman-history.jsonl" ]'
+rm -rf "$HOME/.config/opencode" "$HOME/.cursor"
 devguard doctor > "$STUB/doc2.log" 2>&1; code=$?
 check "doctor clean after --fix" '[ $code = 0 ] && grep -q "0 issues" "$STUB/doc2.log" && [ "$(cat "$STUB/bin/cg.ver")" = "1.6.2" ]'
 
@@ -286,6 +291,34 @@ check "bootstrap installed devguard command" '[ "$(readlink "$HOME/.local/bin/de
 rm -f "$HOME/.zshrc"
 unset AGENT_KIT_FORCE_LAUNCHD AGENT_KIT_LAUNCHD_DIR
 rmdir "$HOME/Library/Application Support" "$HOME/Library" 2>/dev/null || true   # test-only stand-in for macOS ~/Library
+
+echo "== multi-device iCloud CRDT sync (root commit SHA + issue_id collision + doc sync)"
+SYNC_HUB="$STUB/icloud-sync"
+MAC_A="$STUB/mac-a/alpha-app"
+MAC_B="$STUB/mac-b/renamed-app"
+mkdir -p "$MAC_A"
+git -C "$MAC_A" init -q
+git -C "$MAC_A" -c user.name=t -c user.email=t@t commit -qm "initial root commit" --allow-empty
+git clone -q "$MAC_A" "$MAC_B" 2>/dev/null
+mkdir -p "$MAC_A/.projectmem" "$MAC_B/.projectmem"
+printf '[project]\nname = "alpha-app"\n' > "$MAC_A/.projectmem/config.toml"
+printf '[project]\nname = "renamed-app"\n' > "$MAC_B/.projectmem/config.toml"
+printf '{"id":"evt_a1","type":"issue","issue_id":"0001","summary":"Crash on startup","timestamp":"2026-10-30T01:00:00Z"}\n' > "$MAC_A/.projectmem/events.jsonl"
+printf '# Project Map\n\n## Project purpose\nReal architecture map from Mac A.\n' > "$MAC_A/.projectmem/PROJECT_MAP.md"
+printf '{"id":"evt_b1","type":"issue","issue_id":"0001","summary":"Offline bug on Mac B","timestamp":"2026-10-30T02:00:00Z"}\n{"id":"evt_b2","type":"fix","issue_id":"0001","summary":"Fixed offline bug on Mac B","timestamp":"2026-10-30T02:05:00Z"}\n' > "$MAC_B/.projectmem/events.jsonl"
+printf '0001' > "$MAC_B/.projectmem/.current_issue"
+printf '# Project Map\n\n> Replace this placeholder with real project knowledge.\n' > "$MAC_B/.projectmem/PROJECT_MAP.md"
+# Asymmetric multi-hop sync: both push while unaware, then mac-a merges first, then mac-b merges
+mkdir -p "$SYNC_HUB/projects/root-$(git -C "$MAC_A" rev-list --max-parents=0 HEAD | cut -c1-12)/nodes"
+cp "$MAC_B/.projectmem/events.jsonl" "$SYNC_HUB/projects/root-$(git -C "$MAC_A" rev-list --max-parents=0 HEAD | cut -c1-12)/nodes/mac-b.jsonl"
+DEVGUARD_SYNC_DIR="$SYNC_HUB" DEVGUARD_DEVICE_ID="mac-a" /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --quiet "$MAC_A"
+DEVGUARD_SYNC_DIR="$SYNC_HUB" DEVGUARD_DEVICE_ID="mac-b" /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --quiet "$MAC_B"
+DEVGUARD_SYNC_DIR="$SYNC_HUB" DEVGUARD_DEVICE_ID="mac-a" /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --quiet "$MAC_A"
+ROOT_SHA12=$(git -C "$MAC_A" rev-list --max-parents=0 HEAD | cut -c1-12)
+check "different folder names map to same root-<sha12> bucket" '[ -f "$SYNC_HUB/projects/root-$ROOT_SHA12/nodes/mac-a.jsonl" ] && [ -f "$SYNC_HUB/projects/root-$ROOT_SHA12/nodes/mac-b.jsonl" ]'
+check "offline issue_id 0001 collision resolved to 0001 + 0002 on both machines" '[ "$(wc -l < "$MAC_A/.projectmem/events.jsonl" | tr -d " ")" = 3 ] && cmp -s "$MAC_A/.projectmem/events.jsonl" "$MAC_B/.projectmem/events.jsonl" && grep -q "\"issue_id\": \"0002\", \"summary\": \"Fixed offline bug on Mac B\"" "$MAC_A/.projectmem/events.jsonl"'
+check "active .current_issue marker updated when local issue_id renumbered" '[ "$(cat "$MAC_B/.projectmem/.current_issue")" = "0002" ]'
+check "real PROJECT_MAP.md synced over placeholder without data loss" 'grep -q "Real architecture map from Mac A" "$MAC_B/.projectmem/PROJECT_MAP.md"'
 
 rm -rf "$HOME/.agent-kit-backup"
 check ".claude.json byte-identical to original" 'cmp -s "$CJ" "$HOME.orig/.claude.json"'

@@ -99,7 +99,7 @@ RULES="$KIT_DIR/rules/core.md"
 SKILL_SRC="$KIT_DIR/skills/$SKILL_NAME"
 
 [ "$DRY_RUN" = 1 ] && say "Dry run: nothing will be changed."
-[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/devguard" "$KIT_DIR/bin/doctor.sh" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/bin/stats.sh" "$KIT_DIR/bin/ui.sh" "$KIT_DIR/hooks/remind.sh"
+[ "$DRY_RUN" = 1 ] || chmod +x "$KIT_DIR/bin/devguard" "$KIT_DIR/bin/doctor.sh" "$KIT_DIR/bin/verify.sh" "$KIT_DIR/bin/project.sh" "$KIT_DIR/bin/stats.sh" "$KIT_DIR/bin/ui.sh" "$KIT_DIR/bin/pjm_sync.py" "$KIT_DIR/hooks/remind.sh"
 
 if command -v tokless >/dev/null 2>&1; then
   warn "tokless is installed. It wires some of the same tools; run 'tokless uninstall' first to avoid duplicates."
@@ -153,6 +153,9 @@ fi
 
 if has_target cursor; then
   say "Cursor"
+  for old_cr in $LEGACY_CURSOR_RULES; do
+    remove_block "$old_cr"
+  done
   set_block "$CURSOR_RULES" "$RULES"
   link "$CURSOR_SKILLS/$SKILL_NAME" "$SKILL_SRC"
 fi
@@ -203,6 +206,7 @@ done
 
 if [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
   say "Backups of changed files: $BACKUP_DIR"
+  prune_backups
 fi
 if [ -n "$failed" ]; then
   warn "components not installed:$failed (see messages above)"

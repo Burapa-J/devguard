@@ -11,7 +11,7 @@
 | เครื่องมือ | เวอร์ชันที่ Pin ปัจจุบัน | ไฟล์ที่กำหนด | ต้นทาง (GitHub / Package) | เมื่อไหร่ควรอัปเดต |
 |---|---|---|---|---|
 | **CodeGraph** | `1.6.2` | `components/codegraph.sh` | https://github.com/colbymchenry/codegraph (`@colbymchenry/codegraph` บน npm) | เมื่อมีการปรับปรุง parser ของ Swift / ObjC หรือรองรับ Agent ตัวใหม่ |
-| **ProjectMem** | `0.3.4` | `components/projectmem.sh` | https://github.com/riponcm/projectmem (`projectmem` บน PyPI) | เมื่อมีการปรับปรุง MCP schema หรือแก้บั๊กฐานข้อมูล SQLite |
+| **ProjectMem** | `0.3.4` | `components/projectmem.sh`, `bin/pjm_sync.py` | https://github.com/riponcm/projectmem (`projectmem` บน PyPI) | เมื่อมีการปรับปรุง MCP schema หรือ `ProjectStore` (ต้องตรวจให้เข้ากันได้กับ `.pth` hook ใน `bin/pjm_sync.py`) |
 | **RTK** | ตาม Homebrew (`1.1.0+`) | `components/rtk.sh` | https://github.com/rtk-ai/rtk (`rtk` บน Homebrew) | เมื่อมีการเพิ่ม filter สำหรับคำสั่งใหม่ (เช่น `xcodebuild`, `swift`) หรือรองรับ global hook ของ Antigravity โดยตรง |
 | **Context-Mode** | `1.0.169` | `components/context-mode.sh` | https://github.com/mksglu/context-mode (`context-mode` บน npm) | เมื่อเปิดใช้งาน `context-mode` และต้องการอัปเดต sandbox |
 | **xcbeautify** | ตาม Homebrew (`3.2.1+`) | `bootstrap.sh`, `bin/devguard` | https://github.com/cpisciotta/xcbeautify (`xcbeautify` บน Homebrew) | เมื่อ Xcode ออกเวอร์ชันใหญ่และเปลี่ยนรูปแบบ build/test log |

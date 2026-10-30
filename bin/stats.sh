@@ -144,8 +144,8 @@ elif [ -d "$HOME/Developer" ]; then
 fi
 
 repos_tmp=$(mktemp)
-for root in $scan_roots; do
-  [ -d "$root" ] || continue
+printf '%s\n' "$scan_roots" | while IFS= read -r root; do
+  [ -n "$root" ] && [ -d "$root" ] || continue
   find "$root" -mindepth 2 -maxdepth 3 -name .git -not -path '*/node_modules/*' 2>/dev/null |
     while IFS= read -r g; do dirname "$g"; done
 done | LC_ALL=C sort -u > "$repos_tmp"
@@ -202,8 +202,8 @@ v_total_fail=0
 v_total_lines=0
 
 v_repos_tmp=$(mktemp)
-for root in $scan_roots; do
-  [ -d "$root" ] || continue
+printf '%s\n' "$scan_roots" | while IFS= read -r root; do
+  [ -n "$root" ] && [ -d "$root" ] || continue
   find "$root" -mindepth 2 -maxdepth 3 -name .git -not -path '*/node_modules/*' 2>/dev/null |
     while IFS= read -r g; do dirname "$g"; done
 done | LC_ALL=C sort -u > "$v_repos_tmp"

@@ -76,8 +76,8 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ### Investigation (read-only: how X works, why Y was built this way, are we sure, should we do X or Y, plan/code review)
 1. State the exact question.
-2. Read the relevant code; fan out to a subagent if more than a few files.
-3. Answer from evidence with file:line references. Mark anything inferred as inferred.
+2. Read the actual implementation source (not just `--help`, filenames, or one sample config): cover the read path, write path, ID/state lifecycle, and ignore/conflict rules. Fan out to a subagent if more than a few files.
+3. Answer from evidence with `file:line` references for every claim. Mark anything inferred as inferred.
 
 ### Bug fix
 1. Reproduce it myself on the same surface. If it won't reproduce, force it: synthesize the trigger, tighten conditions, add logging.
@@ -86,10 +86,10 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 4. Implement the smallest fix the evidence supports. If it crosses a function boundary, sketch the design first.
 5. Verify: the original repro now passes on the same surface.
 6. Commit the failing test/repro before the fix when a cheap test exists.
-7. Report: what broke, root cause, fix, failing and passing evidence verbatim.
+7. Report: what broke, root cause, fix, and a one-line verification receipt (paste verbatim log lines only for failures).
 
 ### Feature
-1. Explore the affected subsystem.
+1. Explore the affected subsystem by reading its actual source code (read/write paths, ID/state rules, and edge/conflict cases — never extrapolate from `--help` or filenames alone) and cite `file:line`.
 2. Name the data shape. If more than one design is viable, compare 2-3 options in a table and pick one with a reason.
 3. Throughput checkpoint, four lines (mark n/a with reason when not relevant): blocking first steps; independent workstreams; shared mutable state; smallest safe decomposition.
 4. Implement (or delegate with a scoped brief: file paths, data model, success criteria). Review every diff myself.
@@ -138,7 +138,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 - Reply in the user's language. Short declarative sentences, one thought each. Terse is not an excuse to drop content: keep details, tradeoffs, choices, and open decisions.
 - Lead with impact for the user of the code, then for the next maintainer. Note any adjacent bugs found in the module, known ceilings, or concrete next steps.
-- Every "done" names its evidence (command, exit code, relevant output lines, screenshot, eval numbers). If unverified, say so.
+- Every "done" names its evidence in one compact line (command, exit code, key verdict/numbers, `.verify/<name>.log` link, or screenshot); paste verbatim log blocks only when something failed or the user asks. If unverified, say so.
 - Never fabricate links, citations, APIs or file contents. Link only what was produced or read this session.
 
 ## 8. Code comments
@@ -150,7 +150,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 Always-on brevity rules and command-output compressors (for example caveman, ponytail, rtk) can strip the evidence this skill depends on.
 
-- **Evidence is exempt from brevity rules.** Keep prose terse, but never cut verification evidence. Trim only irrelevant log noise, and say what was trimmed.
+- **Verification checks are exempt from brevity rules, chat logs are not.** Always run the full check and read `.verify/<name>.log` yourself, but keep the chat report to a one-line receipt unless reporting a failure.
 - **Compressed shell output is never proof.** Use `agent-verify` and read the log file. If a shell summary disagrees with the log, the log wins. With rtk, `rtk bypass <cmd>` also gives unfiltered output.
 - **Prototypes are not speculative work.** A probe or a 2-3 design comparison answers a concrete open question and is deleted once the decision is recorded. Speculative features, options and abstractions remain forbidden.
 - **Use the code graph when present.** When `.codegraph/` or `codegraph_explore` is available, query it first for symbol source, call paths and blast radius before grep/find, and report any adjacent bugs found in the module.
