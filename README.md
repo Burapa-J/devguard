@@ -40,6 +40,7 @@ Two layers:
 |---|---|---|
 | `ast-grep` | Tree-sitter structural search & refactoring (`ast-grep run -p '<pattern>' -l swift`) | Homebrew `ast-grep` |
 | `xcbeautify` | Condenses `xcodebuild` build/test logs into clean summaries (also used by `rtk` for Xcode output) | Homebrew `xcbeautify` |
+| `shellcheck` | Static analysis for shell scripts; this kit runs it in its own commit gate | Homebrew `shellcheck` |
 
 `rtk` compresses routine shell output while `verified-dev` captures full verification logs into `.verify/<name>.log` via `agent-verify` and reads them with the file-read tool, so failing lines are never lost.
 

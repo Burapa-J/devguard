@@ -348,10 +348,11 @@ done
 if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
   command -v ast-grep >/dev/null 2>&1 || ver_drift="$ver_drift ast-grep(missing)"
   command -v xcbeautify >/dev/null 2>&1 || ver_drift="$ver_drift xcbeautify(missing)"
+  command -v shellcheck >/dev/null 2>&1 || ver_drift="$ver_drift shellcheck(missing)"
 fi
 
 if [ -z "$ver_drift" ]; then
-  ok "7. Component & companion CLI versions healthy (codegraph, projectmem, rtk, ast-grep, xcbeautify)"
+  ok "7. Component & companion CLI versions healthy (codegraph, projectmem, rtk, ast-grep, xcbeautify, shellcheck)"
 else
   if [ "$FIX" = 1 ]; then
     for c in $ALL_COMPONENTS; do
@@ -360,6 +361,7 @@ else
     if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
       command -v ast-grep >/dev/null 2>&1 || brew install ast-grep >/dev/null 2>&1 || true
       command -v xcbeautify >/dev/null 2>&1 || brew install xcbeautify >/dev/null 2>&1 || true
+      command -v shellcheck >/dev/null 2>&1 || brew install shellcheck >/dev/null 2>&1 || true
     fi
     repaired "7. Upgraded/installed component & companion CLIs ($ver_drift )"
   else

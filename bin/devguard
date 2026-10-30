@@ -184,6 +184,7 @@ case "$cmd" in
       fi
       command -v xcbeautify >/dev/null 2>&1 && { brew upgrade xcbeautify 2>/dev/null || true; } || { brew install xcbeautify 2>/dev/null || true; }
       command -v ast-grep >/dev/null 2>&1 && { brew upgrade ast-grep 2>/dev/null || true; } || { brew install ast-grep 2>/dev/null || true; }
+      command -v shellcheck >/dev/null 2>&1 && { brew upgrade shellcheck 2>/dev/null || true; } || { brew install shellcheck 2>/dev/null || true; }
     fi
     "$KIT_DIR/install.sh" "$@"
     if [ -x "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" ]; then

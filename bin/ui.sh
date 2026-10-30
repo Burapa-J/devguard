@@ -7,7 +7,7 @@
 ui_multiselect() {
   local title=$1 items_csv=$2 defaults_csv=$3
   local C_OK=$'\033[32m' C_CYAN=$'\033[36m' C_DIM=$'\033[90m' C_BOLD=$'\033[1m' C_RESET=$'\033[0m'
-  local items=() labels=() selected=() i=0 n cur=0 key rest d
+  local items=() labels=() selected=() i=0 n cur=0 key rest
 
   old_ifs=$IFS; IFS=,
   for item in $items_csv; do
@@ -121,6 +121,7 @@ ui_choose() {
   done
 
   printf '\033[?25h\n' >&2
+  # shellcheck disable=SC2034  # read by the sourcing caller (bin/devguard)
   UI_CHOICE=$cur
   return 0
 }

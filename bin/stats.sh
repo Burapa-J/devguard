@@ -15,9 +15,9 @@ KIT_DIR=$(cd "$(dirname "$0")/.." && pwd -P)
 . "$KIT_DIR/components/common.sh"
 
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
-  C_OK=$'\033[32m' C_OFF=$'\033[90m' C_BOLD=$'\033[1m' C_CYAN=$'\033[36m' C_RESET=$'\033[0m'
+  C_OFF=$'\033[90m' C_BOLD=$'\033[1m' C_CYAN=$'\033[36m' C_RESET=$'\033[0m'
 else
-  C_OK="" C_OFF="" C_BOLD="" C_CYAN="" C_RESET=""
+  C_OFF="" C_BOLD="" C_CYAN="" C_RESET=""
 fi
 
 MODE="summary"

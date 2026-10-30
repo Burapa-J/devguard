@@ -105,6 +105,7 @@ flag() { if eval "$2"; then printf "${C_OK}✓${C_RESET} %s  " "$1"; else printf
 printf "  Tools        "
 flag "ast-grep" 'command -v ast-grep >/dev/null 2>&1'
 flag "xcbeautify" 'command -v xcbeautify >/dev/null 2>&1'
+flag "shellcheck" 'command -v shellcheck >/dev/null 2>&1'
 flag "agent-verify" 'is_ours "$VERIFY_LINK"'
 echo
 if projectmem_present; then
@@ -175,6 +176,12 @@ if command -v ast-grep >/dev/null 2>&1; then
   mark "$(printf '%-28s %s' "ast-grep ${sg_ver:-}" "$(command -v ast-grep)")" true
 else
   mark "ast-grep                     (not installed; brew install ast-grep)" false
+fi
+if command -v shellcheck >/dev/null 2>&1; then
+  sc_ver=$(shellcheck --version 2>/dev/null | awk '/^version:/ {print $2}')
+  mark "$(printf '%-28s %s' "shellcheck ${sc_ver:-}" "$(command -v shellcheck)")" true
+else
+  mark "shellcheck                   (not installed; brew install shellcheck)" false
 fi
 if command -v xcbeautify >/dev/null 2>&1; then
   xcb_ver=$(xcbeautify --version 2>/dev/null | head -n 1)

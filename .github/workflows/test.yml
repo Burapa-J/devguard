@@ -15,6 +15,10 @@ jobs:
           for f in bin/devguard bin/*.sh status.sh install.sh uninstall.sh bootstrap.sh lib.sh components/*.sh hooks/*.sh tests/*.sh; do
             bash -n "$f"
           done
+      - name: Lint shell scripts
+        run: |
+          command -v shellcheck >/dev/null || brew install shellcheck
+          shellcheck -S warning bin/devguard bin/*.sh status.sh install.sh uninstall.sh bootstrap.sh lib.sh components/*.sh hooks/*.sh tests/*.sh
       - name: Run core install/uninstall tests
         run: /bin/bash tests/test-kit.sh
       - name: Run component & doctor tests
