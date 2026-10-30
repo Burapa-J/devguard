@@ -20,6 +20,7 @@ Kit: $KIT_DIR
   devguard stats [options]      token savings, codegraph index & verification pass-rate stats
                                 (-d daily, -p current project, --dashboard, --reset)
   devguard sync [--quiet]       sync projectmem (global + all projects) via iCloud Drive CRDT hub
+  devguard sync --check         read-only: per project, do all devices hold the same events?
   devguard check [commit|push]  run this repo's .devguard/checks (the gate); exit 1 on failure
   devguard gate init|install|uninstall  create checks template / add or remove git hooks
   devguard review [--with claude|agy|gemini] [--base REF]  another model reviews the change (read-only)

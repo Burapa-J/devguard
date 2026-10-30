@@ -72,6 +72,7 @@ devguard status          # compact overview table of what is installed, wired an
 devguard doctor [--fix]  # audit 8 common failure modes and optionally repair them automatically
 devguard stats           # unified token savings, codegraph index & verification pass-rate stats
 devguard sync [--quiet]  # sync projectmem across machines over iCloud Drive (CRDT merge)
+devguard sync --check    # read-only: per project, do all Macs hold the same events?
 devguard check           # run this repo's .devguard/checks (the done gate)
 devguard gate init       # write a checks template and install the git hooks
 devguard review          # another model reviews uncommitted changes (or the last commit)
@@ -120,6 +121,7 @@ When iCloud Drive is signed in, `projectmem` automatically syncs project and glo
 - **Git root commit matching (`root-<sha12>`):** Repositories are matched across Macs by their initial Git commit SHA even if folder names differ.
 - **Offline `issue_id` collision resolution:** Concurrent offline issues with the same number are deterministically renumbered with `parent_issue_key` linkage and `.projectmem/.current_issue` marker updates.
 - **Zero-touch real-time sync:** A `.pth` runtime hook inside `projectmem-venv` syncs automatically on every MCP read/write, complemented by `cd`, `launchd`, and `devguard sync`.
+- **Is it synced?** `devguard sync --check` compares every Mac's node file per project: `in-sync`, `diverged` (a Mac lacks events another has: still travelling through iCloud, or that Mac has not synced since; it names the Mac and how many events) or `single` (only one Mac has written). `devguard status` shows the totals.
 
 ### Coming from tokless / caveman / ponytail
 

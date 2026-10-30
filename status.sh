@@ -114,6 +114,10 @@ if projectmem_present; then
   flag "hook" 'projectmem_sync_hook_ok'
   flag "iCloud hub" '[ -d "$(projectmem_sync_hub)" ]'
   flag "$(projectmem_sync_devices | wc -l | tr -d ' ') device(s)" '[ -n "$(projectmem_sync_devices)" ]'
+  sync_summary=$("$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --check-summary 2>/dev/null)
+  # shellcheck disable=SC2034  # read inside the eval'd flag/mark conditions
+  sync_rc=$?
+  [ -n "$sync_summary" ] && flag "$sync_summary" '[ "$sync_rc" = 0 ]'
   if [ -z "$stale_mcp" ]; then flag "MCP up to date" true; else flag "restart agents (MCP on old code)" false; fi
   echo
 fi
@@ -162,6 +166,7 @@ if projectmem_present; then
       if [ "$d" = "$this_dev" ]; then echo "         device: $d (this Mac)"; else echo "         device: $d"; fi
     done
   fi
+  [ -n "${sync_summary:-}" ] && mark "projects: $sync_summary (details: devguard sync --check)" '[ "$sync_rc" = 0 ]'
   if [ -n "$stale_mcp" ]; then
     echo "  ${C_WARN}!!${C_RESET}   MCP servers running old sync code (pid $stale_mcp): restart your agents"
   else

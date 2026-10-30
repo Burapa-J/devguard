@@ -901,12 +901,72 @@ def install_runtime_hooks() -> None:
     gm.read_patterns = hooked_read_patterns
 
 
+def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Per project in the hub: which devices hold which event ids, and whether they agree.
+
+    Each device writes its full merged view to nodes/<device>.jsonl, so devices are in sync for a
+    project exactly when their node files hold the same ids. state is "in-sync", "diverged" (some
+    device lacks events another has: still propagating through iCloud, or that device has not synced
+    since) or "single" (only one device has written; nothing to compare yet).
+    """
+    sdir = sync_dir or default_sync_dir()
+    now = time.time()
+    out: list[dict[str, Any]] = []
+    projects = sdir / "projects"
+    if not projects.is_dir():
+        return out
+    for bucket in sorted(p for p in projects.iterdir() if p.is_dir()):
+        nodes = sorted((bucket / "nodes").glob("*.jsonl"))
+        if not nodes:
+            continue
+        try:
+            name = json.loads((bucket / "meta.json").read_text(encoding="utf-8")).get("last_seen_name")
+        except Exception:
+            name = None
+        ids = {n.stem: {str(ev.get("id")) for _, ev in _parse_jsonl_events(n, "") if ev.get("id")} for n in nodes}
+        union = set().union(*ids.values())
+        devices = {
+            n.stem: {
+                "events": len(ids[n.stem]),
+                "missing": len(union - ids[n.stem]),
+                "age_min": int((now - n.stat().st_mtime) // 60),
+            }
+            for n in nodes
+        }
+        if len(nodes) == 1:
+            state = "single"
+        elif all(d["missing"] == 0 for d in devices.values()):
+            state = "in-sync"
+        else:
+            state = "diverged"
+        out.append({"key": bucket.name, "name": name or bucket.name, "state": state, "devices": devices})
+    return out
+
+
+def print_convergence(sync_dir: Path | None = None, summary_only: bool = False) -> int:
+    rows = hub_convergence(sync_dir)
+    counts = {s: sum(1 for r in rows if r["state"] == s) for s in ("in-sync", "diverged", "single")}
+    if not summary_only:
+        for r in rows:
+            devs = "  ".join(
+                f"{d}: {v['events']} ev, {v['age_min']}m ago" + (f", MISSING {v['missing']}" if v["missing"] else "")
+                for d, v in r["devices"].items()
+            )
+            print(f"{r['name'][:30]:30} {r['state']:9} {devs}")
+    print(f"{counts['in-sync']} in sync, {counts['diverged']} diverged, {counts['single']} single-device")
+    return 1 if counts["diverged"] else 0
+
+
 def main(argv: list[str]) -> int:
     quiet = "--quiet" in argv or "-q" in argv
     args = [a for a in argv if a not in ("--quiet", "-q")]
 
     sdir = default_sync_dir()
     dev = get_device_id()
+
+    if "--check" in args or "--check-summary" in args:
+        # Read-only: compares node files in the hub; never writes or merges.
+        return print_convergence(sdir, summary_only="--check-summary" in args)
 
     if args and args[0] == "install-hook":
         # Install .pth file into projectmem-venv site-packages so every MCP/CLI run activates hooks

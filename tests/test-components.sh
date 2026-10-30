@@ -342,6 +342,23 @@ for case in slow-writer hook-lock remap-rescue; do
 done
 rm -rf "$HOME/.agent-kit/locks"; rmdir "$HOME/.agent-kit" 2>/dev/null || true
 
+echo "== sync --check (hub convergence, read-only)"
+CK="$STUB/check-hub/projects"
+mkdir -p "$CK/root-aaa/nodes" "$CK/root-bbb/nodes" "$CK/root-ccc/nodes"
+ev() { printf '{"id":"%s","type":"note","summary":"s","timestamp":"t"}\n' "$@"; }
+ev e1 e2 > "$CK/root-aaa/nodes/mac-a.jsonl"; ev e2 e1 > "$CK/root-aaa/nodes/mac-b.jsonl"
+ev e1 e2 e3 > "$CK/root-bbb/nodes/mac-a.jsonl"; ev e1 > "$CK/root-bbb/nodes/mac-b.jsonl"
+ev e1 > "$CK/root-ccc/nodes/mac-a.jsonl"
+cp -R "$CK" "$STUB/check-hub-before"
+ck_out=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check 2>&1); code=$?
+check "sync --check classifies in-sync, diverged and single" 'printf "%s" "$ck_out" | grep -q "^1 in sync, 1 diverged, 1 single-device"'
+check "sync --check names the device missing events" 'printf "%s\n" "$ck_out" | grep "root-bbb" | grep -q "mac-b: 1 ev.*MISSING 2"'
+check "sync --check exits 1 when any project diverged" '[ $code = 1 ]'
+check "sync --check is read-only" 'diff -r "$CK" "$STUB/check-hub-before" >/dev/null'
+rm -rf "${CK:?}/root-bbb"
+DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check > /dev/null 2>&1; code=$?
+check "sync --check exits 0 with nothing diverged" '[ $code = 0 ]'
+
 echo "== sync health helpers (status / doctor 8)"
 SH_HOME="$STUB/sync-health"; SP="$SH_HOME/venv/lib/python3.99/site-packages"; mkdir -p "$SP"
 sync_helper() { (unset STUB_LOG; export HOME="$SH_HOME" KIT_DIR="$KIT"; . "$KIT/lib.sh"; . "$KIT/components/common.sh"
