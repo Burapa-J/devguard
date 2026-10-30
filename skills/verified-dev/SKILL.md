@@ -40,6 +40,7 @@ Verification
 - **Reproduce before fixing.** An unreproduced bug cannot be proven fixed.
 - **Small verifiable units.** Each unit ends in a check and a commit before the next starts.
 - **Test behavior.** Call code the way users or callers do and assert literal expected values. A test that would pass with stubbed-out internals gets rewritten or deleted.
+- **Prove the test can fail.** A new test counts only after it has failed for the right reason: before the fix, or with the guard removed again (a mutation check: copy the code, delete the guard, run the test, see it fail). A test that stays green without the code it protects measures something else — find what (timing, a sibling path, a typo in the harness) before trusting it.
 - **Explain the number.** Before trusting or reporting a measured number (speedup, latency, token savings, eval score), state how it was measured, what limits it, and rule out that it measured something else.
 
 Delegation and meta
@@ -94,7 +95,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 3. Pre-mortem, before any code: assume the feature shipped and broke. Fill a table `| what breaks | when it happens | design that prevents it | test that proves it |` covering at least concurrency or multi-device use, partial failure and rerun, upgrade or rollback, and data loss. A row with no test is an open risk: name it in the report.
 4. Throughput checkpoint, four lines (mark n/a with reason when not relevant): blocking first steps; independent workstreams; shared mutable state; smallest safe decomposition.
 5. Implement (or delegate with a scoped brief: file paths, data model, pre-mortem table, success criteria). Review every diff myself.
-6. Verify on the matching surface (section 3), including the pre-mortem tests.
+6. Verify on the matching surface (section 3), including the pre-mortem tests; mutation-check each one (remove its guard, watch it fail).
 7. Commit in small ordered units: build, verify, commit, next.
 8. Report: what was built, what was chosen and why, open risks from the pre-mortem, open decisions.
 
