@@ -92,6 +92,8 @@ commit build: swift build        # every commit: keep it fast
 push   test:  swift test         # before push: full suites
 ```
 
+For repos that hold API keys or tokens, add `commit secrets: gitleaks git --staged --redact --no-banner .` (after `brew install gitleaks`): it scans only what is staged and blocks the commit on a finding.
+
 `devguard gate init` writes a commented template and installs `pre-commit` / `pre-push` hooks; `devguard check` runs everything by hand, and the core rule tells agents to run it before calling a task done. Each check runs through `agent-verify`, so a failure prints one line and leaves the full log in `.verify/gate-<name>.log`.
 
 Safety: the hooks are only written where no hook exists or ours does (a foreign hook is left alone and you get the line to add), they follow linked worktrees and `core.hooksPath`, they let the commit through with a warning if the kit has moved, and a commit that edits `.devguard/checks` is flagged for review. Known limits: checks run on the working tree, not only the staged part, and `git commit --no-verify` still skips them.
@@ -99,6 +101,10 @@ Safety: the hooks are only written where no hook exists or ours does (a foreign 
 ### Cross-model review (`devguard review`)
 
 Models catch different things. `devguard review` sends the current change to a model from another vendor and saves its findings to `.verify/review-<time>.md`, printing one line: verdict, finding count, report path. It reviews uncommitted changes, or the last commit when the tree is clean, or `--base REF` for a range. The reviewer runs read-only (`claude --permission-mode plan`, `agy --mode plan`, `gemini --approval-mode plan`) inside the repo so it can open files for context. Pick it with `--with claude|agy|gemini` or `DEVGUARD_REVIEWER`; the default is the first installed of claude, agy, gemini. Use the vendor that did not write the code. Gemini CLI refuses individual accounts, so reach Gemini through `agy` (Antigravity). Treat findings as leads: check each against the code before acting.
+
+### Measuring an agent (`devguard eval`)
+
+A rule change is a claim until it is measured. `devguard eval run CASES.jsonl --with agy|claude --reps N --label L` asks each case N times in read-only plan mode and records, per case, whether the first answer matched `expect` (and not `reject`), how many source tags it carried, and, for cases with a `pushback` follow-up asked in the same conversation, whether the answer flipped. Results: `.verify/eval-<label>-<time>.json`; `devguard eval compare before.json after.json` prints the per-case change. A/B a rule: run with label `before`, change the rule, run with label `after`, compare. This kit's own cases are in `.devguard/evals/kit.jsonl`.
 
 ### Automatic project setup
 

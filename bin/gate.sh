@@ -126,6 +126,7 @@ cmd_init() {
 #
 # commit build: swift build
 # push   test:  swift test
+# commit secrets: gitleaks git --staged --redact --no-banner .   # needs: brew install gitleaks
 EOF
     echo "devguard gate: wrote $CHECKS (all lines commented; add your real commands)"
   fi

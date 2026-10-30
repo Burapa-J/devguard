@@ -146,6 +146,24 @@ model แต่ละค่ายจับปัญหาได้ต่าง�
 - Gemini CLI ปฏิเสธบัญชีส่วนตัวแล้ว ฝั่ง Gemini จึงใช้ `agy` แทน
 - ผลรีวิวเป็นแค่ข้อสงสัย ต้องเปิดโค้ดยืนยันทีละข้อก่อนแก้
 
+### วัดผล agent (`devguard eval`)
+
+การแก้กฎจะยังเป็นแค่สมมติฐานจนกว่าจะวัดผล คำสั่ง `devguard eval run CASES.jsonl --with agy|claude --reps N --label L` ถามแต่ละข้อ N รอบในโหมดอ่านอย่างเดียว แล้วเก็บผลต่อข้อ:
+
+- คำตอบแรกตรงกับ `expect` และไม่ตรงกับ `reject` หรือไม่
+- มี tag ที่มากี่ตัว
+- ถ้าข้อนั้นมี `pushback` ระบบจะถามกดดันต่อในบทสนทนาเดิม แล้วดูว่าคำตอบกลับคำ (flip) หรือไม่
+
+ผลเก็บไว้ที่ `.verify/eval-<label>-<เวลา>.json` และ `devguard eval compare ก่อน.json หลัง.json` แสดงการเปลี่ยนแปลงรายข้อ
+
+วิธี A/B กฎ: รันโดยตั้ง label `before` → แก้กฎ → รันอีกครั้งโดยตั้ง label `after` → compare ชุดคำถามของ kit เองอยู่ที่ `.devguard/evals/kit.jsonl`
+
+**สแกน secret**: repo ที่มี token ให้เพิ่มบรรทัดนี้ใน `.devguard/checks` (ต้อง `brew install gitleaks` ก่อน) ระบบจะสแกนเฉพาะไฟล์ที่ stage และบล็อก commit ถ้าเจอ secret:
+
+```
+commit secrets: gitleaks git --staged --redact --no-banner .
+```
+
 ### คำสั่งที่ใช้กับ agent ได้
 | พิมพ์ | ผล |
 |---|---|

@@ -24,6 +24,7 @@ Kit: $KIT_DIR
   devguard check [commit|push]  run this repo's .devguard/checks (the gate); exit 1 on failure
   devguard gate init|install|uninstall  create checks template / add or remove git hooks
   devguard review [--with claude|agy|gemini] [--base REF]  another model reviews the change (read-only)
+  devguard eval run CASES.jsonl [--with agy|claude] [--reps N] [--label L]; devguard eval compare A.json B.json
   devguard select               interactively pick agents and tools to enable/disable
   devguard update               pull the latest kit, upgrade tools, and re-apply settings
   devguard init [--all]         set up this repo, or every repo under auto-setup folders
@@ -151,6 +152,7 @@ case "$cmd" in
   check) exec "$KIT_DIR/bin/gate.sh" run "${1:-all}" ;;
   gate) exec "$KIT_DIR/bin/gate.sh" "$@" ;;
   review) exec "$KIT_DIR/bin/review.sh" "$@" ;;
+  eval) exec python3 "$KIT_DIR/bin/eval.py" "$@" ;;
   sync)
     PY="$HOME/.local/share/agent-kit/projectmem-venv/bin/python"
     [ -x "$PY" ] || PY="python3"

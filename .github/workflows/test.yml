@@ -27,3 +27,5 @@ jobs:
         run: /bin/bash tests/test-gate.sh
       - name: Run review tests
         run: /bin/bash tests/test-review.sh
+      - name: Run eval tests
+        run: /bin/bash tests/test-eval.sh
