@@ -92,5 +92,10 @@ code=$?
 verdict=$(grep -Eo 'VERDICT: (SHIP|CHANGES NEEDED)' "$report" | tail -n 1)
 findings=$(grep -cE '^[-*] *\[(BLOCKER|MAJOR|MINOR)\]' "$report")
 echo "devguard review [$with]: ${verdict:-no verdict} · $findings finding(s) · $report"
-[ "$code" = 0 ] || echo "devguard review: $with exited $code; see $report" >&2
+if [ "$code" != 0 ]; then
+  echo "devguard review: $with exited $code; see $report" >&2
+  if grep -qiE "not logged in|please run /login|authenticat" "$report"; then
+    echo "devguard review: $with is not signed in. Sign in once in a terminal (e.g. run '$with' and use /login), or pick another reviewer with --with." >&2
+  fi
+fi
 exit "$code"

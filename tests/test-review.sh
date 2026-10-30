@@ -48,6 +48,9 @@ check "DEVGUARD_REVIEWER picks the default" '[ -f "$T/gemini.args" ]'
 
 "$REVIEW" --with nobody > /dev/null 2>&1; code=$?
 check "unknown reviewer rejected (64)" '[ $code = 64 ]'
+printf '#!/bin/sh\necho "Not logged in · Please run /login"\nexit 1\n' > "$T/bin/claude"
+out=$("$REVIEW" --with claude 2>&1); code=$?
+check "signed-out reviewer exits non-zero with a sign-in hint" '[ $code = 1 ] && printf "%s" "$out" | grep -q "not signed in"'
 rm "$T/bin/claude"
 out=$("$REVIEW" --with claude 2>&1); code=$?
 check "missing reviewer CLI is a clear error" '[ $code = 69 ] && printf "%s" "$out" | grep -q "claude"'
