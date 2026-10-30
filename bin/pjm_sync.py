@@ -132,6 +132,42 @@ def atomic_write_if_changed(target: Path, content: str) -> bool:
         return False
 
 
+def replace_keeping_appends(target: Path, content: str, snapshot_len: int, known_ids: set[str]) -> bool:
+    """Atomically replace `target`, then re-append lines other processes appended after `snapshot_len`.
+
+    projectmem appends with open("a") and no lock (storage.append_event), so a plain replace would
+    drop any event written between our read and os.replace. Holding the old inode open lets us read
+    those late lines back; lines whose id is already in `known_ids` were merged and are skipped.
+    """
+    try:
+        old = target.open("rb")
+    except OSError:
+        return atomic_write_if_changed(target, content)
+    with old:
+        if not atomic_write_if_changed(target, content):
+            return False
+        time.sleep(0.02)  # let a writer that opened the old file before the replace finish its write
+        old.seek(snapshot_len)
+        tail = old.read().decode("utf-8", errors="replace")
+    written = set(content.splitlines())
+    rescued = []
+    for raw in tail.splitlines():
+        line = raw.strip()
+        if not line or line in written:
+            continue
+        try:
+            eid = str(json.loads(line).get("id") or "")
+        except (json.JSONDecodeError, AttributeError):
+            continue
+        if eid and eid in known_ids:
+            continue
+        rescued.append(line)
+    if rescued:
+        with target.open("a", encoding="utf-8") as fh:
+            fh.write("\n".join(rescued) + "\n")
+    return True
+
+
 def normalize_remote_url(url: str) -> str:
     u = url.strip().lower()
     u = re.sub(r"^https?://", "", u)
@@ -515,6 +551,8 @@ def sync_project_memory(
 
     streams: list[list[tuple[str, dict[str, Any]]]] = []
     local_events_file = mem_dir / "events.jsonl"
+    # Size before parsing: bytes past this point are re-checked after the rewrite (replace_keeping_appends).
+    local_snapshot_len = local_events_file.stat().st_size if local_events_file.is_file() else 0
     local_stream = _parse_jsonl_events(local_events_file, f"local:{dev}")
     streams.append(local_stream)
 
@@ -559,7 +597,7 @@ def sync_project_memory(
         or local_ids != merged_ids
     )
     events_changed = (
-        atomic_write_if_changed(local_events_file, merged_text)
+        replace_keeping_appends(local_events_file, merged_text, local_snapshot_len, merged_ids)
         if local_needs_update
         else False
     )

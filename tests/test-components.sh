@@ -320,6 +320,16 @@ check "offline issue_id 0001 collision resolved to 0001 + 0002 on both machines"
 check "active .current_issue marker updated when local issue_id renumbered" '[ "$(cat "$MAC_B/.projectmem/.current_issue")" = "0002" ]'
 check "real PROJECT_MAP.md synced over placeholder without data loss" 'grep -q "Real architecture map from Mac A" "$MAC_B/.projectmem/PROJECT_MAP.md"'
 
+RACE_REPO="$STUB/race-repo"
+mkdir -p "$RACE_REPO/.projectmem"
+git -C "$RACE_REPO" init -q
+git -C "$RACE_REPO" -c user.name=t -c user.email=t@t commit -qm init --allow-empty
+printf '[project]\nname = "race"\n' > "$RACE_REPO/.projectmem/config.toml"
+: > "$RACE_REPO/.projectmem/events.jsonl"
+race_out=$(DEVGUARD_SYNC_DIR="$STUB/race-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/tests/sync_race.py" "$KIT" "$RACE_REPO" 2>&1); code=$?
+echo "  $race_out"
+check "appends made during a sync rewrite are kept, without duplicates" '[ $code = 0 ]'
+
 echo "== helpers: run() exit code, project_ready in a git worktree"
 ( . "$KIT/lib.sh"; . "$KIT/components/common.sh"; DRY_RUN=0; run sh -c 'exit 3' ) > /dev/null 2>&1; code=$?
 check "run() propagates a failing command's exit code" '[ $code = 3 ]'
