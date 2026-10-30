@@ -119,18 +119,20 @@ def atomic_write_if_changed(target: Path, content: str) -> bool:
             return False
     except OSError:
         pass
-    target.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(target.parent), prefix=".tmp-")
+    tmp_name = ""
     try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(dir=str(target.parent), prefix=".tmp-")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(content)
         os.replace(tmp_name, target)
         return True
     except Exception:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
+        if tmp_name:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
         return False
 
 
@@ -474,7 +476,10 @@ def sync_doc_file(
     is_placeholder_fn,
 ) -> bool:
     """Sync a structural markdown file (PROJECT_MAP.md or plan.md) without letting placeholders win."""
-    docs_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        docs_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return False
     materialize_icloud_stubs(docs_dir)
 
     local_text = local_path.read_text(encoding="utf-8") if local_path.is_file() else ""
@@ -517,7 +522,10 @@ def sync_global_memory(sync_dir: Path | None = None, device_id: str | None = Non
     sdir = sync_dir or default_sync_dir()
     dev = device_id or get_device_id()
     nodes_dir = sdir / "global" / "nodes"
-    nodes_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        nodes_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return {"imported_patterns": 0, "imported_gotchas": 0}
     materialize_icloud_stubs(nodes_dir)
 
     try:
@@ -610,7 +618,19 @@ def _merge_local_events(
     local_stream = _parse_jsonl_events(local_events_file, f"local:{dev}")
     streams.append(local_stream)
 
-    for node_file in sorted(nodes_dir.glob("*.jsonl")):
+    try:
+        node_files = sorted(
+            p for p in nodes_dir.iterdir() if p.suffix == ".jsonl" and not p.name.startswith(".")
+        )
+    except OSError as exc:
+        return {"synced": False, "reason": f"cannot read sync hub ({nodes_dir}): {exc.strerror or exc}"}, [], False
+
+    for node_file in node_files:
+        if node_file.is_file():
+            try:
+                node_file.read_text(encoding="utf-8-sig")
+            except OSError as exc:
+                return {"synced": False, "reason": f"cannot read {node_file}: {exc.strerror or exc}"}, [], False
         streams.append(_parse_jsonl_events(node_file, f"node:{node_file.stem}"))
 
     merged, local_issue_remap = merge_event_streams(streams)
@@ -633,7 +653,7 @@ def _merge_local_events(
         return {"synced": False, "reason": "safety invariant: refusing to drop event IDs"}, [], False
     if not merged and (
         (local_events_file.is_file() and local_events_file.stat().st_size > 0)
-        or any(nf.stat().st_size > 0 for nf in nodes_dir.glob("*.jsonl") if nf.is_file())
+        or any(nf.stat().st_size > 0 for nf in node_files if nf.is_file())
     ):
         return {"synced": False, "reason": "safety invariant: refusing to write empty merge over non-empty file"}, [], False
 
@@ -659,7 +679,12 @@ def _merge_local_events(
     )
     if merged:
         my_node = nodes_dir / f"{dev}.jsonl"
-        atomic_write_if_changed(my_node, merged_text)
+        try:
+            already_same = my_node.is_file() and my_node.read_text(encoding="utf-8") == merged_text
+        except OSError:
+            already_same = False
+        if not already_same and not atomic_write_if_changed(my_node, merged_text):
+            return {"synced": False, "reason": f"cannot write sync hub ({my_node})"}, [], False
 
     # If the local active issue (.projectmem/.current_issue, storage.py:704) was renumbered
     # due to an offline collision, update the marker so subsequent attempts/fixes attach properly.
@@ -700,7 +725,10 @@ def sync_project_memory(
     bucket = sdir / "projects" / proj_key
     nodes_dir = bucket / "nodes"
     docs_dir = bucket / "docs"
-    nodes_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        nodes_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return {"synced": False, "reason": f"cannot access sync hub ({nodes_dir}): {exc.strerror or exc}"}
     materialize_icloud_stubs(nodes_dir)
 
     with events_lock(mem_dir) as locked:
@@ -942,12 +970,18 @@ def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
     if not projects.is_dir():
         return out
     for bucket in sorted(p for p in projects.iterdir() if p.is_dir()):
-        all_nodes = sorted((bucket / "nodes").glob("*.jsonl"))
+        ndir = bucket / "nodes"
+        entries = sorted(ndir.iterdir()) if ndir.is_dir() else []
+        all_nodes = [p for p in entries if p.suffix == ".jsonl" and not p.name.startswith(".")]
         nodes = [n for n in all_nodes if not _is_dataless(n)]
         # iCloud "Optimize Storage" evicts a file either as a .<name>.icloud placeholder or in place
         # (dataless). Neither can be compared until macOS downloads it (a sync run does that via
         # brctl), and reading a dataless file here would block `devguard status` on the network.
-        evicted = [f.name[1 : -len(".jsonl.icloud")] for f in (bucket / "nodes").glob(".*.jsonl.icloud")]
+        evicted = [
+            f.name[1 : -len(".jsonl.icloud")]
+            for f in entries
+            if f.name.startswith(".") and f.name.endswith(".jsonl.icloud")
+        ]
         evicted += [n.stem for n in all_nodes if n not in nodes]
         if not nodes and not evicted:
             continue
@@ -955,6 +989,9 @@ def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
             name = json.loads((bucket / "meta.json").read_text(encoding="utf-8")).get("last_seen_name")
         except Exception:
             name = None
+        for n in nodes:
+            if n.is_file():
+                n.read_text(encoding="utf-8-sig")
         ids = {n.stem: {_event_key(ev) for _, ev in _parse_jsonl_events(n, "") if ev.get("id")} for n in nodes}
         union = set().union(*ids.values()) if ids else set()
         devices: dict[str, dict[str, Any]] = {
@@ -981,7 +1018,15 @@ def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
 
 
 def print_convergence(sync_dir: Path | None = None, summary_only: bool = False) -> int:
-    rows = hub_convergence(sync_dir)
+    try:
+        rows = hub_convergence(sync_dir)
+    except OSError as exc:
+        if summary_only:
+            print(f"cannot read hub ({exc.strerror or exc})")
+        else:
+            target = exc.filename or str(sync_dir or default_sync_dir())
+            print(f"devguard sync --check: cannot read {target}: {exc.strerror or exc}", file=sys.stderr)
+        return 1
     counts = {s: sum(1 for r in rows if r["state"] == s) for s in ("in-sync", "diverged", "single", "incomplete")}
     if not summary_only:
         for r in rows:
@@ -1064,6 +1109,7 @@ def main(argv: list[str]) -> int:
     synced_count = 0
     changed_count = 0
     total_events = 0
+    failed: list[str] = []
     for r in repos:
         res = sync_project_memory(r, sdir, dev, regenerate=True)
         if res.get("synced"):
@@ -1071,6 +1117,8 @@ def main(argv: list[str]) -> int:
             total_events += int(res.get("events_total", 0))
             if res.get("events_changed") or res.get("map_changed") or res.get("plan_changed"):
                 changed_count += 1
+        elif str(res.get("reason") or "").startswith("cannot "):
+            failed.append(f"{r.name}: {res['reason']}")
 
     if not quiet:
         print(
@@ -1078,7 +1126,9 @@ def main(argv: list[str]) -> int:
             f"  global: +{g_res['imported_patterns']} patterns, +{g_res['imported_gotchas']} gotchas\n"
             f"  projects: {synced_count} synced ({changed_count} updated locally, {total_events} total events)"
         )
-    return 0
+        if failed:
+            print(f"  failed: {len(failed)} project(s) ({failed[0]})", file=sys.stderr)
+    return 1 if (failed and not quiet) else 0
 
 
 if __name__ == "__main__":

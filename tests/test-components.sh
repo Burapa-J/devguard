@@ -397,6 +397,23 @@ rm -rf "${CK:?}/root-ddd" "${CK:?}/root-eee" "${CK:?}/root-fff" "${CK:?}/root-gg
 rm -rf "${CK:?}/root-bbb"
 DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check > /dev/null 2>&1; code=$?
 check "sync --check exits 0 with nothing diverged" '[ $code = 0 ]'
+if [ "$(id -u)" != 0 ]; then
+  mkdir -p "$CK/root-$ROOT_SHA12/nodes"
+  chmod 000 "$CK/root-$ROOT_SHA12/nodes"
+  tcc_sync=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" "$MAC_A" 2>&1); tcc_sc=$?
+  chmod 555 "$CK/root-$ROOT_SHA12/nodes"
+  ro_sync=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" "$MAC_A" 2>&1); ro_sc=$?
+  chmod 755 "$CK/root-$ROOT_SHA12/nodes"
+  chmod 000 "$CK"
+  tcc_ck=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check 2>&1); tcc_cc=$?
+  tcc_sum=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check-summary 2>&1); tcc_smc=$?
+  chmod 755 "$CK"
+  rm -rf "$HOME/.agent-kit/locks"; rmdir "$HOME/.agent-kit" 2>/dev/null || true
+  check "sync refuses when hub nodes dir is unreadable (no false '1 synced')" '[ $tcc_sc = 1 ] && printf "%s\n" "$tcc_sync" | grep -q "0 synced" && ! printf "%s\n" "$tcc_sync" | grep -q "Traceback"'
+  check "sync refuses when hub node file cannot be written" '[ $ro_sc = 1 ] && printf "%s\n" "$ro_sync" | grep -q "0 synced" && ! printf "%s\n" "$ro_sync" | grep -q "Traceback"'
+  check "sync --check reports unreadable hub without a traceback" '[ $tcc_cc = 1 ] && printf "%s\n" "$tcc_ck" | grep -qi "cannot read" && ! printf "%s\n" "$tcc_ck" | grep -q "Traceback"'
+  check "sync --check-summary reports unreadable hub for status.sh" '[ $tcc_smc = 1 ] && printf "%s\n" "$tcc_sum" | grep -qi "cannot read hub"'
+fi
 
 echo "== sync health helpers (status / doctor 8)"
 SH_HOME="$STUB/sync-health"; SP="$SH_HOME/venv/lib/python3.99/site-packages"; mkdir -p "$SP"
@@ -412,7 +429,7 @@ sync_helper projectmem_sync_hook_ok; code=$?
 check "sync hook flagged when .pth points at another kit" '[ $code != 0 ]'
 # Two minutes old: ps etime has one-second resolution, so a same-second mtime is ambiguous.
 touch "$STUB/sync-old-file"
-/usr/bin/python3 -c 'import os, sys, time; t = time.time() - 120; os.utime(sys.argv[1], (t, t))' "$STUB/sync-old-file"
+/usr/bin/python3 -B -c 'import os, sys, time; t = time.time() - 120; os.utime(sys.argv[1], (t, t))' "$STUB/sync-old-file"
 # Same argv shape as a real macOS venv server: the framework binary is named "Python".
 bash -c 'exec -a "/x/Python.app/Contents/MacOS/Python -m projectmem.mcp_server" sleep 30' & fake_mcp=$!
 sleep 2; touch "$STUB/sync-new-file"
