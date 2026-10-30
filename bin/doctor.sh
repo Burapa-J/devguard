@@ -333,23 +333,28 @@ else
 fi
 
 # ---- 7. Component & companion CLI versions -----------------------------------------------------
-ver_drift=""
-for c in $ALL_COMPONENTS; do
-  f=$(fn_name "$c")
-  "${f}_present" || continue
-  if type "${f}_pinned_version" >/dev/null 2>&1 && type "${f}_installed_version" >/dev/null 2>&1; then
-    pinned=$("${f}_pinned_version")
-    inst=$("${f}_installed_version")
-    if [ -n "$pinned" ] && [ -n "$inst" ] && [ "$inst" != "$pinned" ]; then
-      ver_drift="$ver_drift $c($inst->$pinned)"
+# Prints " name(detail)" for every pinned component off its version and every missing companion CLI.
+version_drift() {
+  local c f pinned inst out=""
+  for c in $ALL_COMPONENTS; do
+    f=$(fn_name "$c")
+    "${f}_present" || continue
+    if type "${f}_pinned_version" >/dev/null 2>&1 && type "${f}_installed_version" >/dev/null 2>&1; then
+      pinned=$("${f}_pinned_version")
+      inst=$("${f}_installed_version")
+      if [ -n "$pinned" ] && [ -n "$inst" ] && [ "$inst" != "$pinned" ]; then
+        out="$out $c($inst->$pinned)"
+      fi
     fi
+  done
+  if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
+    command -v ast-grep >/dev/null 2>&1 || out="$out ast-grep(missing)"
+    command -v xcbeautify >/dev/null 2>&1 || out="$out xcbeautify(missing)"
+    command -v shellcheck >/dev/null 2>&1 || out="$out shellcheck(missing)"
   fi
-done
-if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
-  command -v ast-grep >/dev/null 2>&1 || ver_drift="$ver_drift ast-grep(missing)"
-  command -v xcbeautify >/dev/null 2>&1 || ver_drift="$ver_drift xcbeautify(missing)"
-  command -v shellcheck >/dev/null 2>&1 || ver_drift="$ver_drift shellcheck(missing)"
-fi
+  printf '%s' "$out"
+}
+ver_drift=$(version_drift)
 
 if [ -z "$ver_drift" ]; then
   ok "7. Component & companion CLI versions healthy (codegraph, projectmem, rtk, ast-grep, xcbeautify, shellcheck)"
@@ -363,7 +368,13 @@ else
       command -v xcbeautify >/dev/null 2>&1 || brew install xcbeautify >/dev/null 2>&1 || true
       command -v shellcheck >/dev/null 2>&1 || brew install shellcheck >/dev/null 2>&1 || true
     fi
-    repaired "7. Upgraded/installed component & companion CLIs ($ver_drift )"
+    # Re-check instead of trusting the installers: brew and npm failures are silenced above.
+    left=$(version_drift)
+    if [ -z "$left" ]; then
+      repaired "7. Upgraded/installed component & companion CLIs ($ver_drift )"
+    else
+      issue "7. Could not repair:$left (run the install by hand to see why)"
+    fi
   else
     issue "7. Component or companion CLI drift:$ver_drift"
   fi

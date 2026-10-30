@@ -10,7 +10,7 @@ fail=0; check(){ if eval "$2"; then echo "PASS $1"; else echo "FAIL $1"; fail=1;
 g() { git -c user.name=t -c user.email=t@t "$@"; }
 
 new_repo() {
-  rm -rf "${T:?}/$1"; mkdir -p "$T/$1"; cd "$T/$1" || exit 1
+  rm -rf "${T:?}/${1:?}"; mkdir -p "$T/$1"; cd "$T/$1" || exit 1
   git init -q; printf '.verify/\n' > .gitignore; g add .gitignore; g commit -qm init
 }
 checks() { mkdir -p .devguard; printf '%s\n' "$@" > .devguard/checks; }

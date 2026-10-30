@@ -21,6 +21,7 @@ Two layers:
 | `bin/pjm_sync.py` → `devguard sync` | Multi-Mac memory sync | Real-time & batch CRDT sync of `projectmem` across machines over iCloud Drive |
 | `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
 | `bin/gate.sh` → `devguard check` / `devguard gate` | Done gate | Runs a repo's `.devguard/checks` and installs pre-commit / pre-push hooks that block on failure |
+| `bin/review.sh` → `devguard review` | Cross-model review | Sends the change to another vendor's CLI (claude, agy, gemini) in read-only plan mode; report in `.verify/review-*.md` |
 | `bin/project.sh` → `devguard-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
 | `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load the skill |
 | `components/*.sh` | Installers | Install, upgrade, wire, unwire and remove each tool |
@@ -73,6 +74,7 @@ devguard stats           # unified token savings, codegraph index & verification
 devguard sync [--quiet]  # sync projectmem across machines over iCloud Drive (CRDT merge)
 devguard check           # run this repo's .devguard/checks (the done gate)
 devguard gate init       # write a checks template and install the git hooks
+devguard review          # another model reviews uncommitted changes (or the last commit)
 devguard select          # interactively pick agents and tools to enable/disable
 devguard update          # pull the latest kit, upgrade tools and re-apply settings
 devguard init [--all]    # set up this repo now, or every repo under your auto-setup folders
@@ -92,6 +94,10 @@ push   test:  swift test         # before push: full suites
 `devguard gate init` writes a commented template and installs `pre-commit` / `pre-push` hooks; `devguard check` runs everything by hand, and the core rule tells agents to run it before calling a task done. Each check runs through `agent-verify`, so a failure prints one line and leaves the full log in `.verify/gate-<name>.log`.
 
 Safety: the hooks are only written where no hook exists or ours does (a foreign hook is left alone and you get the line to add), they follow linked worktrees and `core.hooksPath`, they let the commit through with a warning if the kit has moved, and a commit that edits `.devguard/checks` is flagged for review. Known limits: checks run on the working tree, not only the staged part, and `git commit --no-verify` still skips them.
+
+### Cross-model review (`devguard review`)
+
+Models catch different things. `devguard review` sends the current change to a model from another vendor and saves its findings to `.verify/review-<time>.md`, printing one line: verdict, finding count, report path. It reviews uncommitted changes, or the last commit when the tree is clean, or `--base REF` for a range. The reviewer runs read-only (`claude --permission-mode plan`, `agy --mode plan`, `gemini --approval-mode plan`) inside the repo so it can open files for context. Pick it with `--with claude|agy|gemini` or `DEVGUARD_REVIEWER`; the default is the first installed of claude, agy, gemini. Use the vendor that did not write the code. Gemini CLI refuses individual accounts, so reach Gemini through `agy` (Antigravity). Treat findings as leads: check each against the code before acting.
 
 ### Automatic project setup
 

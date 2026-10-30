@@ -25,6 +25,7 @@ mkdir -p "$STUB/bin"
 cat > "$STUB/bin/npm" <<'EOF'
 #!/bin/sh
 echo "npm $*" >> "$STUB_LOG"
+[ -n "${STUB_NPM_FAIL:-}" ] && exit 1
 d=$(dirname "$0")
 case "$1 $2 $3" in
   "install -g @colbymchenry/codegraph@"*) cp "$d/codegraph.real" "$d/codegraph"; chmod +x "$d/codegraph"; echo "${3##*@}" > "$d/cg.ver" ;;
@@ -258,6 +259,10 @@ check "doctor cleaned opencode.jsonc plugins and legacy potless.mdc" '! jq -e ".
 rm -rf "$HOME/.config/opencode" "$HOME/.cursor"
 devguard doctor > "$STUB/doc2.log" 2>&1; code=$?
 check "doctor clean after --fix" '[ $code = 0 ] && grep -q "0 issues" "$STUB/doc2.log" && [ "$(cat "$STUB/bin/cg.ver")" = "1.6.2" ]'
+echo "1.6.0" > "$STUB/bin/cg.ver"
+STUB_NPM_FAIL=1 devguard doctor --fix > "$STUB/docfail.log" 2>&1
+check "doctor --fix reports a failed upgrade instead of claiming it fixed" 'grep -q "Could not repair: codegraph(1.6.0->1.6.2)" "$STUB/docfail.log" && ! grep -q "fixed  7\." "$STUB/docfail.log"'
+echo "1.6.2" > "$STUB/bin/cg.ver"
 
 echo "== turn automatic setup off"
 "$SKIT/install.sh" --with=codegraph,projectmem --auto-project=none > "$STUB/auto-off.log" 2>&1

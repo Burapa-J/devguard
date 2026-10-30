@@ -25,3 +25,5 @@ jobs:
         run: /bin/bash tests/test-components.sh
       - name: Run gate tests
         run: /bin/bash tests/test-gate.sh
+      - name: Run review tests
+        run: /bin/bash tests/test-review.sh
