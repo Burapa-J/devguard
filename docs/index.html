@@ -351,6 +351,15 @@
         <li><a href="#uninstall">Uninstalling</a></li>
       </ul>
     </div>
+    <div class="nav-group">
+      <div class="nav-title">Quality Gates</div>
+      <ul class="nav-list">
+        <li><a href="#gate">Done Gate (check)</a></li>
+        <li><a href="#review">Cross-model Review</a></li>
+        <li><a href="#eval">Measuring Agents (eval)</a></li>
+        <li><a href="#evidence">Evidence</a></li>
+      </ul>
+    </div>
   </aside>
 
   <main class="content">
@@ -370,6 +379,7 @@
       Two layers that never interfere with each other:
       (1) <strong>Working mode</strong> enforces task-specific playbooks, read-only investigation on questions, and mandatory runtime proof before claiming "done".
       (2) <strong>Token-saving tools</strong> compress routine shell output and index your codebase's AST call graph while keeping verification logs completely intact.
+      On top sit quality gates that do not depend on the model: a per-repo done gate enforced by git hooks, a cross-vendor review, and an eval harness to measure whether a rule change helps.
     </div>
 
     <h2 id="install">Installation</h2>
@@ -385,7 +395,7 @@
 
     <p>The bootstrap script performs the following idempotent steps:</p>
     <ol>
-      <li>Installs missing prerequisites via Homebrew (<code>git</code>, <code>jq</code>, <code>python3</code>, <code>node</code>, <code>xcbeautify</code>, <code>ast-grep</code>).</li>
+      <li>Installs missing prerequisites via Homebrew (<code>git</code>, <code>jq</code>, <code>python3</code>, <code>node</code>, <code>xcbeautify</code>, <code>ast-grep</code>, <code>shellcheck</code>).</li>
       <li>Clones the repository to <code>~/.local/share/agent-kit/src</code> (or updates an existing clone).</li>
       <li>Runs <code>./install.sh</code> with the default setup: global rules, the <code>verified-dev</code> skill, compaction reminder hook, <code>codegraph</code>, <code>projectmem</code>, <code>rtk</code>, and automatic repository indexing under <code>~/Developer</code>.</li>
       <li>Ensures <code>~/.local/bin</code> is on your <code>PATH</code>.</li>
@@ -412,8 +422,9 @@
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
       </div>
       <pre><code>devguard status        # View the agent &amp; tool wiring matrix
-devguard doctor        # Run all 7 installation health checks
-devguard stats         # View token savings, AST graph coverage, and verification pass rates</code></pre>
+devguard doctor        # Run all 8 installation health checks
+devguard stats         # View token savings, AST graph coverage, and verification pass rates
+devguard gate init     # In a repo: write .devguard/checks and install the commit/push gate</code></pre>
     </div>
 
     <h2 id="working-mode">1. Working Mode (<code>verified-dev</code>)</h2>
@@ -426,6 +437,10 @@ devguard stats         # View token savings, AST graph coverage, and verificatio
       <li><strong>No guessing from <code>--help</code> or filenames:</strong> Before claiming how a module works or proposing a design, the agent must read the actual implementation source (read/write paths, ID/state lifecycle, ignore/conflict rules) and cite <code>file:line</code>.</li>
       <li><strong>Smallest change &amp; sibling-caller checks:</strong> Checks every caller of a modified function via <code>codegraph_explore</code> and fixes the shared path once.</li>
       <li><strong>Runtime evidence required:</strong> A successful build is never proof. Every "done" must read <code>.verify/&lt;name&gt;.log</code> and report a one-line verification receipt (command, exit code, key verdict, and log link), pasting verbatim log lines only on failure.</li>
+      <li><strong>Source tag on every claim:</strong> Each factual claim ends with <code>(read file:line)</code>, <code>(ran: command → exit N)</code>, <code>(inferred)</code> or <code>(unchecked)</code>; evidence is gathered before answering, and a changed answer names the evidence that changed it.</li>
+      <li><strong>Pre-mortem before features:</strong> A table of what breaks, when, the design that prevents it, and the test that proves it; rows without a test are reported as open risks.</li>
+      <li><strong>Prove the test can fail:</strong> A new test counts only after it has failed for the right reason (before the fix, or with the guard removed again).</li>
+      <li><strong>Done gate:</strong> If the repo has <code>.devguard/checks</code>, <code>devguard check</code> must pass before "done", and its git hooks are never bypassed with <code>--no-verify</code>.</li>
     </ul>
 
     <h2 id="components">2. Components &amp; Companion CLI Tools</h2>
@@ -484,6 +499,20 @@ devguard stats         # View token savings, AST graph coverage, and verificatio
             <td>Condenses raw <code>xcodebuild</code> build and test logs into clean summaries</td>
             <td>Homebrew <code>xcbeautify</code></td>
             <td><span class="ok">Installed</span></td>
+          </tr>
+          <tr>
+            <td><code>shellcheck</code></td>
+            <td>Companion CLI</td>
+            <td>Static analysis for shell scripts; the kit lints itself with it on every commit</td>
+            <td>Homebrew <code>shellcheck</code></td>
+            <td><span class="ok">Installed</span></td>
+          </tr>
+          <tr>
+            <td><code>gitleaks</code></td>
+            <td>Gate check</td>
+            <td>Scans staged changes for secrets; add it to a repo's <code>.devguard/checks</code></td>
+            <td>Homebrew <code>gitleaks</code></td>
+            <td><span class="muted">Opt-in per repo</span></td>
           </tr>
         </tbody>
       </table>
@@ -567,7 +596,7 @@ devguard stats         # View token savings, AST graph coverage, and verificatio
           </tr>
           <tr>
             <td><code>devguard doctor [--fix]</code></td>
-            <td>Audit 7 installation failure modes; pass <code>--fix</code> to repair issues automatically</td>
+            <td>Audit 8 installation failure modes; pass <code>--fix</code> to repair issues automatically (it re-checks and says when a repair failed)</td>
           </tr>
           <tr>
             <td><code>devguard stats [options]</code></td>
@@ -576,6 +605,26 @@ devguard stats         # View token savings, AST graph coverage, and verificatio
           <tr>
             <td><code>devguard sync [--quiet]</code></td>
             <td>Run cross-machine CRDT sync of <code>projectmem</code> project and global memory over iCloud Drive</td>
+          </tr>
+          <tr>
+            <td><code>devguard sync --check</code></td>
+            <td>Read-only: per project, do all Macs hold the same events? (<code>in-sync</code>, <code>diverged</code>, <code>single</code>, <code>incomplete</code>)</td>
+          </tr>
+          <tr>
+            <td><code>devguard check [commit|push]</code></td>
+            <td>Run this repo's <code>.devguard/checks</code> (the done gate); exit 1 on failure</td>
+          </tr>
+          <tr>
+            <td><code>devguard gate init|install|uninstall</code></td>
+            <td>Write a checks template and/or add or remove the pre-commit and pre-push hooks</td>
+          </tr>
+          <tr>
+            <td><code>devguard review [--with claude|agy|gemini] [--base REF]</code></td>
+            <td>Have another vendor's model review the change, read-only; report in <code>.verify/review-*.md</code></td>
+          </tr>
+          <tr>
+            <td><code>devguard eval run|compare</code></td>
+            <td>Measure correctness, source tags and pushback flips on a case set; compare two runs</td>
           </tr>
           <tr>
             <td><code>devguard select</code></td>
@@ -617,6 +666,56 @@ agent-verify build-check -- xcodebuild test -scheme MyApp -destination 'platform
 # Output: agent-verify[build-check] exit=65 lines=184 errors_at=L92,L141 log=.verify/build-check.log</code></pre>
     </div>
 
+    <h2 id="gate">Done Gate (<code>.devguard/checks</code>)</h2>
+    <p>Rules ask an agent to verify; the gate checks for it, whatever model wrote the code. Each repo lists its real checks in a committed <code>.devguard/checks</code>, one per line:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>.devguard/checks</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>commit build:   swift build                                    # every commit: keep it fast
+push   test:    swift test                                     # before push: full suites
+commit secrets: gitleaks git --staged --redact --no-banner .   # optional: block committed secrets</code></pre>
+    </div>
+    <p><code>devguard gate init</code> writes a commented template and installs <code>pre-commit</code> / <code>pre-push</code> hooks; <code>devguard check</code> runs everything by hand. Each check runs through <code>agent-verify</code>, so a failure prints one line and leaves the full log in <code>.verify/gate-&lt;name&gt;.log</code>.</p>
+    <ul>
+      <li>Never overwrites a hook it did not write (you get the line to add instead); follows linked worktrees and <code>core.hooksPath</code>.</li>
+      <li>Lets the commit through with a warning if the kit has moved, so a moved kit cannot block every repo.</li>
+      <li>Flags a commit that edits <code>.devguard/checks</code>; a malformed line fails closed with its line number.</li>
+      <li>Runs checks with default <code>SIGPIPE</code> and isolated Python, so they behave as in a terminal.</li>
+      <li>Known limits: checks see the whole working tree, not only the staged part, and <code>git commit --no-verify</code> still skips them (the core rule forbids it).</li>
+    </ul>
+
+    <h2 id="review">Cross-model Review (<code>devguard review</code>)</h2>
+    <p>Models catch different things. <code>devguard review</code> sends the change (uncommitted work including new files, the last commit, or <code>--base REF</code> for a range) to a model from another vendor, read-only, with a fixed rubric: correctness bugs, failure modes, tests that would pass without the change, and claims the code does not back. It prints one line (verdict, finding count, report path) and saves the report to <code>.verify/review-&lt;time&gt;-&lt;reviewer&gt;-&lt;pid&gt;.md</code>.</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>devguard review --with agy        # Claude wrote it: let Gemini (via Antigravity) review
+devguard review --with claude     # Gemini wrote it: let Claude review
+devguard review --base main       # review a whole branch</code></pre>
+    </div>
+    <p>Pick the vendor that did not write the code. Gemini CLI refuses individual accounts, so reach Gemini through <code>agy</code>. Each reviewer CLI must be signed in once in a terminal; a signed-out reviewer gets a clear hint. Treat findings as leads and check each against the code.</p>
+
+    <h2 id="eval">Measuring Agents (<code>devguard eval</code>)</h2>
+    <p>A rule change is a claim until it is measured. Cases are JSON lines with a <code>prompt</code>, an <code>expect</code> regex, an optional <code>reject</code> regex and an optional <code>pushback</code> follow-up asked in the same conversation:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>devguard eval run .devguard/evals/kit.jsonl --with agy --reps 3 --label before
+# ...change a rule...
+devguard eval run .devguard/evals/kit.jsonl --with agy --reps 3 --label after
+devguard eval compare .verify/eval-before-*.json .verify/eval-after-*.json</code></pre>
+    </div>
+    <p>Per case it reports first-answer correctness, source tags per answer, and how often the answer flipped under pushback.</p>
+
+    <h2 id="evidence">Evidence: Does Cross-model Review Help?</h2>
+    <p>Seven commits of this kit were rebuilt as isolated repos and reviewed blind by Claude and Gemini. Against 11 bugs known to be in them, each reviewer found 8/11 and the two together found 10/11; each caught bugs the other missed. A commit assumed clean drew a finding from both that turned out to be a real bug. A diff-based "should I review?" heuristic flagged every code commit, so it was not built. Decision: review every code change with the other vendor before pushing, and use both vendors for changes to persisted data or sync. One run per commit and reviewer, 11 bugs from one author: a trend, not a precise rate. Details: <a href="https://github.com/Burapa-J/devguard/blob/main/docs/experiments/2026-10-30-cross-model-review.md">docs/experiments/2026-10-30-cross-model-review.md</a>.</p>
+
     <h2 id="metrics">Measuring ROI &amp; Workflow Quality (<code>devguard stats</code>)</h2>
     <p>Run <code>devguard stats</code> to view three real-data telemetry tables across your machine:</p>
     <div class="code-block">
@@ -648,7 +747,7 @@ Efficiency meter:  █████████░░░░░░░░░░░�
       <li>MCP server configuration drift across canonical agent files.</li>
       <li>RTK global plugin &amp; hook registration for Google Antigravity.</li>
       <li>Synchronization of <code>&lt;!-- agent-kit:begin --&gt;</code> blocks against <code>rules/core.md</code>.</li>
-      <li>Version drift of pinned components and presence of companion tools (<code>ast-grep</code>, <code>xcbeautify</code>).</li>
+      <li>Version drift of pinned components and presence of companion tools (<code>ast-grep</code>, <code>xcbeautify</code>, <code>shellcheck</code>).</li>
       <li>Cross-machine memory sync: the <code>.pth</code> hook loads this kit, the iCloud hub exists, and no projectmem MCP server is still running old sync code (restart your agents; <code>--fix</code> never kills them).</li>
     </ol>
 
@@ -668,7 +767,8 @@ Efficiency meter:  █████████░░░░░░░░░░░�
       <li><strong>Per-device node files:</strong> Each Mac writes only to its own <code>nodes/&lt;device_id&gt;.jsonl</code>, <code>docs/&lt;device_id&gt;-PROJECT_MAP.md</code>, <code>docs/&lt;device_id&gt;-plan.md</code>, and <code>global/nodes/&lt;device_id&gt;.json</code>, preventing iCloud file conflicts (<code>* 2.jsonl</code>).</li>
       <li><strong>Git root commit matching (<code>root-&lt;sha12&gt;</code>):</strong> Repositories are matched by their initial Git commit hash so folder names can differ across machines.</li>
       <li><strong>Offline <code>issue_id</code> collision resolution:</strong> Concurrent offline issues with the same number are deterministically renumbered with <code>parent_issue_key</code> linkage and <code>.projectmem/.current_issue</code> marker updates.</li>
-      <li><strong>Zero-touch real-time hook:</strong> A <code>.pth</code> runtime hook inside <code>projectmem-venv</code> syncs automatically on every MCP read/write, complemented by <code>cd</code>, <code>launchd</code>, and <code>devguard sync</code>.</li>
+      <li><strong>Zero-touch real-time hook:</strong> A <code>.pth</code> runtime hook inside <code>projectmem-venv</code> syncs automatically on every MCP read/write, complemented by <code>cd</code>, <code>launchd</code>, and <code>devguard sync</code>. Writes to <code>events.jsonl</code> take a shared lock, so an event appended while a sync runs is never lost.</li>
+      <li><strong>Is it synced?</strong> <code>devguard sync --check</code> compares every Mac's node file per project and names any Mac that is missing events; <code>devguard status</code> shows the totals. A repo with no commit and no remote is not synced until its first commit, so two unrelated repos with the same folder name never merge.</li>
     </ul>
 
     <h2 id="uninstall">Uninstalling</h2>

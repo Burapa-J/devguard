@@ -344,6 +344,15 @@
         <li><a href="#uninstall">การถอนการติดตั้ง</a></li>
       </ul>
     </div>
+    <div class="nav-group">
+      <div class="nav-title">ด่านคุณภาพ</div>
+      <ul class="nav-list">
+        <li><a href="#gate">ด่าน "เสร็จ" (check)</a></li>
+        <li><a href="#review">รีวิวข้ามค่าย (review)</a></li>
+        <li><a href="#eval">วัดผล agent (eval)</a></li>
+        <li><a href="#evidence">หลักฐานจากการทดลอง</a></li>
+      </ul>
+    </div>
   </aside>
 
   <main class="content">
@@ -377,7 +386,7 @@
 
     <p>สคริปต์ <code>bootstrap.sh</code> จะทำงานดังนี้โดยอัตโนมัติ:</p>
     <ol>
-      <li>ติดตั้งเครื่องมือพื้นฐานที่ยังขาดผ่าน Homebrew (<code>git</code>, <code>jq</code>, <code>python3</code>, <code>node</code>, <code>xcbeautify</code>, <code>ast-grep</code>)</li>
+      <li>ติดตั้งเครื่องมือพื้นฐานที่ยังขาดผ่าน Homebrew (<code>git</code>, <code>jq</code>, <code>python3</code>, <code>node</code>, <code>xcbeautify</code>, <code>ast-grep</code>, <code>shellcheck</code>)</li>
       <li>Clone โปรเจกต์ไว้ที่ <code>~/.local/share/agent-kit/src</code> (หรืออัปเดตของเดิมหากเคยติดตั้งแล้ว)</li>
       <li>รัน <code>./install.sh</code> ด้วยค่าเริ่มต้นที่แนะนำ: ติดตั้งกฎหลัก, สกิล <code>verified-dev</code>, hook เตือนหลัง compact, เชื่อม <code>codegraph</code> + <code>projectmem</code> + <code>rtk</code> และเปิดการตั้งค่าโปรเจกต์อัตโนมัติใน <code>~/Developer</code></li>
       <li>เพิ่ม <code>~/.local/bin</code> เข้า <code>PATH</code> ใน <code>~/.zshrc</code></li>
@@ -404,7 +413,8 @@
       </div>
       <pre><code>devguard status        # ดูตารางสถานะการเชื่อมต่อของทุก Agent และเครื่องมือ
 devguard doctor        # ตรวจสุขภาพการติดตั้งทั้ง 8 ข้อ
-devguard stats         # ดูสถิติการประหยัด Token และอัตราการ Verify ผ่าน</code></pre>
+devguard stats         # ดูสถิติการประหยัด Token และอัตราการ Verify ผ่าน
+devguard gate init     # ใน repo: สร้าง .devguard/checks และติดตั้งด่านตอน commit/push</code></pre>
     </div>
 
     <h2 id="working-mode">1. วิธีทำงาน (<code>verified-dev</code>)</h2>
@@ -417,6 +427,10 @@ devguard stats         # ดูสถิติการประหยัด Tok
       <li><strong>ห้ามเดาจาก <code>--help</code> หรือชื่อไฟล์:</strong> ก่อนอธิบายการทำงานของระบบหรือเสนอแผนออกแบบ AI ต้องอ่านโค้ดจริงทั้งขาอ่าน, ขาเขียน, การจัดการ ID/State และกรณีชนกัน พร้อมอ้างอิง <code>file:line</code> เสมอ</li>
       <li><strong>เช็คผู้เรียกใช้ทั้งหมด (Sibling-Caller Check):</strong> ตรวจสอบทุกจุดที่เรียกใช้ฟังก์ชันผ่าน <code>codegraph_explore</code> ก่อนแก้ เพื่อให้จุดที่เกี่ยวข้องไม่พังตาม</li>
       <li><strong>ต้องมีหลักฐานจากการรันจริงเสมอ:</strong> การ build ผ่านไม่ใช่ข้อพิสูจน์ ทุกครั้งที่บอกว่า "เสร็จ" ต้องอ่านไฟล์ <code>.verify/&lt;name&gt;.log</code> และสรุปใบเสร็จตรวจสอบสั้นๆ 1 บรรทัด (คำสั่ง, exit code, ผลลัพธ์หลัก และลิงก์ไฟล์ log) โดยแปะ log เต็มเฉพาะเมื่อพัง</li>
+      <li><strong>ทุกข้อเท็จจริงต้องบอกที่มา:</strong> ลงท้ายด้วย <code>(read file:line)</code>, <code>(ran: คำสั่ง → exit N)</code>, <code>(inferred)</code> หรือ <code>(unchecked)</code> หาหลักฐานก่อนตอบ และถ้าคำตอบเปลี่ยนต้องบอกว่าเปลี่ยนเพราะหลักฐานใด</li>
+      <li><strong>Pre-mortem ก่อนทำฟีเจอร์:</strong> ตาราง "อะไรจะพัง / เกิดเมื่อไร / ออกแบบกันอย่างไร / test ที่พิสูจน์" แถวที่ไม่มี test ต้องรายงานเป็นความเสี่ยงที่เปิดอยู่</li>
+      <li><strong>พิสูจน์ว่า test ล้มได้:</strong> test ใหม่จะนับได้ก็ต่อเมื่อเคยล้มด้วยเหตุผลที่ถูกต้อง (ก่อนแก้ หรือเมื่อถอดการป้องกันออก)</li>
+      <li><strong>ด่าน "เสร็จ":</strong> ถ้า repo มี <code>.devguard/checks</code> ต้องผ่าน <code>devguard check</code> ก่อนบอกว่าเสร็จ และห้ามข้าม hook ด้วย <code>--no-verify</code></li>
     </ul>
 
     <h2 id="components">2. เครื่องมือที่ติดตั้งและดูแลให้ (Components &amp; Companion Tools)</h2>
@@ -475,6 +489,20 @@ devguard stats         # ดูสถิติการประหยัด Tok
             <td>ย่อ log ของ <code>xcodebuild</code> ให้เหลือเฉพาะสรุปและบรรทัดที่เกิดปัญหา</td>
             <td>Homebrew <code>xcbeautify</code></td>
             <td><span class="ok">ติดตั้งพร้อมใช้</span></td>
+          </tr>
+          <tr>
+            <td><code>shellcheck</code></td>
+            <td>Companion CLI</td>
+            <td>ตรวจ shell script แบบ static; kit ใช้ตรวจตัวเองทุก commit</td>
+            <td>Homebrew <code>shellcheck</code></td>
+            <td><span class="ok">ติดตั้งพร้อมใช้</span></td>
+          </tr>
+          <tr>
+            <td><code>gitleaks</code></td>
+            <td>Gate check</td>
+            <td>สแกน secret ในไฟล์ที่ stage ไว้ เพิ่มเข้า <code>.devguard/checks</code> ของ repo ที่ต้องการ</td>
+            <td>Homebrew <code>gitleaks</code></td>
+            <td><span class="muted">เลือกใช้ราย repo</span></td>
           </tr>
         </tbody>
       </table>
@@ -569,6 +597,26 @@ devguard stats         # ดูสถิติการประหยัด Tok
             <td>ซิงค์ความจำของ <code>projectmem</code> ข้ามเครื่องผ่าน iCloud Drive แบบ Append-Only CRDT</td>
           </tr>
           <tr>
+            <td><code>devguard sync --check</code></td>
+            <td>อ่านอย่างเดียว: ทุกเครื่องมี event ตรงกันหรือยัง แยกตามโปรเจกต์ (<code>in-sync</code>, <code>diverged</code>, <code>single</code>, <code>incomplete</code>)</td>
+          </tr>
+          <tr>
+            <td><code>devguard check [commit|push]</code></td>
+            <td>รัน <code>.devguard/checks</code> ของ repo (ด่าน "เสร็จ") ล้มแล้ว exit 1</td>
+          </tr>
+          <tr>
+            <td><code>devguard gate init|install|uninstall</code></td>
+            <td>สร้างไฟล์ checks ตัวอย่าง และ/หรือ ติดตั้ง/ถอด hook <code>pre-commit</code> และ <code>pre-push</code></td>
+          </tr>
+          <tr>
+            <td><code>devguard review [--with claude|agy|gemini] [--base REF]</code></td>
+            <td>ให้ model อีกค่ายรีวิวงานแบบอ่านอย่างเดียว ผลอยู่ที่ <code>.verify/review-*.md</code></td>
+          </tr>
+          <tr>
+            <td><code>devguard eval run|compare</code></td>
+            <td>วัดความถูกต้อง, tag ที่มา และการกลับคำเมื่อถูกกดดัน เทียบผลสองรอบได้</td>
+          </tr>
+          <tr>
             <td><code>devguard select</code></td>
             <td>เลือกเปิด/ปิด Agents และเครื่องมือแบบ Interactive</td>
           </tr>
@@ -608,6 +656,56 @@ agent-verify build-check -- xcodebuild test -scheme MyApp -destination 'platform
 # ผลลัพธ์: agent-verify[build-check] exit=65 lines=184 errors_at=L92,L141 log=.verify/build-check.log</code></pre>
     </div>
 
+    <h2 id="gate">ด่าน "เสร็จ" (<code>.devguard/checks</code>)</h2>
+    <p>กฎเป็นแค่การขอให้ agent ตรวจงาน แต่ด่านนี้ตรวจให้จริงไม่ว่า model ไหนเขียนโค้ด แต่ละ repo เขียนคำสั่งตรวจจริงไว้ในไฟล์ <code>.devguard/checks</code> (commit เข้า repo) บรรทัดละหนึ่ง check:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>.devguard/checks</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>commit build:   swift build                                    # ทุก commit: ต้องเร็ว
+push   test:    swift test                                     # ก่อน push: suite เต็ม
+commit secrets: gitleaks git --staged --redact --no-banner .   # เลือกใส่: กัน secret หลุดเข้า commit</code></pre>
+    </div>
+    <p><code>devguard gate init</code> สร้างไฟล์ตัวอย่างและติดตั้ง hook <code>pre-commit</code> / <code>pre-push</code> ส่วน <code>devguard check</code> ใช้รันเองได้ทุกเมื่อ ทุก check รันผ่าน <code>agent-verify</code> ถ้าล้มจะแสดงบรรทัดเดียว พร้อม log เต็มที่ <code>.verify/gate-&lt;name&gt;.log</code></p>
+    <ul>
+      <li>ไม่ทับ hook ที่ไม่ได้เขียนเอง (จะบอกบรรทัดที่ต้องเพิ่มให้แทน) และใช้กับ worktree กับ <code>core.hooksPath</code> ได้</li>
+      <li>ถ้าย้าย kit ไปที่อื่น จะปล่อย commit ผ่านพร้อมคำเตือน เพื่อไม่ให้ทุก repo ถูกบล็อก</li>
+      <li>เตือนเมื่อ commit แก้ไฟล์ <code>.devguard/checks</code> และถ้าไฟล์เขียนผิดรูปแบบจะล้มพร้อมบอกเลขบรรทัด</li>
+      <li>รัน check ด้วย <code>SIGPIPE</code> ค่าปกติและ Python แบบ isolated ผลจึงเหมือนรันใน terminal</li>
+      <li>ข้อจำกัด: ตรวจ working tree ทั้งหมด ไม่ใช่เฉพาะส่วนที่ stage และ <code>git commit --no-verify</code> ยังข้ามได้ (กฎหลักห้ามไว้)</li>
+    </ul>
+
+    <h2 id="review">รีวิวข้ามค่าย (<code>devguard review</code>)</h2>
+    <p>model แต่ละค่ายจับปัญหาได้ต่างกัน <code>devguard review</code> ส่งงาน (งานที่ยังไม่ commit รวมไฟล์ใหม่, commit ล่าสุด หรือทั้งช่วงด้วย <code>--base REF</code>) ให้ model อีกค่ายรีวิวแบบอ่านอย่างเดียวตาม rubric: บั๊ก, จุดที่อาจพัง, test ที่ผ่านแม้ไม่มีการแก้ และคำกล่าวอ้างที่โค้ดไม่รองรับ แสดงผลบรรทัดเดียว (verdict, จำนวนข้อ, path ของรายงาน) และเก็บรายงานไว้ที่ <code>.verify/review-&lt;เวลา&gt;-&lt;ผู้รีวิว&gt;-&lt;pid&gt;.md</code></p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>devguard review --with agy        # Claude เขียน: ให้ Gemini (ผ่าน Antigravity) รีวิว
+devguard review --with claude     # Gemini เขียน: ให้ Claude รีวิว
+devguard review --base main       # รีวิวทั้ง branch</code></pre>
+    </div>
+    <p>เลือกค่ายที่ไม่ได้เขียนโค้ดนั้น Gemini CLI ปฏิเสธบัญชีส่วนตัวแล้ว ฝั่ง Gemini จึงใช้ <code>agy</code> แทน CLI ของผู้รีวิวต้อง login ใน terminal หนึ่งครั้ง ถ้ายังไม่ได้ login จะมีคำแนะนำบอก ผลรีวิวเป็นแค่ข้อสงสัย ต้องเปิดโค้ดยืนยันทีละข้อ</p>
+
+    <h2 id="eval">วัดผล agent (<code>devguard eval</code>)</h2>
+    <p>การแก้กฎจะยังเป็นแค่สมมติฐานจนกว่าจะวัดผล ชุดคำถามเป็น JSON บรรทัดละข้อ มี <code>prompt</code>, regex <code>expect</code>, regex <code>reject</code> (ไม่บังคับ) และ <code>pushback</code> (ไม่บังคับ) สำหรับถามกดดันต่อในบทสนทนาเดิม:</p>
+    <div class="code-block">
+      <div class="code-header">
+        <span>sh</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>devguard eval run .devguard/evals/kit.jsonl --with agy --reps 3 --label before
+# ...แก้กฎ...
+devguard eval run .devguard/evals/kit.jsonl --with agy --reps 3 --label after
+devguard eval compare .verify/eval-before-*.json .verify/eval-after-*.json</code></pre>
+    </div>
+    <p>รายงานผลรายข้อ: คำตอบแรกถูกหรือไม่, จำนวน tag ที่มาต่อคำตอบ และกลับคำบ่อยแค่ไหนเมื่อถูกกดดัน</p>
+
+    <h2 id="evidence">หลักฐาน: รีวิวข้ามค่ายช่วยได้จริงไหม</h2>
+    <p>นำ 7 commit ของ kit นี้มาสร้างเป็น repo แยก แล้วให้ Claude และ Gemini รีวิวแบบไม่เห็นคำตอบ เทียบกับบั๊กที่รู้แน่ 11 ข้อ: แต่ละค่ายจับได้ 8/11 และใช้สองค่ายรวมกันจับได้ 10/11 โดยแต่ละค่ายเจอบั๊กที่อีกค่ายพลาด commit ที่คิดว่าไม่มีบั๊กก็ถูกทั้งสองค่ายชี้ปัญหา และตรวจแล้วเป็นบั๊กจริง ส่วนเกณฑ์อัตโนมัติจาก diff สั่งให้รีวิวทุก commit ที่มีโค้ด จึงไม่ได้สร้าง ข้อสรุป: ก่อน push งานที่แก้โค้ดให้รีวิวด้วยอีกค่าย และถ้าแตะข้อมูลหรือ sync ให้รีวิวทั้งสองค่าย ข้อจำกัด: รันครั้งเดียวต่อคู่ และบั๊ก 11 ข้อมาจากผู้เขียนคนเดียว จึงบอกได้แค่แนวโน้ม ไม่ใช่ตัวเลขที่แม่นยำ รายละเอียด: <a href="https://github.com/Burapa-J/devguard/blob/main/docs/experiments/2026-10-30-cross-model-review.md">docs/experiments/2026-10-30-cross-model-review.md</a></p>
+
     <h2 id="metrics">การวัดผลการทำงาน (<code>devguard stats</code>)</h2>
     <p>รันคำสั่ง <code>devguard stats</code> เพื่อดูผลลัพธ์จากการใช้งานจริงครบทั้ง 3 หมวด:</p>
     <div class="code-block">
@@ -639,7 +737,7 @@ Efficiency meter:  █████████░░░░░░░░░░░�
       <li>ตำแหน่งไฟล์ MCP ของแต่ละ Agent</li>
       <li>ปลั๊กอินและ Hook ของ RTK สำหรับ Google Antigravity</li>
       <li>ความตรงกันของบล็อกกฎในไฟล์ของแต่ละ Agent เทียบกับ <code>rules/core.md</code></li>
-      <li>เวอร์ชันของ CLI ทั้งหมดและเครื่องมือเสริม (<code>ast-grep</code>, <code>xcbeautify</code>)</li>
+      <li>เวอร์ชันของ CLI ทั้งหมดและเครื่องมือเสริม (<code>ast-grep</code>, <code>xcbeautify</code>, <code>shellcheck</code>)</li>
       <li>memory sync ข้ามเครื่อง: hook <code>.pth</code> ชี้ไปที่ kit นี้, มี iCloud hub และไม่มี projectmem MCP ที่ยังรันโค้ด sync เก่า (ให้ปิดเปิด agent ใหม่ <code>--fix</code> ไม่ปิด process ให้)</li>
     </ol>
 
@@ -655,6 +753,8 @@ Efficiency meter:  █████████░░░░░░░░░░░�
       <li><strong>จับคู่โปรเจกต์ด้วย Git Root Commit (<code>root-&lt;sha12&gt;</code>):</strong> แม้ตั้งชื่อโฟลเดอร์คนละชื่อกันในแต่ละเครื่อง ระบบก็จับคู่เข้าถังความจำเดียวกันอัตโนมัติ</li>
       <li><strong>แก้เลข Issue ชนกันขณะออฟไลน์:</strong> เรียงลำดับตามเวลาพร้อมผูก <code>parent_issue_key</code> และอัปเดต <code>.projectmem/.current_issue</code> ให้เองโดยข้อมูลไม่ปนกัน</li>
       <li><strong>ซิงค์แบบ Real-time โดยไม่ต้องคอยรันเอง:</strong> ทำงานอัตโนมัติทุกครั้งที่ MCP อ่านหรือเขียนความจำ (ผ่าน <code>.pth</code> hook) รวมถึงตอน <code>cd</code>, ตอน <code>launchd</code> สแกน หรือสั่ง <code>devguard sync</code></li>
+      <li><strong>ไม่ทำ event หายระหว่าง sync:</strong> การเขียน <code>events.jsonl</code> ใช้ lock ร่วมกัน event ที่เพิ่มเข้ามาระหว่าง sync จึงไม่หาย</li>
+      <li><strong>ตรวจว่า sync ตรงกันหรือยัง:</strong> <code>devguard sync --check</code> เทียบไฟล์ของทุกเครื่องทีละโปรเจกต์ และบอกชื่อเครื่องที่ยังขาด event ส่วน <code>devguard status</code> แสดงยอดรวม repo ที่ยังไม่มี commit และไม่มี remote จะไม่ถูก sync จนกว่าจะ commit ครั้งแรก เพื่อไม่ให้ repo คนละตัวที่ชื่อโฟลเดอร์ซ้ำกันรวมความจำกัน</li>
     </ul>
 
     <h2 id="uninstall">การถอนการติดตั้ง (Uninstalling)</h2>

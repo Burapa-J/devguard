@@ -3,7 +3,7 @@
 **`devguard`** มี 2 ส่วน
 - **วิธีทำงาน**: rules และ skill `verified-dev` ที่บังคับให้ agent ทำงานแบบมีหลักฐาน
 - **เครื่องมือ (components)**: codegraph, projectmem และ rtk (เปิดเป็นค่าเริ่มต้น) รวมถึง context-mode (เลือกเปิดเอง) ติดตั้งและเชื่อมเข้ากับ **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI** และ **Gemini CLI**
-- **เครื่องมือเสริม CLI (Companion Tools)**: `ast-grep` (ค้นหาและแก้โค้ดระดับโครงสร้าง AST) และ `xcbeautify` (จัดรูปแบบและย่อ log ของ `xcodebuild`) ติดตั้งและอัปเดตผ่าน Homebrew และ `devguard update`
+- **เครื่องมือเสริม CLI (Companion Tools)**: `ast-grep` (ค้นหาและแก้โค้ดระดับโครงสร้าง AST), `xcbeautify` (จัดรูปแบบและย่อ log ของ `xcodebuild`) และ `shellcheck` (ตรวจ shell script) ติดตั้งและอัปเดตผ่าน Homebrew และ `devguard update`
 
 ติดตั้งคำสั่งเดียว แล้วทุกอย่างทำงานเองผ่านคำสั่ง `devguard` ภาพรวมภาษาอังกฤษอยู่ใน `README.md`
 
@@ -145,6 +145,7 @@ model แต่ละค่ายจับปัญหาได้ต่าง�
 - ควรเลือกค่ายที่ไม่ได้เขียนโค้ดนั้น: งานที่ Gemini ใน Antigravity เขียน ให้ใช้ `--with claude` ส่วนงานที่ Claude เขียน ให้ใช้ `--with agy`
 - Gemini CLI ปฏิเสธบัญชีส่วนตัวแล้ว ฝั่ง Gemini จึงใช้ `agy` แทน
 - ผลรีวิวเป็นแค่ข้อสงสัย ต้องเปิดโค้ดยืนยันทีละข้อก่อนแก้
+- ผลวัดจริงกับ kit นี้: 7 commit รีวิวแบบไม่เห็นคำตอบ เทียบกับบั๊กที่รู้แน่ 11 ข้อ แต่ละค่ายจับได้ 8/11 ใช้สองค่ายรวมกันได้ 10/11 ข้อสรุปคือ ก่อน push งานที่แก้โค้ดให้รีวิวด้วยอีกค่าย และถ้าแตะข้อมูลหรือ sync ให้รีวิวทั้งสองค่าย (รายละเอียด: [`docs/experiments/2026-10-30-cross-model-review.md`](experiments/2026-10-30-cross-model-review.md))
 
 ### วัดผล agent (`devguard eval`)
 
@@ -209,7 +210,7 @@ devguard doctor --fix    # ซ่อมจุดที่มีปัญหา�
   4. ตำแหน่งไฟล์ MCP ของทุก Agent (รวมถึงย้ายจาก `~/.gemini/antigravity/mcp_config.json` มาเข้า `~/.gemini/config/mcp_config.json`)
   5. ปลั๊กอิน RTK Global ของ Antigravity และการปิด telemetry
   6. ความตรงกันของบล็อกกฎใน `CLAUDE.md`, `copilot-instructions.md`, `GEMINI.md` เทียบกับ `rules/core.md`
-  7. เวอร์ชันของ CLI (`codegraph`, `projectmem`, `context-mode`) เทียบกับเวอร์ชันที่ Pin ไว้
+  7. เวอร์ชันของ CLI (`codegraph`, `projectmem`, `context-mode`) เทียบกับเวอร์ชันที่ Pin ไว้ และเครื่องมือเสริม (`ast-grep`, `xcbeautify`, `shellcheck`) ถ้า `--fix` ซ่อมไม่สำเร็จจะบอกว่าซ่อมไม่ได้ ไม่รายงานว่าสำเร็จ
   8. memory sync ข้ามเครื่อง: hook `.pth` ชี้ไปที่ kit นี้, มี iCloud hub, และไม่มี projectmem MCP ที่ยังรันโค้ด sync เก่า (ถ้ามี ให้ปิดเปิด agent ใหม่ — `--fix` ไม่ปิด process ให้)
 
 ทดสอบกับ agent จริงในแต่ละโปรแกรม:
