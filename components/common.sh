@@ -47,11 +47,12 @@ run() {
   fi
   say "  run: $*"
   out=$(mktemp)
-  if "$@" > "$out" 2>&1; then
+  "$@" > "$out" 2>&1
+  rc=$?
+  if [ "$rc" = 0 ]; then
     rm -f "$out"
     return 0
   fi
-  rc=$?
   cat "$out" >&2
   rm -f "$out"
   return "$rc"

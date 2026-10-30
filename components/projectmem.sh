@@ -65,10 +65,13 @@ projectmem_status() {
 }
 
 projectmem_project_ready() {
+  local hook
   [ -d .projectmem ] || return 1
   [ -n "${STUB_LOG:-}" ] && return 0
   [ -f .projectmem/config.toml ] || return 1
-  [ -f .git/hooks/post-commit ] && grep -q "pjm\|projectmem" .git/hooks/post-commit 2>/dev/null || return 1
+  # --git-path follows linked worktrees (.git is a file there) and core.hooksPath.
+  hook=$(git rev-parse --git-path hooks/post-commit 2>/dev/null) || return 1
+  [ -f "$hook" ] && grep -q "pjm\|projectmem" "$hook" 2>/dev/null || return 1
   [ -f "$HOME/.projectmem/projects.json" ] && grep -qF "\"$PWD\"" "$HOME/.projectmem/projects.json" 2>/dev/null || return 1
   return 0
 }

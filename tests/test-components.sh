@@ -320,6 +320,21 @@ check "offline issue_id 0001 collision resolved to 0001 + 0002 on both machines"
 check "active .current_issue marker updated when local issue_id renumbered" '[ "$(cat "$MAC_B/.projectmem/.current_issue")" = "0002" ]'
 check "real PROJECT_MAP.md synced over placeholder without data loss" 'grep -q "Real architecture map from Mac A" "$MAC_B/.projectmem/PROJECT_MAP.md"'
 
+echo "== helpers: run() exit code, project_ready in a git worktree"
+( . "$KIT/lib.sh"; . "$KIT/components/common.sh"; DRY_RUN=0; run sh -c 'exit 3' ) > /dev/null 2>&1; code=$?
+check "run() propagates a failing command's exit code" '[ $code = 3 ]'
+WT_HOME="$STUB/wt-home"; WT_MAIN="$STUB/wt-main"; WT="$STUB/wt-linked"
+mkdir -p "$WT_HOME/.projectmem" "$WT_MAIN"
+git -C "$WT_MAIN" init -q
+git -C "$WT_MAIN" -c user.name=t -c user.email=t@t commit -qm init --allow-empty
+git -C "$WT_MAIN" worktree add -q "$WT" 2>/dev/null
+printf '#!/bin/sh\npjm hooks post-commit\n' > "$WT_MAIN/.git/hooks/post-commit"
+mkdir -p "$WT/.projectmem"; printf '[project]\n' > "$WT/.projectmem/config.toml"
+printf '{"projects":{"x":{"path":"%s"}}}\n' "$WT" > "$WT_HOME/.projectmem/projects.json"
+(cd "$WT" && unset STUB_LOG && HOME="$WT_HOME" && . "$KIT/lib.sh" && . "$KIT/components/common.sh" &&
+  . "$KIT/components/projectmem.sh" && projectmem_project_ready); code=$?
+check "projectmem_project_ready accepts a linked git worktree" '[ $code = 0 ]'
+
 rm -rf "$HOME/.agent-kit-backup"
 check ".claude.json byte-identical to original" 'cmp -s "$CJ" "$HOME.orig/.claude.json"'
 check "whole HOME restored" 'same_tree "$HOME" "$HOME.orig"'
