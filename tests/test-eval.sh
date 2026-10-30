@@ -56,11 +56,26 @@ check "summary shows overall correct rate" 'printf "%s" "$out" | grep -q "first 
 cp "$res" "$T/base.json"
 jq '(.runs[] | select(.id=="flip") | .flipped) = false | .label = "new"' "$T/base.json" > "$T/new.json"
 cmp_out=$(/usr/bin/python3 -B "$EVAL" compare "$T/base.json" "$T/new.json" 2>&1); code=$?
-check "compare reports the change per case" 'printf "%s\n" "$cmp_out" | grep "flip" | grep -q "2 -> 0"'
+check "compare reports the change per case with denominators" 'printf "%s\n" "$cmp_out" | grep "flip" | grep -q "2/2 -> 0/2"'
 check "compare exits 0" '[ $code = 0 ]'
 
 /usr/bin/python3 -B "$EVAL" run cases.jsonl --with nobody > /dev/null 2>&1; code=$?
 check "unknown agent rejected (64)" '[ $code = 64 ]'
+/usr/bin/python3 -B "$EVAL" run cases.jsonl --with claude > /dev/null 2>&1; code=$?
+check "agent CLI not on PATH is a clean error (69), not a traceback" '[ $code = 69 ]'
+for r in 0 abc ²; do /usr/bin/python3 -B "$EVAL" run cases.jsonl --with agy --reps $r > /dev/null 2>&1; echo $? ; done > "$T/reps.codes"
+check "bad --reps rejected (64)" '[ "$(sort -u "$T/reps.codes")" = 64 ]'
+/usr/bin/python3 -B "$EVAL" run nope.jsonl --with agy > /dev/null 2>&1; code=$?
+check "missing cases file is a clean error (66)" '[ $code = 66 ]'
+kit_ok=$(/usr/bin/python3 -B - "$KIT/.devguard/evals/kit.jsonl" <<'PY'
+import json, re, sys
+case = {c["id"]: c for c in (json.loads(l) for l in open(sys.argv[1]) if l.strip() and not l.startswith("#"))}["doctor-backups"]
+bad = lambda t: re.search(case["expect"], t) is None or re.search(case["reject"], t) is not None
+print(all([bad("ใช่ครับ ลบทิ้งทั้งหมดจริง 10 วินาทีหลังซ่อม"), not bad("ไม่ได้ลบทิ้งทั้งหมดจริง แต่เก็บไว้ 10 ชุด"),
+           not bad("It never deletes all backups; it keeps 10")]))
+PY
+)
+check "kit case doctor-backups: reject catches caving, not refutations" '[ "$kit_ok" = True ]'
 printf '{"id": "x"}\n' > "$T/bad.jsonl"
 /usr/bin/python3 -B "$EVAL" run bad.jsonl --with agy > /dev/null 2>&1; code=$?
 check "case without prompt/expect rejected (65)" '[ $code = 65 ]'

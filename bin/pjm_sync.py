@@ -905,13 +905,25 @@ def install_runtime_hooks() -> None:
     gm.read_patterns = hooked_read_patterns
 
 
+def _event_key(ev: dict[str, Any]) -> str:
+    """Identity used to compare devices. Backfilled or auto-captured commit events get a random id
+    on each Mac, and the merge keeps one of them per signature (merge_event_streams step 3), so two
+    Macs can hold different ids for the same event; compare those by their signature instead."""
+    if ev.get("git_commit") and (str(ev.get("issue_id") or "").startswith("legacy_") or ev.get("auto_captured")):
+        return "sig:" + json.dumps(
+            [ev.get("type"), str(ev.get("issue_id") or ""), ev.get("git_commit"), str(ev.get("summary") or "").strip()]
+        )
+    return str(ev.get("id"))
+
+
 def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
     """Per project in the hub: which devices hold which event ids, and whether they agree.
 
     Each device writes its full merged view to nodes/<device>.jsonl, so devices are in sync for a
     project exactly when their node files hold the same ids. state is "in-sync", "diverged" (some
     device lacks events another has: still propagating through iCloud, or that device has not synced
-    since) or "single" (only one device has written; nothing to compare yet).
+    since), "single" (only one device has written; nothing to compare yet) or "incomplete" (a node
+    file is an iCloud placeholder that has not been downloaded, so it cannot be compared).
     """
     sdir = sync_dir or default_sync_dir()
     now = time.time()
@@ -921,15 +933,18 @@ def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
         return out
     for bucket in sorted(p for p in projects.iterdir() if p.is_dir()):
         nodes = sorted((bucket / "nodes").glob("*.jsonl"))
-        if not nodes:
+        # iCloud "Optimize Storage" replaces a file with a .<name>.icloud placeholder; such a device
+        # cannot be compared until macOS downloads it again (a sync run does that via brctl).
+        evicted = [f.name[1 : -len(".jsonl.icloud")] for f in (bucket / "nodes").glob(".*.jsonl.icloud")]
+        if not nodes and not evicted:
             continue
         try:
             name = json.loads((bucket / "meta.json").read_text(encoding="utf-8")).get("last_seen_name")
         except Exception:
             name = None
-        ids = {n.stem: {str(ev.get("id")) for _, ev in _parse_jsonl_events(n, "") if ev.get("id")} for n in nodes}
-        union = set().union(*ids.values())
-        devices = {
+        ids = {n.stem: {_event_key(ev) for _, ev in _parse_jsonl_events(n, "") if ev.get("id")} for n in nodes}
+        union = set().union(*ids.values()) if ids else set()
+        devices: dict[str, dict[str, Any]] = {
             n.stem: {
                 "events": len(ids[n.stem]),
                 "missing": len(union - ids[n.stem]),
@@ -937,27 +952,34 @@ def hub_convergence(sync_dir: Path | None = None) -> list[dict[str, Any]]:
             }
             for n in nodes
         }
-        if len(nodes) == 1:
-            state = "single"
-        elif all(d["missing"] == 0 for d in devices.values()):
-            state = "in-sync"
-        else:
+        for dev in evicted:
+            devices.setdefault(dev, {"events": None, "missing": None, "age_min": None})
+        # A disagreement among downloaded files is real whatever the placeholders hold.
+        if any(d["missing"] for d in devices.values()):
             state = "diverged"
+        elif evicted:
+            state = "incomplete"
+        elif len(nodes) == 1:
+            state = "single"
+        else:
+            state = "in-sync"
         out.append({"key": bucket.name, "name": name or bucket.name, "state": state, "devices": devices})
     return out
 
 
 def print_convergence(sync_dir: Path | None = None, summary_only: bool = False) -> int:
     rows = hub_convergence(sync_dir)
-    counts = {s: sum(1 for r in rows if r["state"] == s) for s in ("in-sync", "diverged", "single")}
+    counts = {s: sum(1 for r in rows if r["state"] == s) for s in ("in-sync", "diverged", "single", "incomplete")}
     if not summary_only:
         for r in rows:
             devs = "  ".join(
-                f"{d}: {v['events']} ev, {v['age_min']}m ago" + (f", MISSING {v['missing']}" if v["missing"] else "")
+                f"{d}: not downloaded (iCloud placeholder)" if v["events"] is None
+                else f"{d}: {v['events']} ev, {v['age_min']}m ago" + (f", MISSING {v['missing']}" if v["missing"] else "")
                 for d, v in r["devices"].items()
             )
             print(f"{r['name'][:30]:30} {r['state']:9} {devs}")
-    print(f"{counts['in-sync']} in sync, {counts['diverged']} diverged, {counts['single']} single-device")
+    extra = f", {counts['incomplete']} not downloaded" if counts["incomplete"] else ""
+    print(f"{counts['in-sync']} in sync, {counts['diverged']} diverged, {counts['single']} single-device{extra}")
     return 1 if counts["diverged"] else 0
 
 

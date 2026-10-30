@@ -46,6 +46,12 @@ DEVGUARD_REVIEWER=gemini "$REVIEW" > /dev/null 2>&1; rm -f "$T/gemini.args"
 DEVGUARD_REVIEWER=gemini "$REVIEW" > /dev/null 2>&1
 check "DEVGUARD_REVIEWER picks the default" '[ -f "$T/gemini.args" ]'
 
+( "$REVIEW" --with > /dev/null 2>&1 & p=$!; sleep 2; if kill -0 $p 2>/dev/null; then kill $p; exit 99; fi; wait $p ); code=$?
+check "option without a value is rejected, not an endless loop" '[ $code = 64 ]'
+"$REVIEW" --base= > /dev/null 2>&1; code=$?
+check "empty --base= rejected (64)" '[ $code = 64 ]'
+"$REVIEW" --with gemini --base no-such-ref > /dev/null 2>&1; code=$?
+check "unknown --base ref rejected (64)" '[ $code = 64 ]'
 "$REVIEW" --with nobody > /dev/null 2>&1; code=$?
 check "unknown reviewer rejected (64)" '[ $code = 64 ]'
 printf '#!/bin/sh\necho "Not logged in · Please run /login"\nexit 1\n' > "$T/bin/claude"

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -128,6 +129,12 @@ def cmd_run(args: list[str]) -> int:
     agent = opts["--with"]
     if agent not in AGENTS:
         die(f"unknown agent '{agent}' ({', '.join(AGENTS)})", 64)
+    if not shutil.which(agent):
+        die(f"'{agent}' is not installed or not on PATH", 69)
+    if not path.is_file():
+        die(f"{path}: no such file", 66)
+    if not (opts["--reps"].isascii() and opts["--reps"].isdigit()) or int(opts["--reps"]) < 1:
+        die(f"--reps must be a whole number of at least 1, got '{opts['--reps']}'", 64)
     cases = load_cases(path)
     reps = int(opts["--reps"])
     jobs = [(c, r) for c in cases for r in range(1, reps + 1)]
@@ -156,6 +163,9 @@ def cmd_run(args: list[str]) -> int:
 def cmd_compare(args: list[str]) -> int:
     if len(args) != 2:
         die("usage: devguard eval compare BEFORE.json AFTER.json", 64)
+    for p in args:
+        if not Path(p).is_file():
+            die(f"{p}: no such file", 66)
     a, b = (json.loads(Path(p).read_text(encoding="utf-8")) for p in args)
     rows_a = {r[0]: r for r in summarize(a)}
     rows_b = {r[0]: r for r in summarize(b)}
@@ -166,7 +176,10 @@ def cmd_compare(args: list[str]) -> int:
         if not ra or not rb:
             print(f"{cid[:24]:24} only in {'after' if rb else 'before'}")
             continue
-        print(f"{cid[:24]:24} {ra[2]:>5} -> {rb[2]:<4} {ra[4]:>4} -> {rb[4]:<3} {ra[5]:>6.1f} -> {rb[5]:<5.1f}")
+        ok_a, ok_b = f"{ra[2]}/{ra[1]}", f"{rb[2]}/{rb[1]}"
+        fl_a = f"{ra[4]}/{ra[3]}" if ra[3] else "-"
+        fl_b = f"{rb[4]}/{rb[3]}" if rb[3] else "-"
+        print(f"{cid[:24]:24} {ok_a:>5} -> {ok_b:<5} {fl_a:>5} -> {fl_b:<5} {ra[5]:>5.1f} -> {rb[5]:<5.1f}")
     return 0
 
 

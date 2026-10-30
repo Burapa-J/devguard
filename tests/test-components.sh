@@ -365,6 +365,23 @@ check "sync --check classifies in-sync, diverged and single" 'printf "%s" "$ck_o
 check "sync --check names the device missing events" 'printf "%s\n" "$ck_out" | grep "root-bbb" | grep -q "mac-b: 1 ev.*MISSING 2"'
 check "sync --check exits 1 when any project diverged" '[ $code = 1 ]'
 check "sync --check is read-only" 'diff -r "$CK" "$STUB/check-hub-before" >/dev/null'
+# Two Macs auto-capture the same commit with different random ids; the merge keeps one per Mac,
+# so ids differ forever while the content agrees. That must not count as diverged.
+mkdir -p "$CK/root-ddd/nodes"
+printf '{"id":"x1","type":"note","summary":"c","timestamp":"t","git_commit":"abc","auto_captured":true}\n' > "$CK/root-ddd/nodes/mac-a.jsonl"
+printf '{"id":"x2","type":"note","summary":"c","timestamp":"t","git_commit":"abc","auto_captured":true}\n' > "$CK/root-ddd/nodes/mac-b.jsonl"
+# iCloud "Optimize Storage" can evict a node file to a .<name>.jsonl.icloud placeholder.
+mkdir -p "$CK/root-eee/nodes"; ev e1 > "$CK/root-eee/nodes/mac-a.jsonl"; : > "$CK/root-eee/nodes/.mac-b.jsonl.icloud"
+ck2=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check 2>&1)
+check "same auto-captured commit with different ids counts as in sync" 'printf "%s\n" "$ck2" | grep "root-ddd" | grep -q "in-sync"'
+check "evicted iCloud node file is reported, not silently dropped" 'printf "%s\n" "$ck2" | grep "root-eee" | grep -q "mac-b: not downloaded"'
+mkdir -p "$CK/root-fff/nodes" "$CK/root-ggg/nodes"
+: > "$CK/root-fff/nodes/.mac-a.jsonl.icloud"; : > "$CK/root-fff/nodes/.mac-b.jsonl.icloud"
+ev e1 e2 > "$CK/root-ggg/nodes/mac-a.jsonl"; ev e1 > "$CK/root-ggg/nodes/mac-b.jsonl"; : > "$CK/root-ggg/nodes/.mac-c.jsonl.icloud"
+ck3=$(DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check 2>&1)
+check "project with every node evicted is still listed" 'printf "%s\n" "$ck3" | grep "root-fff" | grep -q "incomplete"'
+check "divergence is not hidden by an evicted third node" 'printf "%s\n" "$ck3" | grep "root-ggg" | grep -q "diverged"'
+rm -rf "${CK:?}/root-ddd" "${CK:?}/root-eee" "${CK:?}/root-fff" "${CK:?}/root-ggg"
 rm -rf "${CK:?}/root-bbb"
 DEVGUARD_SYNC_DIR="$STUB/check-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/bin/pjm_sync.py" --check > /dev/null 2>&1; code=$?
 check "sync --check exits 0 with nothing diverged" '[ $code = 0 ]'

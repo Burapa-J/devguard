@@ -16,10 +16,14 @@ base=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --with) with=${2:-}; shift 2 ;;
-    --with=*) with=${1#--with=}; shift ;;
-    --base) base=${2:-}; shift 2 ;;
-    --base=*) base=${1#--base=}; shift ;;
+    --with | --base)
+      [ $# -ge 2 ] && [ -n "$2" ] || { echo "devguard review: $1 needs a value" >&2; exit 64; }
+      if [ "$1" = --with ]; then with=$2; else base=$2; fi
+      shift 2 ;;
+    --with=* | --base=*)
+      [ -n "${1#*=}" ] || { echo "devguard review: ${1%%=*} needs a value" >&2; exit 64; }
+      if [ "${1%%=*}" = --with ]; then with=${1#*=}; else base=${1#*=}; fi
+      shift ;;
     -h | --help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "devguard review: unknown option $1" >&2; exit 64 ;;
   esac
@@ -38,6 +42,8 @@ top=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "devguard review: not
 cd "$top" || exit 64
 
 if [ -n "$base" ]; then
+  git rev-parse --verify --quiet "$base^{commit}" >/dev/null ||
+    { echo "devguard review: --base '$base' is not a commit" >&2; exit 64; }
   what="changes since $base"
   diff=$(git diff "$base...HEAD"; git diff HEAD)
 elif [ -n "$(git status --porcelain --untracked-files=no)" ]; then
