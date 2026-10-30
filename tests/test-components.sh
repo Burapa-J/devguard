@@ -337,6 +337,28 @@ for case in slow-writer hook-lock remap-rescue; do
 done
 rm -rf "$HOME/.agent-kit/locks"; rmdir "$HOME/.agent-kit" 2>/dev/null || true
 
+echo "== sync health helpers (status / doctor 8)"
+SH_HOME="$STUB/sync-health"; SP="$SH_HOME/venv/lib/python3.99/site-packages"; mkdir -p "$SP"
+sync_helper() { (unset STUB_LOG; export HOME="$SH_HOME" KIT_DIR="$KIT"; . "$KIT/lib.sh"; . "$KIT/components/common.sh"
+  . "$KIT/components/projectmem.sh"; PROJECTMEM_VENV="$SH_HOME/venv"; "$@"); }
+sync_helper projectmem_sync_hook_ok; code=$?
+check "sync hook reported missing without a .pth" '[ $code != 0 ]'
+printf "import sys; sys.path.insert(0, '%s'); import pjm_sync; pjm_sync.install_runtime_hooks()\n" "$KIT/bin" > "$SP/devguard_pjm_sync.pth"
+sync_helper projectmem_sync_hook_ok; code=$?
+check "sync hook ok when .pth loads this kit" '[ $code = 0 ]'
+printf "import sys; sys.path.insert(0, '/moved/kit/bin'); import pjm_sync\n" > "$SP/devguard_pjm_sync.pth"
+sync_helper projectmem_sync_hook_ok; code=$?
+check "sync hook flagged when .pth points at another kit" '[ $code != 0 ]'
+touch "$STUB/sync-old-file"
+# Same argv shape as a real macOS venv server: the framework binary is named "Python".
+bash -c 'exec -a "/x/Python.app/Contents/MacOS/Python -m projectmem.mcp_server" sleep 30' & fake_mcp=$!
+sleep 2; touch "$STUB/sync-new-file"
+stale_new=$(sync_helper projectmem_stale_mcp_pids "$STUB/sync-new-file")
+stale_old=$(sync_helper projectmem_stale_mcp_pids "$STUB/sync-old-file")
+kill "$fake_mcp" 2>/dev/null; wait "$fake_mcp" 2>/dev/null
+check "MCP server started before the sync code changed is flagged" 'printf "%s\n" "$stale_new" | grep -qx "$fake_mcp"'
+check "MCP server started after the change is not flagged" '! printf "%s\n" "$stale_old" | grep -qx "$fake_mcp"'
+
 echo "== helpers: run() exit code, project_ready in a git worktree"
 ( . "$KIT/lib.sh"; . "$KIT/components/common.sh"; DRY_RUN=0; run sh -c 'exit 3' ) > /dev/null 2>&1; code=$?
 check "run() propagates a failing command's exit code" '[ $code = 3 ]'

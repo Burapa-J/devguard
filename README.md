@@ -16,7 +16,7 @@ Two layers:
 | `rules/core.md` | Always-on instruction (9 lines) | Every prompt, via each agent's global rules file |
 | `skills/verified-dev/SKILL.md` | On-demand instruction | When the agent matches it, or you type `/verified-dev` |
 | `bin/devguard` → `devguard` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
-| `bin/doctor.sh` → `devguard doctor` | Health & repair tool | Audits 7 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift) and repairs them with `--fix` |
+| `bin/doctor.sh` → `devguard doctor` | Health & repair tool | Audits 8 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift, memory sync) and repairs them with `--fix` |
 | `bin/stats.sh` → `devguard stats` | Telemetry & quality summary | Shows RTK shell savings, ProjectMem fixes/tokens, CodeGraph index counts, and `.verify/*.log` verification pass rates |
 | `bin/pjm_sync.py` → `devguard sync` | Multi-Mac memory sync | Real-time & batch CRDT sync of `projectmem` across machines over iCloud Drive |
 | `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
@@ -66,7 +66,7 @@ Already cloned? Run `./install.sh`. Options (all optional): `--with=LIST`, `--au
 ```sh
 devguard                 # interactive menu (status, select tools, doctor, stats, update, uninstall)
 devguard status          # compact overview table of what is installed, wired and set up
-devguard doctor [--fix]  # audit 7 common failure modes and optionally repair them automatically
+devguard doctor [--fix]  # audit 8 common failure modes and optionally repair them automatically
 devguard stats           # unified token savings, codegraph index & verification pass-rate stats
 devguard sync [--quiet]  # sync projectmem across machines over iCloud Drive (CRDT merge)
 devguard select          # interactively pick agents and tools to enable/disable

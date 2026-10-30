@@ -403,7 +403,7 @@
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
       </div>
       <pre><code>devguard status        # ดูตารางสถานะการเชื่อมต่อของทุก Agent และเครื่องมือ
-devguard doctor        # ตรวจสุขภาพการติดตั้งทั้ง 7 ข้อ
+devguard doctor        # ตรวจสุขภาพการติดตั้งทั้ง 8 ข้อ
 devguard stats         # ดูสถิติการประหยัด Token และอัตราการ Verify ผ่าน</code></pre>
     </div>
 
@@ -558,7 +558,7 @@ devguard stats         # ดูสถิติการประหยัด Tok
           </tr>
           <tr>
             <td><code>devguard doctor [--fix]</code></td>
-            <td>ตรวจสุขภาพ 7 จุดเสี่ยง และใส่ <code>--fix</code> เพื่อซ่อมแซมอัตโนมัติ</td>
+            <td>ตรวจสุขภาพ 8 จุดเสี่ยง และใส่ <code>--fix</code> เพื่อซ่อมแซมอัตโนมัติ</td>
           </tr>
           <tr>
             <td><code>devguard stats [options]</code></td>
@@ -631,7 +631,7 @@ Efficiency meter:  █████████░░░░░░░░░░░�
     </div>
 
     <h2 id="doctor">การตรวจสุขภาพและซ่อมแซมตัวเอง (<code>devguard doctor</code>)</h2>
-    <p>คำสั่ง <code>devguard doctor</code> ตรวจสอบ 7 จุดเสี่ยงของระบบ และซ่อมให้อัตโนมัติเมื่อใส่ <code>--fix</code>:</p>
+    <p>คำสั่ง <code>devguard doctor</code> ตรวจสอบ 8 จุดเสี่ยงของระบบ และซ่อมให้อัตโนมัติเมื่อใส่ <code>--fix</code>:</p>
     <ol>
       <li>คราบการติดตั้ง <code>tokless</code> เดิม (รวมถึงล้าง <code>ANTHROPIC_BASE_URL</code> proxy ที่ค้างใน <code>~/.claude/settings.json</code>)</li>
       <li>Symlink ขาดหรือชื่อเก่าที่ค้างอยู่ใน <code>~/.local/bin</code></li>
@@ -640,6 +640,7 @@ Efficiency meter:  █████████░░░░░░░░░░░�
       <li>ปลั๊กอินและ Hook ของ RTK สำหรับ Google Antigravity</li>
       <li>ความตรงกันของบล็อกกฎในไฟล์ของแต่ละ Agent เทียบกับ <code>rules/core.md</code></li>
       <li>เวอร์ชันของ CLI ทั้งหมดและเครื่องมือเสริม (<code>ast-grep</code>, <code>xcbeautify</code>)</li>
+      <li>memory sync ข้ามเครื่อง: hook <code>.pth</code> ชี้ไปที่ kit นี้, มี iCloud hub และไม่มี projectmem MCP ที่ยังรันโค้ด sync เก่า (ให้ปิดเปิด agent ใหม่ <code>--fix</code> ไม่ปิด process ให้)</li>
     </ol>
 
     <h2 id="auto-setup">การตั้งค่าโปรเจกต์อัตโนมัติ และซิงค์ความจำข้ามเครื่อง</h2>

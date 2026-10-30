@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # devguard doctor: audit and optionally repair common installation, wiring, and plugin conflicts.
 #
-#   devguard doctor          run all 7 health checks (read-only; exits 1 if issues found)
+#   devguard doctor          run all 8 health checks (read-only; exits 1 if issues found)
 #   devguard doctor --fix    automatically repair all detected issues and back up changed files
 set -u
 
@@ -16,7 +16,7 @@ for arg in "$@"; do
       cat <<EOF
 Usage: devguard doctor [--fix]
 
-Checks 7 common failure modes:
+Checks 8 common failure modes:
   1. Legacy tokless residue (binaries, share dir, broken .zshrc block)
   2. Broken or conflicting symlinks in ~/.local/bin
   3. Conflicting brevity/workflow plugins (caveman, ponytail, cavecrew)
@@ -24,6 +24,7 @@ Checks 7 common failure modes:
   5. RTK global plugin & telemetry health
   6. Core rules block synchronization against rules/core.md
   7. Component version drift against pinned versions
+  8. Cross-machine memory sync (hook, iCloud hub, MCP servers on old code)
 
 Options:
   --fix    Automatically repair all detected issues (backs up modified files to ~/.agent-kit-backup/)
@@ -363,6 +364,30 @@ else
     repaired "7. Upgraded/installed component & companion CLIs ($ver_drift )"
   else
     issue "7. Component or companion CLI drift:$ver_drift"
+  fi
+fi
+
+# ---- 8. Cross-machine memory sync --------------------------------------------------------------
+if projectmem_present && [ -z "${STUB_LOG:-}" ]; then
+  if projectmem_sync_hook_ok; then
+    ok "8a. Memory sync hook loads $KIT_DIR/bin/pjm_sync.py"
+  elif [ "$FIX" = 1 ] && "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 &&
+       projectmem_sync_hook_ok; then
+    repaired "8a. Reinstalled memory sync hook (.pth) for $KIT_DIR"
+  else
+    issue "8a. Memory sync hook (.pth) missing or pointing at another kit path: $(projectmem_sync_pth)"
+  fi
+  if [ -d "$(projectmem_sync_hub)" ]; then
+    ok "8b. iCloud sync hub present ($(projectmem_sync_devices | wc -l | tr -d ' ') device(s))"
+  else
+    issue "8b. iCloud sync hub not found: $(projectmem_sync_hub) (sign in to iCloud Drive, then run 'devguard sync')"
+  fi
+  stale_mcp=$(projectmem_stale_mcp_pids | tr '\n' ' ' | sed 's/ $//')
+  if [ -z "$stale_mcp" ]; then
+    ok "8c. Running projectmem MCP servers use the current sync code"
+  else
+    # Not auto-fixed: killing an agent's MCP server mid-session is the user's call.
+    issue "8c. projectmem MCP servers started before pjm_sync.py changed (pid $stale_mcp): restart your agents"
   fi
 fi
 

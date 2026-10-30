@@ -640,7 +640,7 @@ Efficiency meter:  █████████░░░░░░░░░░░�
     </div>
 
     <h2 id="doctor">Self-Healing Health Checks (<code>devguard doctor</code>)</h2>
-    <p><code>devguard doctor</code> audits 7 common configuration problems and repairs them automatically when invoked with <code>--fix</code>:</p>
+    <p><code>devguard doctor</code> audits 8 common configuration problems and repairs them automatically when invoked with <code>--fix</code>:</p>
     <ol>
       <li>Legacy <code>tokless</code> residue (leftover binaries, <code>ANTHROPIC_BASE_URL</code> proxy env in <code>~/.claude/settings.json</code>, and <code>.zshrc</code> blocks).</li>
       <li>Broken or stale symlinks in <code>~/.local/bin</code>.</li>
@@ -649,6 +649,7 @@ Efficiency meter:  █████████░░░░░░░░░░░�
       <li>RTK global plugin &amp; hook registration for Google Antigravity.</li>
       <li>Synchronization of <code>&lt;!-- agent-kit:begin --&gt;</code> blocks against <code>rules/core.md</code>.</li>
       <li>Version drift of pinned components and presence of companion tools (<code>ast-grep</code>, <code>xcbeautify</code>).</li>
+      <li>Cross-machine memory sync: the <code>.pth</code> hook loads this kit, the iCloud hub exists, and no projectmem MCP server is still running old sync code (restart your agents; <code>--fix</code> never kills them).</li>
     </ol>
 
     <h2 id="auto-setup">Automatic Repository Setup &amp; Multi-Mac Sync</h2>

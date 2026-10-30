@@ -100,6 +100,22 @@ if is_ours "$GEMINI_SKILLS/$SKILL_NAME" || [ -f "$HOME/.gemini/hooks/rtk-hook-ge
     "$(cell 'mcp_has gemini context-mode')"
 fi
 echo "${C_BOLD}╰────────────────────────────────────────────────────────────────────────────────╯${C_RESET}"
+
+flag() { if eval "$2"; then printf "${C_OK}✓${C_RESET} %s  " "$1"; else printf "${C_WARN}!${C_RESET} %s  " "$1"; fi; }
+printf "  Tools        "
+flag "ast-grep" 'command -v ast-grep >/dev/null 2>&1'
+flag "xcbeautify" 'command -v xcbeautify >/dev/null 2>&1'
+flag "agent-verify" 'is_ours "$VERIFY_LINK"'
+echo
+if projectmem_present; then
+  stale_mcp=$(projectmem_stale_mcp_pids | tr '\n' ' ' | sed 's/ $//')
+  printf "  Memory sync  "
+  flag "hook" 'projectmem_sync_hook_ok'
+  flag "iCloud hub" '[ -d "$(projectmem_sync_hub)" ]'
+  flag "$(projectmem_sync_devices | wc -l | tr -d ' ') device(s)" '[ -n "$(projectmem_sync_devices)" ]'
+  if [ -z "$stale_mcp" ]; then flag "MCP up to date" true; else flag "restart agents (MCP on old code)" false; fi
+  echo
+fi
 echo
 
 mark() { if eval "$2"; then echo "  ${C_OK}ok${C_RESET}   $1"; else echo "  ${C_OFF}--${C_RESET}   $1"; fi; }
@@ -131,6 +147,26 @@ for c in $ALL_COMPONENTS; do
   if "${f}_present"; then cli="CLI installed"; else cli="CLI missing"; fi
   echo "  $c: $cli, $managed"
 done
+
+if projectmem_present; then
+  echo
+  echo "Memory sync"
+  hub=$(projectmem_sync_hub)
+  this_dev=$(cat "$STATE_DIR/device-id" 2>/dev/null || true)
+  mark "sync hook (.pth)             $(projectmem_sync_pth)" 'projectmem_sync_hook_ok'
+  mark "iCloud hub                   $hub" '[ -d "$hub" ]'
+  if [ -d "$hub" ]; then
+    echo "         projects: $(find "$hub/projects" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+    projectmem_sync_devices | while IFS= read -r d; do
+      if [ "$d" = "$this_dev" ]; then echo "         device: $d (this Mac)"; else echo "         device: $d"; fi
+    done
+  fi
+  if [ -n "$stale_mcp" ]; then
+    echo "  ${C_WARN}!!${C_RESET}   MCP servers running old sync code (pid $stale_mcp): restart your agents"
+  else
+    mark "projectmem MCP servers up to date" true
+  fi
+fi
 
 echo
 echo "Companion Tools"

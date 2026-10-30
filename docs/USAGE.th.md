@@ -130,7 +130,7 @@ agent-verify build -- swift build
 |---|---|
 | `devguard` | เปิดเมนูแบบ Interactive เลือกคำสั่งได้ทันที |
 | `devguard status` | แสดงตารางสรุปสิ่งที่ติดตั้ง, wire และตั้งค่าอัตโนมัติแบบดูง่าย |
-| `devguard doctor [--fix]` | ตรวจสุขภาพ 7 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
+| `devguard doctor [--fix]` | ตรวจสุขภาพ 8 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
 | `devguard stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`), ตาราง Index ของ `codegraph`, และอัตราการ Verify ผ่าน (`.verify/*.log` Pass Rate) ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
 | `devguard sync [--quiet]` | ซิงค์ความจำของ `projectmem` ทั้งระดับโปรเจกต์และระดับเครื่องข้ามเครื่องผ่าน iCloud Drive แบบ CRDT |
 | `devguard select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar |
@@ -149,12 +149,12 @@ agent-verify build -- swift build
 
 ```sh
 devguard status          # ดูตารางสถานะการเชื่อมต่อของทุก Agent และเครื่องมือ
-devguard doctor          # ตรวจสุขภาพ 7 จุดเสี่ยงแบบละเอียด (Read-only)
-devguard doctor --fix    # ซ่อมจุดที่มีปัญหาทั้ง 7 ข้อให้อัตโนมัติ (พร้อมสำรองไฟล์เดิมไว้ที่ ~/.agent-kit-backup/)
+devguard doctor          # ตรวจสุขภาพ 8 จุดเสี่ยงแบบละเอียด (Read-only)
+devguard doctor --fix    # ซ่อมจุดที่มีปัญหาทั้ง 8 ข้อให้อัตโนมัติ (พร้อมสำรองไฟล์เดิมไว้ที่ ~/.agent-kit-backup/)
 ```
 - ส่วน **Core** ทุกบรรทัดควรเป็น `ok` ได้แก่ rules, skill, คำสั่ง, hook และการตั้งค่าอัตโนมัติทั้ง Claude Code, zsh และ launchd
 - ส่วน **Components** ตัวที่เลือกไว้ควรเป็น `CLI installed, managed by devguard` และ `wired` ในทุก agent
-- ส่วน **`devguard doctor`** จะตรวจครบทั้ง 7 จุด:
+- ส่วน **`devguard doctor`** จะตรวจครบทั้ง 8 จุด:
   1. คราบ `tokless` เดิม (`~/.local/bin/tokless`, `~/.local/share/tokless`, บล็อกใน `~/.zshrc`)
   2. Symlink ขาดหรือชี้ผิดที่ใน `~/.local/bin`
   3. ปลั๊กอินที่ตีกัน (`caveman`, `ponytail`, `cavecrew`)
@@ -162,6 +162,7 @@ devguard doctor --fix    # ซ่อมจุดที่มีปัญหา�
   5. ปลั๊กอิน RTK Global ของ Antigravity และการปิด telemetry
   6. ความตรงกันของบล็อกกฎใน `CLAUDE.md`, `copilot-instructions.md`, `GEMINI.md` เทียบกับ `rules/core.md`
   7. เวอร์ชันของ CLI (`codegraph`, `projectmem`, `context-mode`) เทียบกับเวอร์ชันที่ Pin ไว้
+  8. memory sync ข้ามเครื่อง: hook `.pth` ชี้ไปที่ kit นี้, มี iCloud hub, และไม่มี projectmem MCP ที่ยังรันโค้ด sync เก่า (ถ้ามี ให้ปิดเปิด agent ใหม่ — `--fix` ไม่ปิด process ให้)
 
 ทดสอบกับ agent จริงในแต่ละโปรแกรม:
 1. เปิด session ใหม่แล้วถามว่า "What rules are you following for code tasks?" คำตอบควรอยู่ในโหมดอ่านอย่างเดียว (Read-only) และพูดถึง `verified-dev` กับเรื่องหลักฐาน
