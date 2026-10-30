@@ -38,6 +38,11 @@ check "unknown stage fails closed" '[ $code = 2 ]'
 rm -rf .devguard
 out=$("$GATE" run all 2>&1); code=$?
 check "no checks file passes" '[ $code = 0 ]'
+# git runs hooks with SIGPIPE ignored, and children inherit that. A writer into a closed pipe then
+# gets "Broken pipe" errors instead of dying quietly, so checks behave unlike a terminal run.
+checks "commit sigpipe: test -z \"\$( { bash -c 'sleep 0.2; echo b' | true; } 2>&1 )\""
+out=$( (trap '' PIPE; "$GATE" run all) 2>&1); code=$?
+check "checks run with default SIGPIPE even when the caller ignores it" '[ $code = 0 ]'
 
 echo "== hooks"
 new_repo hooks

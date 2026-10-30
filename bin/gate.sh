@@ -15,6 +15,16 @@ MARK="# devguard-gate"
 
 die() { echo "devguard gate: $*" >&2; exit 2; }
 
+# git runs hooks with SIGPIPE ignored and children inherit it, so a check would see "Broken pipe"
+# errors a terminal run never shows. A shell cannot reset a signal ignored on entry; exec through
+# python3, which sets it back to default first (the default disposition survives exec).
+RUNNER=(sh -c)
+if command -v python3 >/dev/null 2>&1; then
+  RUNNER=(python3 -c 'import os, signal, sys
+signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+os.execvp("sh", ["sh", "-c", sys.argv[1]])')
+fi
+
 repo_top() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
 
 # Prints "stage<TAB>name<TAB>command" per check; exits 2 naming the first malformed line.
@@ -49,7 +59,7 @@ cmd_run() {
     [ -n "$name" ] || continue
     [ "$want" = commit ] && [ "$stage" != commit ] && continue
     total=$((total + 1))
-    "$KIT_DIR/bin/verify.sh" "gate-$name" -- sh -c "$cmd" >&2 || failed="$failed $name"
+    "$KIT_DIR/bin/verify.sh" "gate-$name" -- "${RUNNER[@]}" "$cmd" >&2 || failed="$failed $name"
   done <<EOF
 $parsed
 EOF
