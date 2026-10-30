@@ -1,0 +1,6 @@
+# devguard gate for this kit. One per line: <stage> <name>: <command>
+# commit = every commit (fast); push = before push (full suites).
+commit syntax: for f in bin/devguard bin/*.sh status.sh install.sh uninstall.sh bootstrap.sh lib.sh components/*.sh hooks/*.sh tests/*.sh; do bash -n "$f" || exit 1; done && /usr/bin/python3 -I -m py_compile bin/pjm_sync.py tests/sync_race.py tests/sync_lock.py
+push   gate: bash tests/test-gate.sh
+push   kit: bash tests/test-kit.sh
+push   components: bash tests/test-components.sh

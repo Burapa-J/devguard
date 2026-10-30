@@ -20,6 +20,7 @@ Two layers:
 | `bin/stats.sh` → `devguard stats` | Telemetry & quality summary | Shows RTK shell savings, ProjectMem fixes/tokens, CodeGraph index counts, and `.verify/*.log` verification pass rates |
 | `bin/pjm_sync.py` → `devguard sync` | Multi-Mac memory sync | Real-time & batch CRDT sync of `projectmem` across machines over iCloud Drive |
 | `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
+| `bin/gate.sh` → `devguard check` / `devguard gate` | Done gate | Runs a repo's `.devguard/checks` and installs pre-commit / pre-push hooks that block on failure |
 | `bin/project.sh` → `devguard-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
 | `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load the skill |
 | `components/*.sh` | Installers | Install, upgrade, wire, unwire and remove each tool |
@@ -69,12 +70,27 @@ devguard status          # compact overview table of what is installed, wired an
 devguard doctor [--fix]  # audit 8 common failure modes and optionally repair them automatically
 devguard stats           # unified token savings, codegraph index & verification pass-rate stats
 devguard sync [--quiet]  # sync projectmem across machines over iCloud Drive (CRDT merge)
+devguard check           # run this repo's .devguard/checks (the done gate)
+devguard gate init       # write a checks template and install the git hooks
 devguard select          # interactively pick agents and tools to enable/disable
 devguard update          # pull the latest kit, upgrade tools and re-apply settings
 devguard init [--all]    # set up this repo now, or every repo under your auto-setup folders
 devguard skip            # never set up this repo automatically
 devguard disable         # interactive uninstall / unwire (or: devguard uninstall [--purge])
 ```
+
+### Done gate (`.devguard/checks`)
+
+Rules and skills ask an agent to verify; the gate checks for it, whatever model wrote the code. Each repo lists its real checks in a committed `.devguard/checks`, one per line:
+
+```
+commit build: swift build        # every commit: keep it fast
+push   test:  swift test         # before push: full suites
+```
+
+`devguard gate init` writes a commented template and installs `pre-commit` / `pre-push` hooks; `devguard check` runs everything by hand, and the core rule tells agents to run it before calling a task done. Each check runs through `agent-verify`, so a failure prints one line and leaves the full log in `.verify/gate-<name>.log`.
+
+Safety: the hooks are only written where no hook exists or ours does (a foreign hook is left alone and you get the line to add), they follow linked worktrees and `core.hooksPath`, they let the commit through with a warning if the kit has moved, and a commit that edits `.devguard/checks` is flagged for review. Known limits: checks run on the working tree, not only the staged part, and `git commit --no-verify` still skips them.
 
 ### Automatic project setup
 

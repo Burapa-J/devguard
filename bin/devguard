@@ -20,6 +20,8 @@ Kit: $KIT_DIR
   devguard stats [options]      token savings, codegraph index & verification pass-rate stats
                                 (-d daily, -p current project, --dashboard, --reset)
   devguard sync [--quiet]       sync projectmem (global + all projects) via iCloud Drive CRDT hub
+  devguard check [commit|push]  run this repo's .devguard/checks (the gate); exit 1 on failure
+  devguard gate init|install|uninstall  create checks template / add or remove git hooks
   devguard select               interactively pick agents and tools to enable/disable
   devguard update               pull the latest kit, upgrade tools, and re-apply settings
   devguard init [--all]         set up this repo, or every repo under auto-setup folders
@@ -144,6 +146,8 @@ case "$cmd" in
   status | info) exec "$KIT_DIR/status.sh" "$@" ;;
   doctor) exec "$KIT_DIR/bin/doctor.sh" "$@" ;;
   stats) exec "$KIT_DIR/bin/stats.sh" "$@" ;;
+  check) exec "$KIT_DIR/bin/gate.sh" run "${1:-all}" ;;
+  gate) exec "$KIT_DIR/bin/gate.sh" "$@" ;;
   sync)
     PY="$HOME/.local/share/agent-kit/projectmem-venv/bin/python"
     [ -x "$PY" ] || PY="python3"

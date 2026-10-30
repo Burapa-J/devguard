@@ -116,6 +116,21 @@ agent-verify build -- swift build
 ```
 ผลเต็มอยู่ที่ `.verify/<ชื่อ>.log` พร้อม exit code และหากมีบรรทัดที่เกิด `error:` หรือ test `FAIL` คำสั่งจะแสดงเลขบรรทัด (`errors_at=L...`) ในบรรทัดสรุปทันที เพื่อให้เปิดอ่านตรงจุดได้รวดเร็วโดยไม่ตัดทอน log ต้นฉบับ
 
+### ด่าน "เสร็จ" (`.devguard/checks`)
+
+กฎและ skill เป็นแค่การขอให้ agent ตรวจงาน แต่ด่านนี้ตรวจให้จริงไม่ว่า model ไหนเขียนโค้ด แต่ละ repo เขียนคำสั่งตรวจจริงไว้ในไฟล์ `.devguard/checks` (commit เข้า repo) บรรทัดละหนึ่ง check:
+
+```
+commit build: swift build        # ทุก commit: ต้องเร็ว
+push   test:  swift test         # ก่อน push: suite เต็ม
+```
+
+- `devguard gate init` สร้างไฟล์ตัวอย่าง (comment ไว้ทั้งหมด) และติดตั้ง hook `pre-commit` / `pre-push`
+- `devguard check` รันทุก check เอง และกฎหลักสั่งให้ agent รันก่อนบอกว่าเสร็จ
+- check ล้มจะแสดงบรรทัดเดียว พร้อม log เต็มที่ `.verify/gate-<name>.log`
+- ไม่ทับ hook ที่มีอยู่ของคนอื่น (จะบอกบรรทัดที่ต้องเพิ่มเอง), ใช้กับ worktree ได้, ถ้าย้าย kit จะปล่อยผ่านพร้อมเตือน, และเตือนเมื่อ commit แก้ไฟล์ checks
+- ข้อจำกัด: ตรวจ working tree ทั้งหมด ไม่ใช่เฉพาะส่วนที่ stage และ `git commit --no-verify` ยังข้ามได้
+
 ### คำสั่งที่ใช้กับ agent ได้
 | พิมพ์ | ผล |
 |---|---|
