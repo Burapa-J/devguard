@@ -20,6 +20,8 @@ Architecture:
 """
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -132,40 +134,108 @@ def atomic_write_if_changed(target: Path, content: str) -> bool:
         return False
 
 
-def replace_keeping_appends(target: Path, content: str, snapshot_len: int, known_ids: set[str]) -> bool:
+LOCK_TIMEOUT_S = 10.0
+
+
+@contextlib.contextmanager
+def events_lock(mem_dir: Path, timeout: float = LOCK_TIMEOUT_S):
+    """Exclusive lock for one repo's events.jsonl, shared by sync and the hooked append_event.
+
+    Yields False if the lock could not be taken within `timeout`. The lock file lives in
+    ~/.agent-kit/locks, not next to events.jsonl: that file is replaced on sync, and a lock held on
+    a replaced inode protects nothing.
+    """
+    key = hashlib.sha256(str(mem_dir.resolve()).encode()).hexdigest()[:16]
+    path = Path.home() / ".agent-kit" / "locks" / f"pjm-{key}.lock"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fh = path.open("a")
+    except OSError:
+        yield False
+        return
+    with fh:
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    yield False
+                    return
+                time.sleep(0.01)
+        try:
+            yield True
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def replace_keeping_appends(
+    target: Path,
+    content: str,
+    snapshot_len: int,
+    known_ids: set[str],
+    issue_remap: dict[str, str] | None = None,
+) -> tuple[bool, dict[str, str]]:
     """Atomically replace `target`, then re-append lines other processes appended after `snapshot_len`.
 
-    projectmem appends with open("a") and no lock (storage.append_event), so a plain replace would
-    drop any event written between our read and os.replace. Holding the old inode open lets us read
-    those late lines back; lines whose id is already in `known_ids` were merged and are skipped.
+    Writers that go through the hooked append_event hold events_lock, so this only rescues writers
+    that bypass it (projectmem run without the devguard hook). Holding the old inode open lets us
+    read their late lines back; lines whose id is already in `known_ids` were merged and are skipped.
+
+    Late lines were numbered against the pre-merge file, so their issue_id follows `issue_remap`,
+    and a late issue whose number is already taken gets the next free one (children follow it).
+    Returns (replaced, remap applied to late issues) so the caller can update .current_issue.
     """
+    issue_remap = issue_remap or {}
     try:
         old = target.open("rb")
     except OSError:
-        return atomic_write_if_changed(target, content)
+        return atomic_write_if_changed(target, content), {}
     with old:
         if not atomic_write_if_changed(target, content):
-            return False
+            return False, {}
         time.sleep(0.02)  # let a writer that opened the old file before the replace finish its write
         old.seek(snapshot_len)
         tail = old.read().decode("utf-8", errors="replace")
     written = set(content.splitlines())
-    rescued = []
+    late: list[dict[str, Any]] = []
     for raw in tail.splitlines():
         line = raw.strip()
         if not line or line in written:
             continue
         try:
-            eid = str(json.loads(line).get("id") or "")
-        except (json.JSONDecodeError, AttributeError):
+            obj = json.loads(line)
+        except json.JSONDecodeError:
             continue
-        if eid and eid in known_ids:
+        if not isinstance(obj, dict) or str(obj.get("id") or "") in known_ids:
             continue
-        rescued.append(line)
-    if rescued:
-        with target.open("a", encoding="utf-8") as fh:
-            fh.write("\n".join(rescued) + "\n")
-    return True
+        late.append(obj)
+    if not late:
+        return True, {}
+
+    taken = {
+        str(ev.get("issue_id"))
+        for _, ev in _parse_jsonl_events(target, "")
+        if str(ev.get("issue_id") or "").isdigit()
+    }
+    next_num = max((int(i) for i in taken), default=0)
+    late_remap: dict[str, str] = {}
+    for obj in late:
+        iid = str(obj.get("issue_id") or "")
+        if obj.get("type") == "issue" and iid.isdigit() and iid in taken:
+            next_num += 1
+            late_remap[iid] = f"{next_num:04d}"
+            taken.add(late_remap[iid])
+    for obj in late:
+        iid = str(obj.get("issue_id") or "")
+        if iid in late_remap:
+            obj["issue_id"] = late_remap[iid]
+        elif iid in issue_remap:
+            obj["issue_id"] = issue_remap[iid]
+    with target.open("a", encoding="utf-8") as fh:
+        fh.write("".join(json.dumps(obj, sort_keys=True) + "\n" for obj in late))
+    return True, late_remap
 
 
 def normalize_remote_url(url: str) -> str:
@@ -526,29 +596,13 @@ def sync_global_memory(sync_dir: Path | None = None, device_id: str | None = Non
     return {"imported_patterns": imported_p, "imported_gotchas": imported_g}
 
 
-def sync_project_memory(
-    repo_root: Path,
-    sync_dir: Path | None = None,
-    device_id: str | None = None,
-    regenerate: bool = True,
-) -> dict[str, Any]:
-    """Two-way CRDT union sync for one repository's .projectmem/."""
-    repo_root = repo_root.resolve()
-    mem_dir = repo_root / ".projectmem"
-    if not mem_dir.is_dir():
-        return {"synced": False, "reason": "no .projectmem"}
+def _merge_local_events(
+    mem_dir: Path, nodes_dir: Path, dev: str
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
+    """Merge local events.jsonl with every node file; caller holds events_lock.
 
-    sdir = sync_dir or default_sync_dir()
-    dev = device_id or get_device_id()
-    ident = project_identity(repo_root)
-    proj_key = ident["project_key"]
-
-    bucket = sdir / "projects" / proj_key
-    nodes_dir = bucket / "nodes"
-    docs_dir = bucket / "docs"
-    nodes_dir.mkdir(parents=True, exist_ok=True)
-    materialize_icloud_stubs(nodes_dir)
-
+    Returns (refusal or None, merged events, whether local events.jsonl was rewritten).
+    """
     streams: list[list[tuple[str, dict[str, Any]]]] = []
     local_events_file = mem_dir / "events.jsonl"
     # Size before parsing: bytes past this point are re-checked after the rewrite (replace_keeping_appends).
@@ -576,12 +630,12 @@ def sync_project_memory(
     }
     merged_ids = {str(ev.get("id")) for ev in merged if ev.get("id")}
     if not required_ids.issubset(merged_ids):
-        return {"synced": False, "reason": "safety invariant: refusing to drop event IDs"}
+        return {"synced": False, "reason": "safety invariant: refusing to drop event IDs"}, [], False
     if not merged and (
         (local_events_file.is_file() and local_events_file.stat().st_size > 0)
         or any(nf.stat().st_size > 0 for nf in nodes_dir.glob("*.jsonl") if nf.is_file())
     ):
-        return {"synced": False, "reason": "safety invariant: refusing to write empty merge over non-empty file"}
+        return {"synced": False, "reason": "safety invariant: refusing to write empty merge over non-empty file"}, [], False
 
     merged_text = (
         "\n".join(json.dumps(ev, sort_keys=True) for ev in merged) + ("\n" if merged else "")
@@ -596,10 +650,12 @@ def sync_project_memory(
         or len(merged) != len(local_stream)
         or local_ids != merged_ids
     )
-    events_changed = (
-        replace_keeping_appends(local_events_file, merged_text, local_snapshot_len, merged_ids)
+    events_changed, late_remap = (
+        replace_keeping_appends(
+            local_events_file, merged_text, local_snapshot_len, merged_ids, local_issue_remap
+        )
         if local_needs_update
-        else False
+        else (False, {})
     )
     if merged:
         my_node = nodes_dir / f"{dev}.jsonl"
@@ -608,13 +664,47 @@ def sync_project_memory(
     # If the local active issue (.projectmem/.current_issue, storage.py:704) was renumbered
     # due to an offline collision, update the marker so subsequent attempts/fixes attach properly.
     cur_marker = mem_dir / ".current_issue"
-    if local_issue_remap and cur_marker.is_file():
+    marker_remap = {**local_issue_remap, **late_remap}
+    if marker_remap and cur_marker.is_file():
         try:
             cur_val = cur_marker.read_text(encoding="utf-8").strip()
-            if cur_val in local_issue_remap:
-                atomic_write_if_changed(cur_marker, local_issue_remap[cur_val])
+            if cur_val in marker_remap:
+                atomic_write_if_changed(cur_marker, marker_remap[cur_val])
         except OSError:
             pass
+
+    return None, merged, events_changed
+
+
+def sync_project_memory(
+    repo_root: Path,
+    sync_dir: Path | None = None,
+    device_id: str | None = None,
+    regenerate: bool = True,
+) -> dict[str, Any]:
+    """Two-way CRDT union sync for one repository's .projectmem/."""
+    repo_root = repo_root.resolve()
+    mem_dir = repo_root / ".projectmem"
+    if not mem_dir.is_dir():
+        return {"synced": False, "reason": "no .projectmem"}
+
+    sdir = sync_dir or default_sync_dir()
+    dev = device_id or get_device_id()
+    ident = project_identity(repo_root)
+    proj_key = ident["project_key"]
+
+    bucket = sdir / "projects" / proj_key
+    nodes_dir = bucket / "nodes"
+    docs_dir = bucket / "docs"
+    nodes_dir.mkdir(parents=True, exist_ok=True)
+    materialize_icloud_stubs(nodes_dir)
+
+    with events_lock(mem_dir) as locked:
+        if not locked:
+            return {"synced": False, "reason": "events.jsonl is locked by another writer"}
+        refusal, merged, events_changed = _merge_local_events(mem_dir, nodes_dir, dev)
+    if refusal:
+        return refusal
 
     map_changed = sync_doc_file(
         mem_dir / "PROJECT_MAP.md", docs_dir, dev, "PROJECT_MAP.md", is_placeholder_map
@@ -752,8 +842,23 @@ def install_runtime_hooks() -> None:
         return orig_read_events(root)
 
     def hooked_append_event(event, root: Path | None = None):
+        global _IN_HOOK
         _throttled_sync_project(root, force=False)
-        res = orig_append_event(event, root)
+        try:
+            mem_dir = Path(st.events_path(root)).parent
+        except Exception:
+            mem_dir = None
+        if mem_dir is None:
+            res = orig_append_event(event, root)
+        else:
+            # _IN_HOOK stops reads inside append_event from starting a nested sync, which would
+            # wait on the lock this call holds. On lock timeout, write anyway: late beats lost.
+            prev, _IN_HOOK = _IN_HOOK, True
+            try:
+                with events_lock(mem_dir):
+                    res = orig_append_event(event, root)
+            finally:
+                _IN_HOOK = prev
         _throttled_sync_project(root, force=True)
         _throttled_sync_global(force=True)
         return res

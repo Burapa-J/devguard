@@ -329,6 +329,13 @@ printf '[project]\nname = "race"\n' > "$RACE_REPO/.projectmem/config.toml"
 race_out=$(DEVGUARD_SYNC_DIR="$STUB/race-hub" DEVGUARD_DEVICE_ID=mac-a /usr/bin/python3 -B "$KIT/tests/sync_race.py" "$KIT" "$RACE_REPO" 2>&1); code=$?
 echo "  $race_out"
 check "appends made during a sync rewrite are kept, without duplicates" '[ $code = 0 ]'
+for case in slow-writer hook-lock remap-rescue; do
+  lock_out=$(DEVGUARD_SYNC_DIR="$STUB/lock-hub-$case" DEVGUARD_DEVICE_ID=mac-a \
+    /usr/bin/python3 -B "$KIT/tests/sync_lock.py" "$KIT" "$STUB/lock-$case" "$case" 2>&1); code=$?
+  echo "  $case: $(printf '%s' "$lock_out" | tail -1)"
+  check "sync $case" '[ $code = 0 ]'
+done
+rm -rf "$HOME/.agent-kit/locks"; rmdir "$HOME/.agent-kit" 2>/dev/null || true
 
 echo "== helpers: run() exit code, project_ready in a git worktree"
 ( . "$KIT/lib.sh"; . "$KIT/components/common.sh"; DRY_RUN=0; run sh -c 'exit 3' ) > /dev/null 2>&1; code=$?
