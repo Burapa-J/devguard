@@ -122,6 +122,10 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ## 5. Delegation rules
 
+- **Token & time economics (`~28k tokens/turn` subagent bootstrap):**
+  - **Do inline in Main Agent:** Single-file edits (`< 1,000 lines`), git/PR commands, review-fix rounds with known `file:line`, and test runs sharing one build lock (e.g., Rust `target/`).
+  - **Delegate via Consolidated Batch Subagent (`Model="flash"`, `TypeName="research"`):** (a) **Pipeline-Parallel Batch Scout:** While Main Agent compiles, tests, and submits the current unit, spawn 1 read-only `flash` subagent to read 2–3 large unlocked modules (`>= 3,500 lines` / `>= 30,000 raw tokens`) at once and return compact `file:line` root causes + reproducers without touching the build lock. (b) **0-Token Bash Pre-Filter + Batch Audit:** For many small targets (e.g., 30–50 small plugins/packages), filter via 0-token bash/regex first, then send all 10–25 surviving candidates (`>= 30,000 raw tokens`) to a single `flash` subagent in 1 shot.
+  - **Lifecycle:** Never exceed 2 active subagents (`MAX_ACTIVE_SUBAGENTS = 2`), avoid multi-turn ping-pong, and call `manage_subagents(Action="kill")` as soon as a subagent returns.
 - Give subagents file pointers, a scoped brief, and a compact output contract (`path:line — symbol — note` for search; `path:line: 🔴 bug | 🟡 risk | 🔵 nit | ❓ q: <problem>. <fix>.` for review), not pasted context.
 - I own subagent output: review the diff and write my own summary. Never relay a subagent's claims unverified.
 - Parallel writers need disjoint files or separate worktrees.

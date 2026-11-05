@@ -112,6 +112,14 @@ devguard skip            # ยกเว้น repo ที่อยู่ตอ�
 - คำว่า "เสร็จ" ต้องมาพร้อมใบเสร็จตรวจสอบสั้นๆ 1 บรรทัด (คำสั่ง, exit code, ผลลัพธ์หลัก และลิงก์ `.verify/<name>.log`) โดยแปะ log เต็มเฉพาะเมื่อเกิดข้อผิดพลาด
 - ถ้ายังไม่ได้ verify ต้องบอกตรง ๆ
 
+### หลักการใช้ Subagent ให้คุ้มค่าและประหยัด Token (`~28k tokens/turn`)
+การเปิด Subagent 1 ตัวมีต้นทุนเริ่มต้นประมาณ **28,000 tokens ต่อ turn** กฎหลัก (`rules/core.md`) และ `verified-dev` จึงกำหนดเกณฑ์ชัดเจน:
+- **ทำใน Main Agent โดยตรง (`MAIN_AGENT_DIRECT`)**: งานแก้ไฟล์เดี่ยวขนาดเล็ก (`< 1,000 บรรทัด`), คำสั่ง Git/PR (`git rebase`, `git push`, `gh pr`), รอบแก้ตามผลรีวิวที่รู้ `file:line` แล้ว และการรัน build/test ที่ใช้ build directory เดียวกันที่มี lock (เช่น Cargo `target/`) เพราะการแตก Subagent ในงานเหล่านี้เปลือง token ~3 เท่าและเสียเวลารอ lock
+- **ใช้ Subagent แบบรวบยอดครั้งเดียว (`CONSOLIDATED_BATCH_SUBAGENT`, `Model="flash"`, `TypeName="research"`)**:
+  1. **Pipeline-Parallel Batch Scout**: ขณะที่ Main Agent กำลัง compile, รัน test และส่งงานชุดปัจจุบัน ให้ส่ง read-only `flash` subagent 1 ตัวไปอ่าน 2–3 โมดูลใหญ่ถัดไป (`>= 3,500 บรรทัด` / `>= 30,000 raw tokens`) ล่วงหน้า เพื่อหา root cause (`file:line`) และร่าง reproducer โดยไม่แตะ build lock
+  2. **0-Token Bash Pre-Filter + Batch Audit**: เมื่อต้องตรวจเป้าหมายย่อยจำนวนมาก (เช่น 30–50 แพ็กเกจ/ปลั๊กอิน) ให้กรองด้วยคำสั่ง bash/regex ก่อน (เสีย 0 LLM tokens) แล้วรวบ 10–25 รายการที่เข้าข่าย (`>= 30,000 raw tokens`) ส่งให้ `flash` subagent ตรวจรวดเดียวใน 1 shot
+- **การควบคุมวงจรชีวิต**: เปิดพร้อมกันไม่เกิน **2 ตัว** (`MAX_ACTIVE_SUBAGENTS = 2`), ไม่คุยโต้ตอบหลายรอบ (single-shot), บังคับรูปแบบคำตอบย่อบรรทัดเดียว (`path:line — symbol — note`) และสั่ง `kill` ทันทีเมื่อจบงาน
+
 ### เก็บหลักฐานด้วย agent-verify
 agent จะเรียกเองตามกฎ แต่คุณใช้เองได้ด้วย:
 ```sh
