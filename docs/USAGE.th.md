@@ -117,8 +117,11 @@ devguard skip            # ยกเว้น repo ที่อยู่ตอ�
 1. **บันได 4 ขั้นในการค้นหาโค้ด (Token Escalation Ladder — จากถูกสุดไปแพงสุด)**:
    - **(1) 0-Token Bash / Regex / `ast-grep`**: คัดกรองไฟล์เบื้องต้นด้วยคำสั่ง shell ก่อนเสมอ
    - **(2) `projectmem` + `codegraph_explore`**: ดึงความจำเดิมและกราฟการเรียกฟังก์ชัน (call graph) โดยไม่อ่านทั้งไฟล์
-   - **(3) อ่านเฉพาะช่วงบรรทัดใน Main Agent (`< 1,000 บรรทัด`)**: เมื่อรู้พิกัดแล้วให้เปิดอ่านเฉพาะบรรทัดที่เกี่ยวข้องใน Main Agent ทันที
-   - **(4) Batch Subagent (`Model="flash"`, `TypeName="research"`)**: ใช้เฉพาะเมื่อต้องอ่านโค้ดดิบ `>= 30,000 raw tokens` เพื่อกันไม่ให้โค้ดดิบจำนวนมากค้างสะสมใน Context ของ Main Agent
+   - **(3) อ่านเฉพาะช่วงบรรทัดใน Main Agent (`< 1,000 บรรทัด`)**: เมื่อรู้พิกัดแล้วให้เปิดอ่านเฉพาะบรรทัดที่เกี่ยวข้องใน Main Agent (`Read` / `read_file`) ทันที
+   - **(4) Batch Subagent (โมเดลเร็วแบบ Read-only ข้ามค่าย)**: ใช้เฉพาะเมื่อต้องอ่านโค้ดดิบ `>= 30,000 raw tokens` เพื่อกันไม่ให้โค้ดดิบจำนวนมากค้างสะสมใน Context ของ Main Agent โดยจับคู่ตามโปรแกรมดังนี้:
+     - **Antigravity**: `invoke_subagent(TypeName="research", Model="flash")` แล้วสั่ง `manage_subagents(Action="kill")` ทันทีเมื่อรับผลลัพธ์
+     - **Claude Code**: `Agent` / `Task` tool (`subagent_type="Explore"`, `model="haiku"`)
+     - **VS Code Copilot / Cursor / OpenCode**: `runSubagent` หรือ read-only subagent tool ของโปรแกรมนั้นๆ
 2. **งานที่ต้องทำใน Main Agent โดยตรง (`MAIN_AGENT_DIRECT`)**: การวาง Data Shape, ตาราง Pre-mortem, งานแก้ไฟล์เดี่ยว (`< 1,000 บรรทัด`), คำสั่ง Git/PR, รอบแก้ตามผลรีวิวที่รู้ `file:line` แล้ว และการรัน build/test ที่ใช้ build directory เดียวกันที่มี lock (เช่น Cargo `target/`, `xcodebuild`)
 3. **งานที่ใช้ Subagent แบบรวบยอดครั้งเดียว (`CONSOLIDATED_BATCH_SUBAGENT`)**:
    - **Pipeline-Parallel Batch Scout**: ขณะที่ Main Agent กำลัง compile, รัน test และ commit งานชุดปัจจุบัน ให้ส่ง read-only `flash` subagent 1 ตัวไปอ่าน 2–3 โมดูลใหญ่ถัดไป (`>= 3,500 บรรทัด` / `>= 30,000 raw tokens`) ล่วงหน้า เพื่อชี้เป้า `file:line` และร่าง reproducer โดยไม่แตะ build lock
@@ -255,7 +258,7 @@ devguard uninstall --purge       # ลบ CLI ที่ devguard ติดตั
 | อาการ | วิธีแก้ |
 |---|---|
 | `devguard: command not found` | เปิด Terminal ใหม่ ถ้ายังไม่ได้ ให้เพิ่ม `export PATH="$HOME/.local/bin:$PATH"` ใน `~/.zshrc` |
-| ไม่แน่ใจว่าติดตั้งสมบูรณ์หรือมีปลั๊กอินเก่าตีกันไหม | รัน `devguard doctor` เพื่อตรวจทั้ง 7 จุด และรัน `devguard doctor --fix` เพื่อให้ซ่อมอัตโนมัติ |
+| ไม่แน่ใจว่าติดตั้งสมบูรณ์หรือมีปลั๊กอินเก่าตีกันไหม | รัน `devguard doctor` เพื่อตรวจทั้ง 8 จุด และรัน `devguard doctor --fix` เพื่อให้ซ่อมอัตโนมัติ |
 | agent ไม่พูดถึง verified-dev | พิมพ์ `/verified-dev` เอง และตรวจ `devguard doctor --fix` ว่ากฎและ skill link ตรงกับเวอร์ชันล่าสุด |
 | คำตอบไม่มีหลักฐาน หรือมีปลั๊กอิน caveman/ponytail ค้าง | รัน `devguard doctor --fix` เพื่อถอดปลั๊กอินที่ตีกันออก และดูหัวข้อ 9 ของ skill |
 | `warning: ... already exists and is not managed by agent-kit; skipped` | มีไฟล์หรือโฟลเดอร์ชื่อเดียวกันอยู่ก่อน ระบบจึงไม่เขียนทับ ให้ย้ายของเดิมออกแล้วรัน install ใหม่ |

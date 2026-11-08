@@ -11,11 +11,12 @@
 | เครื่องมือ | เวอร์ชันที่ Pin ปัจจุบัน | ไฟล์ที่กำหนด | ต้นทาง (GitHub / Package) | เมื่อไหร่ควรอัปเดต |
 |---|---|---|---|---|
 | **CodeGraph** | `1.6.2` | `components/codegraph.sh` | https://github.com/colbymchenry/codegraph (`@colbymchenry/codegraph` บน npm) | เมื่อมีการปรับปรุง parser ของ Swift / ObjC หรือรองรับ Agent ตัวใหม่ |
-| **ProjectMem** | `0.3.4` | `components/projectmem.sh`, `bin/pjm_sync.py` | https://github.com/riponcm/projectmem (`projectmem` บน PyPI) | เมื่อมีการปรับปรุง MCP schema หรือ `ProjectStore` (ต้องตรวจให้เข้ากันได้กับ `.pth` hook ใน `bin/pjm_sync.py`) |
+| **ProjectMem** | `0.3.5` | `components/projectmem.sh`, `bin/pjm_sync.py` | https://github.com/riponcm/projectmem (`projectmem` บน PyPI) | เมื่อมีการปรับปรุง MCP schema หรือ `ProjectStore` (ต้องตรวจให้เข้ากันได้กับ `.pth` hook ใน `bin/pjm_sync.py`) |
 | **RTK** | ตาม Homebrew (`1.1.0+`) | `components/rtk.sh` | https://github.com/rtk-ai/rtk (`rtk` บน Homebrew) | เมื่อมีการเพิ่ม filter สำหรับคำสั่งใหม่ (เช่น `xcodebuild`, `swift`) หรือรองรับ global hook ของ Antigravity โดยตรง |
-| **Context-Mode** | `1.0.169` | `components/context-mode.sh` | https://github.com/mksglu/context-mode (`context-mode` บน npm) | เมื่อเปิดใช้งาน `context-mode` และต้องการอัปเดต sandbox |
+| **Context-Mode** | `2.1.7` | `components/context-mode.sh` | https://github.com/mksglu/context-mode (`context-mode` บน npm) | เมื่อเปิดใช้งาน `context-mode` และต้องการอัปเดต sandbox |
 | **xcbeautify** | ตาม Homebrew (`3.2.1+`) | `bootstrap.sh`, `bin/devguard` | https://github.com/cpisciotta/xcbeautify (`xcbeautify` บน Homebrew) | เมื่อ Xcode ออกเวอร์ชันใหญ่และเปลี่ยนรูปแบบ build/test log |
-| **ast-grep** | ตาม Homebrew (`0.51.0+`) | `bootstrap.sh`, `bin/devguard` | https://github.com/ast-grep/ast-grep (`ast-grep` บน Homebrew) | เมื่อต้องการอัปเดต tree-sitter grammar สำหรับ Swift / TypeScript |
+| **ast-grep** | ตาม Homebrew (`0.51.1+`) | `bootstrap.sh`, `bin/devguard` | https://github.com/ast-grep/ast-grep (`ast-grep` บน Homebrew) | เมื่อต้องการอัปเดต tree-sitter grammar สำหรับ Swift / TypeScript |
+| **shellcheck** | ตาม Homebrew (`0.11.0+`) | `bootstrap.sh`, `bin/devguard` | https://github.com/koalaman/shellcheck (`shellcheck` บน Homebrew) | เมื่อต้องการอัปเดตกฎตรวจสคริปต์ bash/sh |
 
 ### คำสั่งเช็คเวอร์ชันล่าสุดจากต้นทางเทียบกับที่ใช้อยู่ (รันใน Terminal ได้ทันที)
 ```sh
@@ -26,6 +27,7 @@ printf "%-15s %-12s %-12s\n" "rtk" "$(rtk --version 2>/dev/null | awk '{print $2
 printf "%-15s %-12s %-12s\n" "context-mode" "$(npm ls -g context-mode --depth=0 2>/dev/null | sed -n 's/.*context-mode@\([0-9.]*\).*/\1/p')" "$(npm view context-mode version 2>/dev/null || echo -)"
 printf "%-15s %-12s %-12s\n" "xcbeautify" "$(xcbeautify --version 2>/dev/null || echo -)" "$(brew info --json=v2 xcbeautify 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
 printf "%-15s %-12s %-12s\n" "ast-grep" "$(ast-grep --version 2>/dev/null | awk '{print $2}' || echo -)" "$(brew info --json=v2 ast-grep 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
+printf "%-15s %-12s %-12s\n" "shellcheck" "$(shellcheck --version 2>/dev/null | awk '/^version:/ {print $2}' || echo -)" "$(brew info --json=v2 shellcheck 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
 ```
 *(หากต้องการอัปเกรด: แก้เลขเวอร์ชันใน `components/<ชื่อ>.sh` แล้วรัน `devguard update` หรือ `devguard doctor --fix`)*
 

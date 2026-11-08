@@ -3,5 +3,5 @@
 # matcher "compact"). Keep it short: it is paid for in tokens every time it fires.
 cat <<'EOF'
 [devguard] Context was compacted. Re-load the `verified-dev` skill before continuing any code task.
-Resume from the task list. Every "done" needs a one-line verification receipt (command, exit code, verdict, and .verify/<name>.log); paste raw logs only on failure.
+Resume from the task list, projectmem, and `git status -sb` (trust the repo over notes if they disagree). Every "done" needs a one-line verification receipt (command, exit code, verdict, and .verify/<name>.log); paste raw logs only on failure.
 EOF

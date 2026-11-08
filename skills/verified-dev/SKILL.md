@@ -38,13 +38,13 @@ Architecture
 Verification
 - **Prove it on the real artifact.** A successful build is not proof. Run the thing.
 - **Reproduce before fixing.** An unreproduced bug cannot be proven fixed.
-- **Small verifiable units.** Each unit ends in a check and a commit before the next starts.
+- **Small verifiable units.** Each unit ends in a check (`devguard check commit` or targeted test for fast inner-loop units; full `devguard check` before completion or push) and a commit before the next starts.
 - **Test behavior.** Call code the way users or callers do and assert literal expected values. A test that would pass with stubbed-out internals gets rewritten or deleted.
 - **Prove the test can fail.** A new test counts only after it has failed for the right reason: before the fix, or with the guard removed again (a mutation check: copy the code, delete the guard, run the test, see it fail). A test that stays green without the code it protects measures something else — find what (timing, a sibling path, a typo in the harness) before trusting it.
 - **Explain the number.** Before trusting or reporting a measured number (speedup, latency, token savings, eval score), state how it was measured, what limits it, and rule out that it measured something else.
 
 Delegation and meta
-- **Guard the context window.** Bulk reading/search goes to subagents; keep only summaries in the main thread.
+- **Guard the context window.** Follow the Token Escalation Ladder (section 5): keep reads `< 1,000 lines` inline in Main Agent; send disposable bulk reads (`>= 30,000 raw tokens`) to a single-shot read-only subagent and keep only compact `file:line` summaries in the main thread.
 - **Don't block on the human once implementation is requested.** During an implementation task, proceed on reversible steps, show the result, and let them correct.
 - **Encode lessons.** If the same correction is needed twice, turn it into a lint rule, a test, a script, a hook or an edit to this skill.
 
@@ -57,7 +57,7 @@ Delegation and meta
 | CLI / script | Run the real command with real input |
 | CloudKit / persistence | Write, then read back from a fresh context (relaunch or second container); confirm the conflict path |
 | Keychain / encryption | Round-trip: encrypt, persist, relaunch, decrypt; confirm a wrong key fails |
-| LLM prompt / pipeline | Run the eval set before and after; pass rate, regressions by case ID, cost and latency deltas |
+| LLM prompt / pipeline / agent rule | Run the eval set before and after (`devguard eval run` / `devguard eval compare` for kit rules); pass rate, regressions by case ID, flip rate, cost and latency deltas |
 | Performance | Baseline measurement first (Instruments, `measure {}`, timestamps); same method after |
 
 An inconclusive result, or a check on a different surface than the change, is NOT a pass. Report it as unverified.
@@ -77,7 +77,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ### Investigation (read-only: how X works, why Y was built this way, are we sure, should we do X or Y, plan/code review)
 1. State the exact question.
-2. Read the actual implementation source (not just `--help`, filenames, or one sample config): cover the read path, write path, ID/state lifecycle, and ignore/conflict rules. Fan out to a subagent if more than a few files.
+2. Read the actual implementation source (not just `--help`, filenames, or one sample config): cover the read path, write path, ID/state lifecycle, and ignore/conflict rules. Follow the Token Escalation Ladder (section 5): read inline when `< 1,000 lines`; fan out to a single-shot read-only subagent only when raw input is `>= 30,000 tokens`.
 3. Answer from evidence. Tag every claim with its source: `(read file:line)`, `(ran: <command> → exit N)`, `(inferred)` or `(unchecked)`. If the answer differs from an earlier one, say which new evidence changed it.
 
 ### Bug fix
@@ -122,15 +122,19 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ## 5. Delegation rules
 
-- **Token & time economics (`~28k tokens/turn` subagent bootstrap, zero quality loss):**
-  - **Escalation ladder (cheapest first):** (1) 0-token bash/regex/`ast-grep` pre-filter → (2) `projectmem` & `codegraph_explore` → (3) targeted `read_file` line ranges inline in Main Agent (`< 1,000 lines`) → (4) Consolidated Batch Subagent (`Model="flash"`, `TypeName="research"`) only when raw input is `>= 30,000 tokens`.
+- **Token & time economics (`~28k tokens/turn` subagent bootstrap, zero quality loss across harnesses):**
+  - **Escalation ladder (cheapest first):** (1) 0-token bash/regex/`ast-grep` pre-filter → (2) `projectmem` & `codegraph_explore` → (3) targeted file-read (`Read` / `read_file`) line ranges inline in Main Agent (`< 1,000 lines`) → (4) Consolidated Batch Subagent (read-only fast model) only when raw input is `>= 30,000 tokens`.
+  - **Cross-harness subagent mapping:**
+    - **Antigravity:** `invoke_subagent(TypeName="research", Model="flash")`, then call `manage_subagents(Action="kill")` immediately after it returns.
+    - **Claude Code:** `Agent` / `Task` tool (`subagent_type="Explore"`, `model="haiku"`), which terminates automatically on return.
+    - **VS Code Copilot / Cursor / OpenCode:** `runSubagent` or the harness's read-only subagent tool (single-shot).
   - **Do inline in Main Agent (`MAIN_AGENT_DIRECT`):** Data shape, pre-mortem, single-file edits (`< 1,000 lines`), git/PR commands, review-fix rounds with known `file:line`, and builds/tests sharing one build lock (e.g., Rust `target/`, `xcodebuild`).
-  - **Delegate via Consolidated Batch Subagent (`CONSOLIDATED_BATCH_SUBAGENT`, `Model="flash"`, `TypeName="research"`):** (a) **Pipeline-Parallel Batch Scout:** While Main Agent compiles, tests, and commits the current unit, spawn 1 read-only `flash` subagent to read 2–3 large unlocked modules (`>= 3,500 lines` / `>= 30,000 raw tokens`) at once and return compact `file:line` root causes + reproducers without touching the build lock. (b) **0-Token Bash Pre-Filter + Batch Audit:** For many small targets (e.g., 30–50 small plugins/packages), filter via 0-token bash/regex first, then send all 10–25 surviving candidates (`>= 30,000 raw tokens`) to a single `flash` subagent in 1 shot.
-  - **Role split & lifecycle:** Subagents keep raw bulk reads out of Main Agent's cumulative context; Main Agent re-reads only the cited `file:line` ranges to design, edit, and run `agent-verify` / `devguard check`. Never exceed 2 active subagents (`MAX_ACTIVE_SUBAGENTS = 2`), avoid multi-turn ping-pong, and call `manage_subagents(Action="kill")` as soon as a subagent returns.
+  - **Delegate via Consolidated Batch Subagent (`CONSOLIDATED_BATCH_SUBAGENT`):** (a) **Pipeline-Parallel Batch Scout:** While Main Agent compiles, tests, and commits the current unit, spawn 1 read-only fast subagent to read 2–3 large unlocked modules (`>= 3,500 lines` / `>= 30,000 raw tokens`) at once and return compact `file:line` root causes + reproducers without touching the build lock. (b) **0-Token Bash Pre-Filter + Batch Audit:** For many small targets (e.g., 30–50 small plugins/packages), filter via 0-token bash/regex first, then send all 10–25 surviving candidates (`>= 30,000 raw tokens`) to a single read-only fast subagent in 1 shot.
+  - **Role split & lifecycle:** Subagents keep raw bulk reads out of Main Agent's cumulative context; Main Agent re-reads only the cited `file:line` ranges to design, edit, and run `agent-verify` / `devguard check`. Never exceed 2 active subagents (`MAX_ACTIVE_SUBAGENTS = 2`) and avoid multi-turn ping-pong.
 - Give subagents file pointers, a scoped brief, and a compact output contract (`path:line — symbol — note` for search; `path:line: 🔴 bug | 🟡 risk | 🔵 nit | ❓ q: <problem>. <fix>.` for review), not pasted context.
 - I own subagent output: review the diff and write my own summary. Never relay a subagent's claims unverified.
 - Parallel writers need disjoint files or separate worktrees.
-- For contested designs, get a second opinion by sending the same prompt to a different model or provider. Agreement is a strong signal; disagreement gets surfaced, not hidden.
+- Before pushing a code change, run `devguard review` with the other vendor (`--with claude` from Antigravity; `--with agy` from Claude Code); use both vendors when touching persisted data or sync. For contested designs, send the same prompt to a different model or provider and surface any disagreement.
 - Treat review-bot and model-review findings skeptically: triage each as fix, dismiss (with a concrete reason), or ask. Never auto-apply.
 - Prefer a fresh subagent with consolidated scope over resuming an interrupted one.
 - If the harness has no subagents, do the work inline.
