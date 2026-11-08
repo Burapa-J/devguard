@@ -112,13 +112,20 @@ devguard skip            # ยกเว้น repo ที่อยู่ตอ�
 - คำว่า "เสร็จ" ต้องมาพร้อมใบเสร็จตรวจสอบสั้นๆ 1 บรรทัด (คำสั่ง, exit code, ผลลัพธ์หลัก และลิงก์ `.verify/<name>.log`) โดยแปะ log เต็มเฉพาะเมื่อเกิดข้อผิดพลาด
 - ถ้ายังไม่ได้ verify ต้องบอกตรง ๆ
 
-### หลักการใช้ Subagent ให้คุ้มค่าและประหยัด Token (`~28k tokens/turn`)
-การเปิด Subagent 1 ตัวมีต้นทุนเริ่มต้นประมาณ **28,000 tokens ต่อ turn** กฎหลัก (`rules/core.md`) และ `verified-dev` จึงกำหนดเกณฑ์ชัดเจน:
-- **ทำใน Main Agent โดยตรง (`MAIN_AGENT_DIRECT`)**: งานแก้ไฟล์เดี่ยวขนาดเล็ก (`< 1,000 บรรทัด`), คำสั่ง Git/PR (`git rebase`, `git push`, `gh pr`), รอบแก้ตามผลรีวิวที่รู้ `file:line` แล้ว และการรัน build/test ที่ใช้ build directory เดียวกันที่มี lock (เช่น Cargo `target/`) เพราะการแตก Subagent ในงานเหล่านี้เปลือง token ~3 เท่าและเสียเวลารอ lock
-- **ใช้ Subagent แบบรวบยอดครั้งเดียว (`CONSOLIDATED_BATCH_SUBAGENT`, `Model="flash"`, `TypeName="research"`)**:
-  1. **Pipeline-Parallel Batch Scout**: ขณะที่ Main Agent กำลัง compile, รัน test และส่งงานชุดปัจจุบัน ให้ส่ง read-only `flash` subagent 1 ตัวไปอ่าน 2–3 โมดูลใหญ่ถัดไป (`>= 3,500 บรรทัด` / `>= 30,000 raw tokens`) ล่วงหน้า เพื่อหา root cause (`file:line`) และร่าง reproducer โดยไม่แตะ build lock
-  2. **0-Token Bash Pre-Filter + Batch Audit**: เมื่อต้องตรวจเป้าหมายย่อยจำนวนมาก (เช่น 30–50 แพ็กเกจ/ปลั๊กอิน) ให้กรองด้วยคำสั่ง bash/regex ก่อน (เสีย 0 LLM tokens) แล้วรวบ 10–25 รายการที่เข้าข่าย (`>= 30,000 raw tokens`) ส่งให้ `flash` subagent ตรวจรวดเดียวใน 1 shot
-- **การควบคุมวงจรชีวิต**: เปิดพร้อมกันไม่เกิน **2 ตัว** (`MAX_ACTIVE_SUBAGENTS = 2`), ไม่คุยโต้ตอบหลายรอบ (single-shot), บังคับรูปแบบคำตอบย่อบรรทัดเดียว (`path:line — symbol — note`) และสั่ง `kill` ทันทีเมื่อจบงาน
+### หลักการควบคุมการใช้ Subagent และประหยัด Token โดยไม่ลดคุณภาพงาน (`~28k tokens/turn`)
+การเปิด Subagent 1 ตัวมีต้นทุนเริ่มต้นประมาณ **28,000 tokens ต่อ turn** กฎหลัก (`rules/core.md`) และ `verified-dev` จึงบังคับใช้เกณฑ์ 4 ข้อเพื่อลด Token รวมโดยไม่ลดคุณภาพการตรวจสอบ:
+1. **บันได 4 ขั้นในการค้นหาโค้ด (Token Escalation Ladder — จากถูกสุดไปแพงสุด)**:
+   - **(1) 0-Token Bash / Regex / `ast-grep`**: คัดกรองไฟล์เบื้องต้นด้วยคำสั่ง shell ก่อนเสมอ
+   - **(2) `projectmem` + `codegraph_explore`**: ดึงความจำเดิมและกราฟการเรียกฟังก์ชัน (call graph) โดยไม่อ่านทั้งไฟล์
+   - **(3) อ่านเฉพาะช่วงบรรทัดใน Main Agent (`< 1,000 บรรทัด`)**: เมื่อรู้พิกัดแล้วให้เปิดอ่านเฉพาะบรรทัดที่เกี่ยวข้องใน Main Agent ทันที
+   - **(4) Batch Subagent (`Model="flash"`, `TypeName="research"`)**: ใช้เฉพาะเมื่อต้องอ่านโค้ดดิบ `>= 30,000 raw tokens` เพื่อกันไม่ให้โค้ดดิบจำนวนมากค้างสะสมใน Context ของ Main Agent
+2. **งานที่ต้องทำใน Main Agent โดยตรง (`MAIN_AGENT_DIRECT`)**: การวาง Data Shape, ตาราง Pre-mortem, งานแก้ไฟล์เดี่ยว (`< 1,000 บรรทัด`), คำสั่ง Git/PR, รอบแก้ตามผลรีวิวที่รู้ `file:line` แล้ว และการรัน build/test ที่ใช้ build directory เดียวกันที่มี lock (เช่น Cargo `target/`, `xcodebuild`)
+3. **งานที่ใช้ Subagent แบบรวบยอดครั้งเดียว (`CONSOLIDATED_BATCH_SUBAGENT`)**:
+   - **Pipeline-Parallel Batch Scout**: ขณะที่ Main Agent กำลัง compile, รัน test และ commit งานชุดปัจจุบัน ให้ส่ง read-only `flash` subagent 1 ตัวไปอ่าน 2–3 โมดูลใหญ่ถัดไป (`>= 3,500 บรรทัด` / `>= 30,000 raw tokens`) ล่วงหน้า เพื่อชี้เป้า `file:line` และร่าง reproducer โดยไม่แตะ build lock
+   - **0-Token Bash Pre-Filter + Batch Audit**: กรองเป้าหมายย่อยจำนวนมาก (เช่น 30–50 แพ็กเกจ) ด้วย bash ก่อน แล้วรวบ 10–25 รายการที่เข้าข่าย (`>= 30,000 raw tokens`) ส่งให้ `flash` subagent ตรวจรวดเดียวใน 1 shot
+4. **การแบ่งบทบาทและควบคุมคุณภาพ (Role Split & Lifecycle)**:
+   - เปิดพร้อมกันไม่เกิน **2 ตัว** (`MAX_ACTIVE_SUBAGENTS = 2`), ส่งเฉพาะ `file:line` pointers (ไม่แปะโค้ดซ้ำ), บังคับรูปแบบคำตอบย่อบรรทัดเดียว (`path:line — symbol — note`), ไม่คุยโต้ตอบหลายรอบ และสั่ง `kill` ทันทีเมื่อจบงาน
+   - **บีบอัดท่อส่งข้อมูล แต่ห้ามบีบอัดหลักฐาน**: Main Agent ต้องเปิดอ่านบรรทัด `file:line` ที่ Subagent ชี้เป้าเพื่อแก้โค้ด ตรวจ diff และรัน `agent-verify` / `devguard check` พิสูจน์บนพื้นผิวจริงด้วยตัวเองเสมอ
 
 ### เก็บหลักฐานด้วย agent-verify
 agent จะเรียกเองตามกฎ แต่คุณใช้เองได้ด้วย:
