@@ -3,7 +3,7 @@
 # Upstream: https://github.com/mksglu/context-mode  (npm: context-mode, needs Node >= 22.5)
 # MCP-only wiring (no hooks). The Claude Code plugin adds hooks; install that yourself if wanted.
 
-CONTEXT_MODE_VERSION=1.0.169
+CONTEXT_MODE_VERSION=2.1.7
 
 context_mode_desc() { echo "sandboxed output + search via MCP (npm context-mode@$CONTEXT_MODE_VERSION; opt-in)"; }
 

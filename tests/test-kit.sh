@@ -63,10 +63,10 @@ echo "== agent-verify"; cd "$(mktemp -d)" || exit 1
 agent-verify ok -- sh -c 'echo hello; echo err >&2'; code=$?
 check "success exit 0" '[ $code = 0 ]'
 check "stdout+stderr captured" 'grep -qx hello .verify/ok.log && grep -qx err .verify/ok.log'
-out=$(agent-verify bad -- sh -c 'echo ok; echo "main.swift:12: error: boom"; echo "FAIL suite"; exit 3'); code=$?
+out=$(agent-verify bad -- sh -c 'echo ok; echo "main.swift:12: error: boom"; echo "FAIL suite"; echo "PermissionError: denied"; exit 3'); code=$?
 check "failure exit propagated" '[ $code = 3 ]'
 check "exit recorded in log" 'grep -qx "# exit: 3" .verify/bad.log'
-check "error line numbers reported" 'printf "%s" "$out" | grep -q "errors_at=L5,L6"'
+check "error line numbers reported (including Python Error)" 'printf "%s" "$out" | grep -q "errors_at=L5,L6,L7"'
 agent-verify ../x -- true 2>/dev/null; check "path traversal rejected" '[ $? = 64 ]'
 agent-verify multi -- sh -c 'echo one
 echo two' > /dev/null

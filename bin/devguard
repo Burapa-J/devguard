@@ -83,6 +83,31 @@ run_select() {
     fi
   done
 
+  # Unwire any agent that was previously configured but is no longer selected
+  local a wf
+  for a in claude vscode antigravity opencode cursor codex gemini; do
+    case ",$chosen_agents," in
+      *,"$a",*) continue ;;
+    esac
+    case "$a" in
+      claude) remove_block "$CLAUDE_RULES"; unlink_ours "$CLAUDE_SKILLS/$SKILL_NAME" ;;
+      vscode) remove_block "$VSCODE_RULES"; unlink_ours "$VSCODE_SKILLS/$SKILL_NAME" ;;
+      antigravity) remove_block "$AG_RULES"; unlink_ours "$AG_SKILLS/$SKILL_NAME"; unlink_ours "$AG_CLI_SKILLS/$SKILL_NAME" ;;
+      opencode) remove_block "$OPENCODE_RULES"; unlink_ours "$OPENCODE_SKILLS/$SKILL_NAME" ;;
+      cursor) remove_block "$CURSOR_RULES"; unlink_ours "$CURSOR_SKILLS/$SKILL_NAME" ;;
+      codex) remove_block "$CODEX_RULES"; unlink_ours "$CODEX_SKILLS/$SKILL_NAME" ;;
+      gemini) unlink_ours "$GEMINI_SKILLS/$SKILL_NAME" ;;
+    esac
+    for c in $ALL_COMPONENTS; do
+      wf="$(state_dir "$c")/wired"
+      if [ -f "$wf" ] && grep -qxF "$a" "$wf" 2>/dev/null; then
+        [ "$c" = codegraph ] || "$(fn_name "$c")_unwire" "$a"
+        grep -vxF "$a" "$wf" > "$wf.tmp" 2>/dev/null || true
+        mv "$wf.tmp" "$wf"
+      fi
+    done
+  done
+
   "$KIT_DIR/install.sh" --targets="$chosen_agents" --with="$chosen_tools"
 }
 
@@ -191,7 +216,25 @@ case "$cmd" in
       command -v ast-grep >/dev/null 2>&1 && { brew upgrade ast-grep 2>/dev/null || true; } || { brew install ast-grep 2>/dev/null || true; }
       command -v shellcheck >/dev/null 2>&1 && { brew upgrade shellcheck 2>/dev/null || true; } || { brew install shellcheck 2>/dev/null || true; }
     fi
-    "$KIT_DIR/install.sh" "$@"
+    if [ $# -eq 0 ]; then
+      upd_agents=""
+      has_block "$CLAUDE_RULES" && upd_agents="${upd_agents:+$upd_agents,}claude"
+      has_block "$VSCODE_RULES" && upd_agents="${upd_agents:+$upd_agents,}vscode"
+      has_block "$AG_RULES" && upd_agents="${upd_agents:+$upd_agents,}antigravity"
+      has_block "$OPENCODE_RULES" && upd_agents="${upd_agents:+$upd_agents,}opencode"
+      has_block "$CURSOR_RULES" && upd_agents="${upd_agents:+$upd_agents,}cursor"
+      has_block "$CODEX_RULES" && upd_agents="${upd_agents:+$upd_agents,}codex"
+      is_ours "$GEMINI_SKILLS/$SKILL_NAME" && upd_agents="${upd_agents:+$upd_agents,}gemini"
+      [ -n "$upd_agents" ] || upd_agents="claude,vscode,antigravity"
+      upd_with=""
+      for c in $ALL_COMPONENTS; do
+        [ -n "$(state_wired "$c")" ] && upd_with="${upd_with:+$upd_with,}$c"
+      done
+      [ -n "$upd_with" ] || upd_with="$DEFAULT_COMPONENTS"
+      "$KIT_DIR/install.sh" --targets="$upd_agents" --with="$upd_with"
+    else
+      "$KIT_DIR/install.sh" "$@"
+    fi
     if [ -x "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" ]; then
       "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet || true
     fi

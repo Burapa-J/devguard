@@ -4,7 +4,7 @@
 # Installed into its own venv so macOS's externally-managed Python is never touched.
 # One global MCP server serves every project registered with `pjm init`.
 
-PROJECTMEM_VERSION=0.3.4
+PROJECTMEM_VERSION=0.3.5
 PROJECTMEM_VENV="$HOME/.local/share/agent-kit/projectmem-venv"
 PROJECTMEM_LINKS="pjm projectmem"
 

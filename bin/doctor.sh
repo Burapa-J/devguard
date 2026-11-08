@@ -278,13 +278,20 @@ else
   fi
 fi
 
-# ---- 5. RTK Antigravity global plugin & telemetry ----------------------------------------------
+# ---- 5. RTK global plugin & hooks health -------------------------------------------------------
 rtk_issues=""
-if [ -d "$(state_dir rtk)" ] && grep -qxF "antigravity" "$(state_dir rtk)/wired" 2>/dev/null; then
-  if [ ! -f "$HOME/.gemini/config/plugins/rtk/plugin.json" ] ||
-     [ ! -f "$HOME/.gemini/config/plugins/rtk/hooks.json" ] ||
-     [ ! -f "$HOME/.gemini/config/plugins/rtk/rules/AGENTS.md" ]; then
-    rtk_issues="antigravity-plugin-incomplete"
+if [ -d "$(state_dir rtk)" ]; then
+  if grep -qxF "antigravity" "$(state_dir rtk)/wired" 2>/dev/null; then
+    if [ ! -f "$HOME/.gemini/config/plugins/rtk/plugin.json" ] ||
+       [ ! -f "$HOME/.gemini/config/plugins/rtk/hooks.json" ] ||
+       [ ! -f "$HOME/.gemini/config/plugins/rtk/rules/AGENTS.md" ]; then
+      rtk_issues="$rtk_issues antigravity-plugin-incomplete"
+    fi
+  fi
+  if grep -qxF "claude" "$(state_dir rtk)/wired" 2>/dev/null; then
+    if [ ! -f "$HOME/.claude/hooks/rtk-rewrite.sh" ] && ! grep -q "rtk hook claude" "$CLAUDE_SETTINGS" 2>/dev/null; then
+      rtk_issues="$rtk_issues claude-hook-missing"
+    fi
   fi
 fi
 
@@ -292,10 +299,11 @@ if [ -z "$rtk_issues" ]; then
   ok "5. RTK global plugin and hooks healthy"
 else
   if [ "$FIX" = 1 ]; then
-    rtk_wire antigravity >/dev/null 2>&1 || true
-    repaired "5. Re-installed RTK global plugin for Antigravity"
+    case "$rtk_issues" in *antigravity*) rtk_wire antigravity >/dev/null 2>&1 || true ;; esac
+    case "$rtk_issues" in *claude*) rtk_wire claude >/dev/null 2>&1 || true ;; esac
+    repaired "5. Re-installed RTK global hooks/plugins ($rtk_issues )"
   else
-    issue "5. RTK Antigravity global plugin missing (~/.gemini/config/plugins/rtk)"
+    issue "5. RTK hooks/plugin missing:$rtk_issues"
   fi
 fi
 
@@ -391,7 +399,11 @@ if projectmem_present && [ -z "${STUB_LOG:-}" ]; then
     issue "8a. Memory sync hook (.pth) missing or pointing at another kit path: $(projectmem_sync_pth)"
   fi
   if [ -d "$(projectmem_sync_hub)" ]; then
-    ok "8b. iCloud sync hub present ($(projectmem_sync_devices | wc -l | tr -d ' ') device(s))"
+    if [ -d "$(projectmem_sync_hub)/projects" ] && ! ls "$(projectmem_sync_hub)/projects" >/dev/null 2>&1; then
+      ok "8b. iCloud sync hub present (sandboxed in this app; background sync via launchd/zsh)"
+    else
+      ok "8b. iCloud sync hub present ($(projectmem_sync_devices | wc -l | tr -d ' ') device(s))"
+    fi
   else
     issue "8b. iCloud sync hub not found: $(projectmem_sync_hub) (sign in to iCloud Drive, then run 'devguard sync')"
   fi

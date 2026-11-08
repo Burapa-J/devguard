@@ -113,11 +113,15 @@ if projectmem_present; then
   printf "  Memory sync  "
   flag "hook" 'projectmem_sync_hook_ok'
   flag "iCloud hub" '[ -d "$(projectmem_sync_hub)" ]'
-  flag "$(projectmem_sync_devices | wc -l | tr -d ' ') device(s)" '[ -n "$(projectmem_sync_devices)" ]'
-  sync_summary=$("$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --check-summary 2>/dev/null)
-  # shellcheck disable=SC2034  # read inside the eval'd flag/mark conditions
-  sync_rc=$?
-  [ -n "$sync_summary" ] && flag "$sync_summary" '[ "$sync_rc" = 0 ]'
+  if [ -d "$(projectmem_sync_hub)/projects" ] && ! ls "$(projectmem_sync_hub)/projects" >/dev/null 2>&1; then
+    flag "sandboxed (sync via launchd/zsh)" true
+  else
+    flag "$(projectmem_sync_devices | wc -l | tr -d ' ') device(s)" '[ -n "$(projectmem_sync_devices)" ]'
+    sync_summary=$("$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --check-summary 2>/dev/null)
+    # shellcheck disable=SC2034  # read inside the eval'd flag/mark conditions
+    sync_rc=$?
+    [ -n "$sync_summary" ] && flag "$sync_summary" '[ "$sync_rc" = 0 ]'
+  fi
   if [ -z "$stale_mcp" ]; then flag "MCP up to date" true; else flag "restart agents (MCP on old code)" false; fi
   echo
 fi
@@ -161,10 +165,14 @@ if projectmem_present; then
   mark "sync hook (.pth)             $(projectmem_sync_pth)" 'projectmem_sync_hook_ok'
   mark "iCloud hub                   $hub" '[ -d "$hub" ]'
   if [ -d "$hub" ]; then
-    echo "         projects: $(find "$hub/projects" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
-    projectmem_sync_devices | while IFS= read -r d; do
-      if [ "$d" = "$this_dev" ]; then echo "         device: $d (this Mac)"; else echo "         device: $d"; fi
-    done
+    if [ -d "$hub/projects" ] && ! ls "$hub/projects" >/dev/null 2>&1; then
+      echo "         (hub unreadable from this app's sandbox; background sync runs via launchd/zsh)"
+    else
+      echo "         projects: $(find "$hub/projects" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+      projectmem_sync_devices | while IFS= read -r d; do
+        if [ "$d" = "$this_dev" ]; then echo "         device: $d (this Mac)"; else echo "         device: $d"; fi
+      done
+    fi
   fi
   [ -n "${sync_summary:-}" ] && mark "projects: $sync_summary (details: devguard sync --check)" '[ "$sync_rc" = 0 ]'
   if [ -n "$stale_mcp" ]; then
