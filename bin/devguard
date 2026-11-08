@@ -198,7 +198,7 @@ case "$cmd" in
       exec "$KIT_DIR/uninstall.sh" "$@"
     fi
     ;;
-  update)
+  update | upgrade)
     git -C "$KIT_DIR" pull --ff-only 2>/dev/null || true
     # shellcheck source=lib.sh
     . "$KIT_DIR/lib.sh"
