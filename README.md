@@ -15,15 +15,16 @@ Two layers:
 |---|---|---|
 | `rules/core.md` | Always-on instruction (9 lines) | Every prompt, via each agent's global rules file |
 | `skills/verified-dev/SKILL.md` | On-demand instruction | When the agent matches it, or you type `/verified-dev` |
-| `bin/devguard` → `devguard` | CLI & interactive menu | Manage setup, status, doctor, stats, updates, and project init |
-| `bin/doctor.sh` → `devguard doctor` | Health & repair tool | Audits 8 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK plugin, rules sync, version drift, memory sync) and repairs them with `--fix` |
+| `bin/devguard` → `devguard` | CLI & interactive menu | Manage setup, status, doctor, stats, updates (`update` / `upgrade`), and project init |
+| `bin/doctor.sh` → `devguard doctor` | Health & repair tool | Audits 8 failure modes (legacy tokless, symlinks, conflicting plugins, MCP drift, RTK hooks/plugin, rules sync, version drift, memory sync) and repairs them with `--fix` |
 | `bin/stats.sh` → `devguard stats` | Telemetry & quality summary | Shows RTK shell savings, ProjectMem fixes/tokens, CodeGraph index counts, and `.verify/*.log` verification pass rates |
 | `bin/pjm_sync.py` → `devguard sync` | Multi-Mac memory sync | Real-time & batch CRDT sync of `projectmem` across machines over iCloud Drive |
-| `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) |
-| `bin/gate.sh` → `devguard check` / `devguard gate` | Done gate | Runs a repo's `.devguard/checks` and installs pre-commit / pre-push hooks that block on failure |
+| `bin/verify.sh` → `agent-verify` | Verification harness | Captures full output + exit code into `.verify/<name>.log` and reports error line numbers (`errors_at=L...`) for compiler, test, Python traceback/exception, and Rust panic lines |
+| `bin/gate.sh` → `devguard check` / `devguard gate` | Done gate | Runs a repo's `.devguard/checks` (`commit`, `push`, or `all`) and installs pre-commit / pre-push hooks that block on failure |
 | `bin/review.sh` → `devguard review` | Cross-model review | Sends the change to another vendor's CLI (claude, agy, gemini) in read-only plan mode; report in `.verify/review-*.md` |
+| `bin/eval.py` → `devguard eval` | Agent rule evaluation | Runs `.jsonl` eval cases (with pushback flip & source-tag scoring) against `agy` or `claude` and compares before/after runs |
 | `bin/project.sh` → `devguard-project` | Per-repo setup tool | Runs `codegraph init`, `pjm init`, and `.gitignore` setup per repository |
-| `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load the skill |
+| `hooks/remind.sh` | Mechanism (Claude Code, opt-in) | After context compaction, reminds the agent to re-load `verified-dev` and resume from the task list, `projectmem`, and `git status -sb` |
 | `components/*.sh` | Installers | Install, upgrade, wire, unwire and remove each tool |
 
 ## Components
@@ -31,9 +32,9 @@ Two layers:
 | Component | What it does | Installed from | Wired as | Default |
 |---|---|---|---|---|
 | `codegraph` | Code graph search (`codegraph_explore`); supports Swift and ObjC | npm `@colbymchenry/codegraph@1.6.2` | Its own `codegraph install` (MCP + marked CLAUDE.md section + prompt hook); telemetry turned off | on |
-| `projectmem` | Per-project & global memory (issues, attempts, fixes, decisions) with real-time iCloud Drive CRDT sync | PyPI `projectmem==0.3.4` in its own venv (`~/.local/share/agent-kit/projectmem-venv`) | One global MCP server for all projects + `.pth` real-time sync hook | on |
-| `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` | `rtk init -g` (per-agent flags) | on |
-| `context-mode` | Sandboxed execution + indexed search | npm `context-mode@1.0.169` (Node ≥ 22.5) | MCP only, no hooks | off |
+| `projectmem` | Per-project & global memory (issues, attempts, fixes, decisions) with real-time iCloud Drive CRDT sync | PyPI `projectmem==0.3.5` in its own venv (`~/.local/share/agent-kit/projectmem-venv`) | One global MCP server for all projects + `.pth` real-time sync hook | on |
+| `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` (`1.2.0+`) | `rtk init -g` (per-agent flags) | on |
+| `context-mode` | Sandboxed execution + indexed search | npm `context-mode@2.1.7` (Node ≥ 22.5) | MCP only, no hooks | off |
 
 ### Companion CLI Tools (installed by `bootstrap.sh` / `devguard update`)
 
@@ -73,11 +74,12 @@ devguard doctor [--fix]  # audit 8 common failure modes and optionally repair th
 devguard stats           # unified token savings, codegraph index & verification pass-rate stats
 devguard sync [--quiet]  # sync projectmem across machines over iCloud Drive (CRDT merge)
 devguard sync --check    # read-only: per project, do all Macs hold the same events?
-devguard check           # run this repo's .devguard/checks (the done gate)
+devguard check [commit]  # run this repo's .devguard/checks (`commit` for fast inner loop, default `all`)
 devguard gate init       # write a checks template and install the git hooks
 devguard review          # another model reviews uncommitted changes (or the last commit)
+devguard eval ...        # run/compare agent rule evaluations against .devguard/evals/kit.jsonl
 devguard select          # interactively pick agents and tools to enable/disable
-devguard update          # pull the latest kit, upgrade tools and re-apply settings
+devguard update          # (or: devguard upgrade) pull the latest kit, upgrade tools and re-apply settings
 devguard init [--all]    # set up this repo now, or every repo under your auto-setup folders
 devguard skip            # never set up this repo automatically
 devguard disable         # interactive uninstall / unwire (or: devguard uninstall [--purge])
@@ -170,8 +172,9 @@ If step 3 comes back without evidence, an always-on rule from another setup is p
 ## Testing the kit itself
 
 ```sh
-bash tests/test-kit.sh          # core: install / reinstall / uninstall
-bash tests/test-components.sh   # components, with stub npm/python3/codegraph (no downloads)
+devguard check                  # runs all 7 checks: syntax, shellcheck, gate, review, eval, kit, components
+bash tests/test-kit.sh          # core: install / reinstall / uninstall / agent-verify
+bash tests/test-components.sh   # components, doctor, and iCloud CRDT sync with stub CLIs (no downloads)
 ```
 Both run against a throwaway `HOME` and check that user content survives and that uninstall restores every file byte-for-byte. Needs `jq` and `git`.
 
@@ -197,7 +200,7 @@ The workflow (sections 1, 2 and 4-9 of the skill) is stack-neutral. Section 3's 
 
 ติดตั้งคำสั่งเดียวด้วย bootstrap (ดูส่วน Install) หรือรัน `./install.sh` ใน repo ที่ clone ไว้ ค่าเริ่มต้นตั้งค่าทุก repo ใน `~/Developer` ให้อัตโนมัติ ผ่าน Claude Code, การ `cd` ใน zsh และการสแกนของ launchd ทุก 30 นาที
 
-ใช้งานผ่านคำสั่ง `devguard` เช่น `status`, `doctor [--fix]`, `stats`, `sync [--quiet]`, `select`, `update`, `init [--all]`, `skip` และ `uninstall [--purge]` ความจำของ `projectmem` จะซิงค์ข้ามเครื่องผ่าน iCloud Drive แบบ CRDT อัตโนมัติ (จับคู่โปรเจกต์ด้วย Git root commit SHA แม้ชื่อโฟลเดอร์ต่างกัน) และไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` (เก็บล่าสุดสูงสุด 10 ชุด) ถ้าเคยใช้ tokless หรือปลั๊กอิน caveman/ponytail ให้รัน `devguard doctor --fix` เพื่อเก็บกวาดคราบเก่าอัตโนมัติ
+ใช้งานผ่านคำสั่ง `devguard` เช่น `status`, `doctor [--fix]`, `stats`, `sync [--quiet]`, `check [commit|push]`, `review`, `eval`, `select`, `update` (หรือ `upgrade`), `init [--all]`, `skip` และ `uninstall [--purge]` ความจำของ `projectmem` จะซิงค์ข้ามเครื่องผ่าน iCloud Drive แบบ CRDT อัตโนมัติ (จับคู่โปรเจกต์ด้วย Git root commit SHA แม้ชื่อโฟลเดอร์ต่างกัน) และไฟล์ที่ถูกแก้จะ backup ไว้ที่ `~/.agent-kit-backup/` (เก็บล่าสุดสูงสุด 10 ชุด) ถ้าเคยใช้ tokless หรือปลั๊กอิน caveman/ponytail ให้รัน `devguard doctor --fix` เพื่อเก็บกวาดคราบเก่าอัตโนมัติ
 
 ## Credits
 

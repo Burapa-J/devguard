@@ -124,10 +124,10 @@ devguard skip            # ยกเว้น repo ที่อยู่ตอ�
      - **VS Code Copilot / Cursor / OpenCode**: `runSubagent` หรือ read-only subagent tool ของโปรแกรมนั้นๆ
 2. **งานที่ต้องทำใน Main Agent โดยตรง (`MAIN_AGENT_DIRECT`)**: การวาง Data Shape, ตาราง Pre-mortem, งานแก้ไฟล์เดี่ยว (`< 1,000 บรรทัด`), คำสั่ง Git/PR, รอบแก้ตามผลรีวิวที่รู้ `file:line` แล้ว และการรัน build/test ที่ใช้ build directory เดียวกันที่มี lock (เช่น Cargo `target/`, `xcodebuild`)
 3. **งานที่ใช้ Subagent แบบรวบยอดครั้งเดียว (`CONSOLIDATED_BATCH_SUBAGENT`)**:
-   - **Pipeline-Parallel Batch Scout**: ขณะที่ Main Agent กำลัง compile, รัน test และ commit งานชุดปัจจุบัน ให้ส่ง read-only `flash` subagent 1 ตัวไปอ่าน 2–3 โมดูลใหญ่ถัดไป (`>= 3,500 บรรทัด` / `>= 30,000 raw tokens`) ล่วงหน้า เพื่อชี้เป้า `file:line` และร่าง reproducer โดยไม่แตะ build lock
-   - **0-Token Bash Pre-Filter + Batch Audit**: กรองเป้าหมายย่อยจำนวนมาก (เช่น 30–50 แพ็กเกจ) ด้วย bash ก่อน แล้วรวบ 10–25 รายการที่เข้าข่าย (`>= 30,000 raw tokens`) ส่งให้ `flash` subagent ตรวจรวดเดียวใน 1 shot
+   - **Pipeline-Parallel Batch Scout**: ขณะที่ Main Agent กำลัง compile, รัน test และ commit งานชุดปัจจุบัน ให้ส่ง read-only fast subagent 1 ตัวไปอ่าน 2–3 โมดูลใหญ่ถัดไป (`>= 3,500 บรรทัด` / `>= 30,000 raw tokens`) ล่วงหน้า เพื่อชี้เป้า `file:line` และร่าง reproducer โดยไม่แตะ build lock
+   - **0-Token Bash Pre-Filter + Batch Audit**: กรองเป้าหมายย่อยจำนวนมาก (เช่น 30–50 แพ็กเกจ) ด้วย bash ก่อน แล้วรวบ 10–25 รายการที่เข้าข่าย (`>= 30,000 raw tokens`) ส่งให้ read-only fast subagent ตรวจรวดเดียวใน 1 shot
 4. **การแบ่งบทบาทและควบคุมคุณภาพ (Role Split & Lifecycle)**:
-   - เปิดพร้อมกันไม่เกิน **2 ตัว** (`MAX_ACTIVE_SUBAGENTS = 2`), ส่งเฉพาะ `file:line` pointers (ไม่แปะโค้ดซ้ำ), บังคับรูปแบบคำตอบย่อบรรทัดเดียว (`path:line — symbol — note`), ไม่คุยโต้ตอบหลายรอบ และสั่ง `kill` ทันทีเมื่อจบงาน
+   - เปิดพร้อมกันไม่เกิน **2 ตัว** (`MAX_ACTIVE_SUBAGENTS = 2`), ส่งเฉพาะ `file:line` pointers (ไม่แปะโค้ดซ้ำ), บังคับรูปแบบคำตอบย่อบรรทัดเดียว (`path:line — symbol — note`), ไม่คุยโต้ตอบหลายรอบ และปิดทันทีเมื่อจบงาน (`manage_subagents(Action="kill")` ใน Antigravity; ส่วน Claude Code และ VS Code จะจบตัวเองอัตโนมัติ)
    - **บีบอัดท่อส่งข้อมูล แต่ห้ามบีบอัดหลักฐาน**: Main Agent ต้องเปิดอ่านบรรทัด `file:line` ที่ Subagent ชี้เป้าเพื่อแก้โค้ด ตรวจ diff และรัน `agent-verify` / `devguard check` พิสูจน์บนพื้นผิวจริงด้วยตัวเองเสมอ
 
 ### เก็บหลักฐานด้วย agent-verify
@@ -136,7 +136,7 @@ agent จะเรียกเองตามกฎ แต่คุณใช้�
 agent-verify unit-tests -- xcodebuild test -scheme MyApp -destination 'platform=macOS'
 agent-verify build -- swift build
 ```
-ผลเต็มอยู่ที่ `.verify/<ชื่อ>.log` พร้อม exit code และหากมีบรรทัดที่เกิด `error:` หรือ test `FAIL` คำสั่งจะแสดงเลขบรรทัด (`errors_at=L...`) ในบรรทัดสรุปทันที เพื่อให้เปิดอ่านตรงจุดได้รวดเร็วโดยไม่ตัดทอน log ต้นฉบับ
+ผลเต็มอยู่ที่ `.verify/<ชื่อ>.log` พร้อม exit code และหากมีบรรทัดที่เกิด `error:`, test `FAIL`, Python exception (`Traceback`, `...Error:`) หรือ Rust `panic:` คำสั่งจะแสดงเลขบรรทัด (`errors_at=L...`) ในบรรทัดสรุปทันที เพื่อให้เปิดอ่านตรงจุดได้รวดเร็วโดยไม่ตัดทอน log ต้นฉบับ
 
 ### ด่าน "เสร็จ" (`.devguard/checks`)
 
@@ -148,7 +148,7 @@ push   test:  swift test         # ก่อน push: suite เต็ม
 ```
 
 - `devguard gate init` สร้างไฟล์ตัวอย่าง (comment ไว้ทั้งหมด) และติดตั้ง hook `pre-commit` / `pre-push`
-- `devguard check` รันทุก check เอง และกฎหลักสั่งให้ agent รันก่อนบอกว่าเสร็จ
+- `devguard check commit` รันเฉพาะด่านเร็ว (~1 วินาที สำหรับตรวจระหว่างทำหน่วยย่อย) และ `devguard check` รันครบทุก check ซึ่งกฎหลักสั่งให้ agent รันก่อนบอกว่าเสร็จหรือก่อน push
 - check ล้มจะแสดงบรรทัดเดียว พร้อม log เต็มที่ `.verify/gate-<name>.log`
 - ไม่ทับ hook ที่มีอยู่ของคนอื่น (จะบอกบรรทัดที่ต้องเพิ่มเอง), ใช้กับ worktree ได้, ถ้าย้าย kit จะปล่อยผ่านพร้อมเตือน, และเตือนเมื่อ commit แก้ไฟล์ checks
 - ข้อจำกัด: ตรวจ working tree ทั้งหมด ไม่ใช่เฉพาะส่วนที่ stage และ `git commit --no-verify` ยังข้ามได้
@@ -200,8 +200,8 @@ commit secrets: gitleaks git --staged --redact --no-banner .
 | `devguard doctor [--fix]` | ตรวจสุขภาพ 8 จุดเสี่ยง (คราบ tokless, symlink ขาด, ปลั๊กอินตีกัน, MCP ผิดไฟล์, กฎไม่ตรง, เวอร์ชันเก่า) และใส่ `--fix` เพื่อซ่อมอัตโนมัติ |
 | `devguard stats` | ดูสถิติการประหยัด Token (`rtk`, `projectmem`), ตาราง Index ของ `codegraph`, และอัตราการ Verify ผ่าน (`.verify/*.log` Pass Rate) ทุกโปรเจกต์ (`-d` รายวัน, `-p` โปรเจกต์นี้, `--dashboard`, `--reset`) |
 | `devguard sync [--quiet]` | ซิงค์ความจำของ `projectmem` ทั้งระดับโปรเจกต์และระดับเครื่องข้ามเครื่องผ่าน iCloud Drive แบบ CRDT |
-| `devguard select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar |
-| `devguard update` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงการตั้งค่าเดิม |
+| `devguard select` | เลือกเปิด/ปิด Agents และเครื่องมือแบบลูกศรและกด Spacebar (พร้อมถอดการตั้งค่าของตัวที่ติ๊กออกให้อัตโนมัติ) |
+| `devguard update` / `upgrade` | ดึงเวอร์ชันล่าสุด อัปเกรดเครื่องมือ แล้วติดตั้งซ้ำโดยคงรายการแอปและเครื่องมือเดิมที่เปิดใช้งานอยู่ |
 | `devguard init` / `init --all` | ตั้งค่า repo นี้ หรือทุก repo ในโฟลเดอร์อัตโนมัติ |
 | `devguard skip` | ยกเว้น repo นี้ |
 | `devguard install [ตัวเลือก]` | เปลี่ยนการตั้งค่า (ดูข้อ 1.3 หรือใช้ `-i` เพื่อเปิดเมนูเลือก) |
@@ -226,10 +226,10 @@ devguard doctor --fix    # ซ่อมจุดที่มีปัญหา�
   2. Symlink ขาดหรือชี้ผิดที่ใน `~/.local/bin`
   3. ปลั๊กอินที่ตีกัน (`caveman`, `ponytail`, `cavecrew`)
   4. ตำแหน่งไฟล์ MCP ของทุก Agent (รวมถึงย้ายจาก `~/.gemini/antigravity/mcp_config.json` มาเข้า `~/.gemini/config/mcp_config.json`)
-  5. ปลั๊กอิน RTK Global ของ Antigravity และการปิด telemetry
+  5. ฮุกและปลั๊กอิน RTK Global (ทั้งของ Claude Code และ Antigravity) และการปิด telemetry
   6. ความตรงกันของบล็อกกฎใน `CLAUDE.md`, `copilot-instructions.md`, `GEMINI.md` เทียบกับ `rules/core.md`
   7. เวอร์ชันของ CLI (`codegraph`, `projectmem`, `context-mode`) เทียบกับเวอร์ชันที่ Pin ไว้ และเครื่องมือเสริม (`ast-grep`, `xcbeautify`, `shellcheck`) ถ้า `--fix` ซ่อมไม่สำเร็จจะบอกว่าซ่อมไม่ได้ ไม่รายงานว่าสำเร็จ
-  8. memory sync ข้ามเครื่อง: hook `.pth` ชี้ไปที่ kit นี้, มี iCloud hub, และไม่มี projectmem MCP ที่ยังรันโค้ด sync เก่า (ถ้ามี ให้ปิดเปิด agent ใหม่ — `--fix` ไม่ปิด process ให้)
+  8. memory sync ข้ามเครื่อง: hook `.pth` ชี้ไปที่ kit นี้, มี iCloud hub (หากรันจากใน sandbox ของแอปที่บล็อกโฟลเดอร์ iCloud จะแสดงว่า `sandboxed; background sync via launchd/zsh`), และไม่มี projectmem MCP ที่ยังรันโค้ด sync เก่า (ถ้ามี ให้ปิดเปิด agent ใหม่ — `--fix` ไม่ปิด process ให้)
 
 ทดสอบกับ agent จริงในแต่ละโปรแกรม:
 1. เปิด session ใหม่แล้วถามว่า "What rules are you following for code tasks?" คำตอบควรอยู่ในโหมดอ่านอย่างเดียว (Read-only) และพูดถึง `verified-dev` กับเรื่องหลักฐาน
@@ -272,7 +272,7 @@ devguard uninstall --purge       # ลบ CLI ที่ devguard ติดตั
 ## 8. แก้ไขหรือเพิ่มเติม
 
 - **รายการตรวจสอบเมื่อควรอัปเดตจากต้นทาง (`pstack`, `Karpathy`, `Ponytail`, `Caveman`, `tokless`, และเวอร์ชันของเครื่องมือ)**: ดูที่ [`docs/UPSTREAM-RADAR.md`](UPSTREAM-RADAR.md)
-- **ปรับวิธีทำงาน**: แก้ `skills/verified-dev/SKILL.md` แล้ว commit และ push จากนั้นเครื่องอื่นรัน `devguard update`
+- **ปรับวิธีทำงาน**: แก้ `skills/verified-dev/SKILL.md` แล้ว commit และ push จากนั้นเครื่องอื่นรัน `devguard update` (หรือ `devguard upgrade`)
 - **ปรับกฎที่ทำงานตลอดเวลา**: แก้ `rules/core.md` ควรเก็บให้สั้น เพราะกิน token ทุก prompt
 - **เพิ่มเครื่องมือ**: คัดลอก `components/context-mode.sh` แล้วแก้ฟังก์ชันให้ครบ เพิ่มชื่อใน `ALL_COMPONENTS` ใน `components/common.sh` และเพิ่ม test
-- **ก่อน push ทุกครั้ง**: `/bin/bash tests/test-kit.sh && /bin/bash tests/test-components.sh`
+- **ก่อน push ทุกครั้ง**: รัน `devguard check` (จะรันชุดทดสอบครบทั้ง 7 ด่าน: `syntax`, `shellcheck`, `gate`, `review`, `eval`, `kit`, และ `components`)

@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | **CodeGraph** | `1.6.2` | `components/codegraph.sh` | https://github.com/colbymchenry/codegraph (`@colbymchenry/codegraph` บน npm) | เมื่อมีการปรับปรุง parser ของ Swift / ObjC หรือรองรับ Agent ตัวใหม่ |
 | **ProjectMem** | `0.3.5` | `components/projectmem.sh`, `bin/pjm_sync.py` | https://github.com/riponcm/projectmem (`projectmem` บน PyPI) | เมื่อมีการปรับปรุง MCP schema หรือ `ProjectStore` (ต้องตรวจให้เข้ากันได้กับ `.pth` hook ใน `bin/pjm_sync.py`) |
-| **RTK** | ตาม Homebrew (`1.1.0+`) | `components/rtk.sh` | https://github.com/rtk-ai/rtk (`rtk` บน Homebrew) | เมื่อมีการเพิ่ม filter สำหรับคำสั่งใหม่ (เช่น `xcodebuild`, `swift`) หรือรองรับ global hook ของ Antigravity โดยตรง |
+| **RTK** | ตาม Homebrew (`1.2.0+`) | `components/rtk.sh` | https://github.com/rtk-ai/rtk (`rtk` บน Homebrew) | เมื่อมีการเพิ่ม filter สำหรับคำสั่งใหม่ (เช่น `xcodebuild`, `swift`) หรือรองรับ global hook ของ Antigravity โดยตรง |
 | **Context-Mode** | `2.1.7` | `components/context-mode.sh` | https://github.com/mksglu/context-mode (`context-mode` บน npm) | เมื่อเปิดใช้งาน `context-mode` และต้องการอัปเดต sandbox |
 | **xcbeautify** | ตาม Homebrew (`3.2.1+`) | `bootstrap.sh`, `bin/devguard` | https://github.com/cpisciotta/xcbeautify (`xcbeautify` บน Homebrew) | เมื่อ Xcode ออกเวอร์ชันใหญ่และเปลี่ยนรูปแบบ build/test log |
 | **ast-grep** | ตาม Homebrew (`0.51.1+`) | `bootstrap.sh`, `bin/devguard` | https://github.com/ast-grep/ast-grep (`ast-grep` บน Homebrew) | เมื่อต้องการอัปเดต tree-sitter grammar สำหรับ Swift / TypeScript |
@@ -29,7 +29,7 @@ printf "%-15s %-12s %-12s\n" "xcbeautify" "$(xcbeautify --version 2>/dev/null ||
 printf "%-15s %-12s %-12s\n" "ast-grep" "$(ast-grep --version 2>/dev/null | awk '{print $2}' || echo -)" "$(brew info --json=v2 ast-grep 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
 printf "%-15s %-12s %-12s\n" "shellcheck" "$(shellcheck --version 2>/dev/null | awk '/^version:/ {print $2}' || echo -)" "$(brew info --json=v2 shellcheck 2>/dev/null | jq -r '.formulae[0].versions.stable' || echo -)"
 ```
-*(หากต้องการอัปเกรด: แก้เลขเวอร์ชันใน `components/<ชื่อ>.sh` แล้วรัน `devguard update` หรือ `devguard doctor --fix`)*
+*(หากต้องการอัปเกรด: แก้เลขเวอร์ชันใน `components/<ชื่อ>.sh` แล้วรัน `devguard update` / `devguard upgrade` หรือ `devguard doctor --fix`)*
 
 ---
 
@@ -68,4 +68,4 @@ printf "%-15s %-12s %-12s\n" "shellcheck" "$(shellcheck --version 2>/dev/null | 
 
 เมื่อต้องการตรวจสอบในอนาคต สามารถคัดลอกข้อความด้านล่างนี้สั่ง Agent ได้ทันที:
 
-> **"ช่วยอ่านไฟล์ `docs/UPSTREAM-RADAR.md` แล้วรันเช็คเวอร์ชันล่าสุดของ Components ทั้ง 4 ตัว รวมถึงค้นหาว่าต้นทางในตารางที่ 2 มีการอัปเดตอะไรใหม่ที่ผ่านเกณฑ์ Gatekeeper ทั้ง 4 ข้อบ้าง (ให้อยู่ในโหมด Read-only และสรุปเป็นตารางเปรียบเทียบก่อน)"**
+> **"ช่วยอ่านไฟล์ `docs/UPSTREAM-RADAR.md` แล้วรันเช็คเวอร์ชันล่าสุดของเครื่องมือทั้ง 7 ตัว รวมถึงค้นหาว่าต้นทางในตารางที่ 2 มีการอัปเดตอะไรใหม่ที่ผ่านเกณฑ์ Gatekeeper ทั้ง 4 ข้อบ้าง (ให้อยู่ในโหมด Read-only และสรุปเป็นตารางเปรียบเทียบก่อน)"**

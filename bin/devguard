@@ -26,7 +26,7 @@ Kit: $KIT_DIR
   devguard review [--with claude|agy|gemini] [--base REF]  another model reviews the change (read-only)
   devguard eval run CASES.jsonl [--with agy|claude] [--reps N] [--label L]; devguard eval compare A.json B.json
   devguard select               interactively pick agents and tools to enable/disable
-  devguard update               pull the latest kit, upgrade tools, and re-apply settings
+  devguard update | upgrade     pull the latest kit, upgrade tools, and re-apply settings
   devguard init [--all]         set up this repo, or every repo under auto-setup folders
   devguard install [options]    install or change setup (see: devguard install --help)
   devguard uninstall [--purge]  remove wiring (--purge: also remove installed tool CLIs)
