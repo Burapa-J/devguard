@@ -147,7 +147,7 @@ commit build: swift build        # ทุก commit: ต้องเร็ว
 push   test:  swift test         # ก่อน push: suite เต็ม
 ```
 
-- `devguard gate init` สร้างไฟล์ตัวอย่าง (comment ไว้ทั้งหมด) และติดตั้ง hook `pre-commit` / `pre-push`
+- `devguard gate init` ตรวจจับภาษาของโปรเจกต์อัตโนมัติ (`Package.swift`, `Cargo.toml`, `package.json`, `*.py`, `*.sh`) เพื่อสร้างไฟล์ `.devguard/checks` ที่พร้อมรันจริงทันที (หรือสร้างไฟล์ตัวอย่างถ้ายังไม่มีโค้ด) และติดตั้ง hook `pre-commit` / `pre-push`
 - `devguard check commit` รันเฉพาะด่านเร็ว (~1 วินาที สำหรับตรวจระหว่างทำหน่วยย่อย) และ `devguard check` รันครบทุก check ซึ่งกฎหลักสั่งให้ agent รันก่อนบอกว่าเสร็จหรือก่อน push
 - check ล้มจะแสดงบรรทัดเดียว พร้อม log เต็มที่ `.verify/gate-<name>.log`
 - ไม่ทับ hook ที่มีอยู่ของคนอื่น (จะบอกบรรทัดที่ต้องเพิ่มเอง), ใช้กับ worktree ได้, ถ้าย้าย kit จะปล่อยผ่านพร้อมเตือน, และเตือนเมื่อ commit แก้ไฟล์ checks
@@ -163,7 +163,7 @@ model แต่ละค่ายจับปัญหาได้ต่าง�
 - ควรเลือกค่ายที่ไม่ได้เขียนโค้ดนั้น: งานที่ Gemini ใน Antigravity เขียน ให้ใช้ `--with claude` ส่วนงานที่ Claude เขียน ให้ใช้ `--with agy`
 - Gemini CLI ปฏิเสธบัญชีส่วนตัวแล้ว ฝั่ง Gemini จึงใช้ `agy` แทน
 - ผลรีวิวเป็นแค่ข้อสงสัย ต้องเปิดโค้ดยืนยันทีละข้อก่อนแก้
-- ผลวัดจริงกับ kit นี้: 7 commit รีวิวแบบไม่เห็นคำตอบ เทียบกับบั๊กที่รู้แน่ 11 ข้อ แต่ละค่ายจับได้ 8/11 ใช้สองค่ายรวมกันได้ 10/11 ข้อสรุปคือ ก่อน push งานที่แก้โค้ดให้รีวิวด้วยอีกค่าย และถ้าแตะข้อมูลหรือ sync ให้รีวิวทั้งสองค่าย (รายละเอียด: [`docs/experiments/2026-10-30-cross-model-review.md`](experiments/2026-10-30-cross-model-review.md))
+- ผลวัดจริงกับ kit นี้: 7 commit รีวิวแบบไม่เห็นคำตอบ เทียบกับบั๊กที่รู้แน่ 11 ข้อ แต่ละค่ายจับได้ 8/11 ใช้สองค่ายรวมกันได้ 10/11 แต่ใช้เวลารัน 49–610 วินาทีต่อครั้งและไม่คุ้มกับงานแก้เอกสารหรืองานจุดเล็กๆ ข้อสรุปคือ ใช้ `devguard check` กับทุกงานเป็นหลัก และใช้ `devguard review` เฉพาะกับงานความเสี่ยงสูง (แตะข้อมูลถาวร/Migration, ระบบ Sync ข้ามเครื่อง, Concurrency/Lock, หรือ Security/Keychain) หรือเมื่อผู้ใช้สั่งให้รีวิว (รายละเอียด: [`docs/experiments/2026-10-30-cross-model-review.md`](experiments/2026-10-30-cross-model-review.md))
 
 ### วัดผล agent (`devguard eval`)
 

@@ -113,23 +113,62 @@ cmd_uninstall() {
   return 0
 }
 
+detect_checks() {
+  local found=0
+  if [ -f Package.swift ]; then
+    echo "commit build: swift build"
+    echo "push   test:  swift test"
+    found=1
+  fi
+  if [ -f Cargo.toml ]; then
+    echo "commit check: cargo check --quiet"
+    echo "push   test:  cargo test"
+    found=1
+  fi
+  if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
+    jq -e '.scripts.lint' package.json >/dev/null 2>&1 && { echo "commit lint: npm run lint"; found=1; }
+    if jq -e '.scripts.test' package.json >/dev/null 2>&1 && ! jq -r '.scripts.test' package.json | grep -q "no test specified"; then
+      echo "push   test: npm test"
+      found=1
+    fi
+  fi
+  if [ -n "$(git ls-files '*.py' 2>/dev/null)" ]; then
+    echo 'commit py-syntax: for f in $(git ls-files "*.py"); do [ -f "$f" ] && python3 -I -m py_compile "$f" || exit 1; done'
+    found=1
+  fi
+  if [ -n "$(git ls-files '*.sh' 2>/dev/null)" ]; then
+    echo 'commit sh-syntax: for f in $(git ls-files "*.sh"); do [ -f "$f" ] && bash -n "$f" || exit 1; done'
+    found=1
+  fi
+  [ "$found" = 1 ]
+}
+
 cmd_init() {
+  local detected=""
   cd "$(repo_top)" || exit 2
   if [ -e "$CHECKS" ]; then
     echo "devguard gate: $CHECKS already exists"
   else
     mkdir -p .devguard
+    detected=$(detect_checks) || true
     cat > "$CHECKS" <<'EOF'
 # devguard gate: checks that must pass before a commit or a push.
 # One per line: <stage> <name>: <command>
 #   stage "commit" runs on every commit (keep it fast); "push" runs before push (slow suites).
 # Agents: run `devguard check` before calling a task done, and never bypass with --no-verify.
 #
+EOF
+    if [ -n "$detected" ]; then
+      printf '%s\n# commit secrets: gitleaks git --staged --redact --no-banner .   # needs: brew install gitleaks\n' "$detected" >> "$CHECKS"
+      echo "devguard gate: wrote $CHECKS (auto-detected stack checks enabled)"
+    else
+      cat >> "$CHECKS" <<'EOF'
 # commit build: swift build
 # push   test:  swift test
 # commit secrets: gitleaks git --staged --redact --no-banner .   # needs: brew install gitleaks
 EOF
-    echo "devguard gate: wrote $CHECKS (all lines commented; add your real commands)"
+      echo "devguard gate: wrote $CHECKS (all lines commented; add your real commands)"
+    fi
   fi
   cmd_install
 }

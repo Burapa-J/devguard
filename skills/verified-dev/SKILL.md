@@ -134,7 +134,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 - Give subagents file pointers, a scoped brief, and a compact output contract (`path:line — symbol — note` for search; `path:line: 🔴 bug | 🟡 risk | 🔵 nit | ❓ q: <problem>. <fix>.` for review), not pasted context.
 - I own subagent output: review the diff and write my own summary. Never relay a subagent's claims unverified.
 - Parallel writers need disjoint files or separate worktrees.
-- Before pushing a code change, run `devguard review` with the other vendor (`--with claude` from Antigravity; `--with agy` from Claude Code); use both vendors when touching persisted data or sync. For contested designs, send the same prompt to a different model or provider and surface any disagreement.
+- Use `devguard check` for every code task; reserve `devguard review` (`--with claude` from Antigravity; `--with agy` from Claude Code) for high-risk changes (persisted data/migrations, cross-device sync, concurrency/locks, or security/keychain) or when explicitly requested by the user. For contested designs, send the same prompt to a different model or provider and surface any disagreement.
 - Treat review-bot and model-review findings skeptically: triage each as fix, dismiss (with a concrete reason), or ask. Never auto-apply.
 - Prefer a fresh subagent with consolidated scope over resuming an interrupted one.
 - If the harness has no subagents, do the work inline.

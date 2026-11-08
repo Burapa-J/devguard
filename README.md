@@ -96,7 +96,7 @@ push   test:  swift test         # before push: full suites
 
 For repos that hold API keys or tokens, add `commit secrets: gitleaks git --staged --redact --no-banner .` (after `brew install gitleaks`): it scans only what is staged and blocks the commit on a finding.
 
-`devguard gate init` writes a commented template and installs `pre-commit` / `pre-push` hooks; `devguard check` runs everything by hand, and the core rule tells agents to run it before calling a task done. Each check runs through `agent-verify`, so a failure prints one line and leaves the full log in `.verify/gate-<name>.log`.
+`devguard gate init` auto-detects the repo's stack (`Package.swift`, `Cargo.toml`, `package.json`, `*.py`, `*.sh`) to write runnable checks (falling back to a commented template in empty repos) and installs `pre-commit` / `pre-push` hooks; `devguard check` runs everything by hand (`devguard check commit` for the fast inner loop), and the core rule tells agents to run it before calling a task done. Each check runs through `agent-verify`, so a failure prints one line and leaves the full log in `.verify/gate-<name>.log`.
 
 Safety: the hooks are only written where no hook exists or ours does (a foreign hook is left alone and you get the line to add), they follow linked worktrees and `core.hooksPath`, they let the commit through with a warning if the kit has moved, and a commit that edits `.devguard/checks` is flagged for review. Known limits: checks run on the working tree, not only the staged part, and `git commit --no-verify` still skips them.
 
@@ -104,7 +104,7 @@ Safety: the hooks are only written where no hook exists or ours does (a foreign 
 
 Models catch different things. `devguard review` sends the current change to a model from another vendor and saves its findings to `.verify/review-<time>.md`, printing one line: verdict, finding count, report path. It reviews uncommitted changes, or the last commit when the tree is clean, or `--base REF` for a range. The reviewer runs read-only (`claude --permission-mode plan`, `agy --mode plan`, `gemini --approval-mode plan`) inside the repo so it can open files for context. Pick it with `--with claude|agy|gemini` or `DEVGUARD_REVIEWER`; the default is the first installed of claude, agy, gemini. Use the vendor that did not write the code. Gemini CLI refuses individual accounts, so reach Gemini through `agy` (Antigravity). Treat findings as leads: check each against the code before acting.
 
-Measured on this kit: seven commits reviewed blind by both vendors against 11 known bugs; each found 8/11, together 10/11, and a diff-based "should I review?" heuristic flagged every code commit. So: review every code change with the other vendor before pushing, both vendors for persisted data or sync. Details and limits: [`docs/experiments/2026-10-30-cross-model-review.md`](docs/experiments/2026-10-30-cross-model-review.md).
+Measured on this kit: seven commits reviewed blind by both vendors against 11 known bugs; each found 8/11, together 10/11, while a rules/docs-only commit produced 0 findings from Gemini and 4 debatable remarks from Claude (at 49–610 s per run). So: use `devguard check` on every task, and reserve `devguard review` (with the other vendor, or both vendors) for high-risk changes — persisted data/migrations, cross-device sync, concurrency/locking, or security/keychain — or when explicitly requested. Details and limits: [`docs/experiments/2026-10-30-cross-model-review.md`](docs/experiments/2026-10-30-cross-model-review.md).
 
 ### Measuring an agent (`devguard eval`)
 

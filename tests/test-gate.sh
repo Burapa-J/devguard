@@ -96,4 +96,19 @@ git worktree add -q "$T/wt-linked" 2>/dev/null; cd "$T/wt-linked" || exit 1
 "$GATE" install > /dev/null 2>&1
 check "install in a worktree writes to the shared hooks dir" 'grep -q devguard-gate "$(git rev-parse --git-path hooks)/pre-commit"'
 
+echo "== gate init auto-detects project stack"
+new_repo swift-pkg
+printf '// swift-tools-version:5.9\n' > Package.swift; g add Package.swift
+"$GATE" init > /dev/null 2>&1
+check "gate init writes active swift build/test checks for Package.swift" 'grep -qx "commit build: swift build" .devguard/checks && grep -qx "push   test:  swift test" .devguard/checks'
+
+new_repo shell-proj
+printf '#!/bin/sh\necho ok\n' > run.sh; g add run.sh
+"$GATE" init > /dev/null 2>&1
+out=$("$GATE" run commit 2>&1); code=$?
+check "gate init writes runnable shell syntax check for .sh repo" '[ $code = 0 ] && grep -q "^commit sh-syntax:" .devguard/checks'
+printf '#!/bin/sh\nif [\n' > run.sh
+out=$("$GATE" run commit 2>&1); code=$?
+check "auto-detected shell syntax check catches broken .sh on commit" '[ $code = 1 ]'
+
 exit $fail
