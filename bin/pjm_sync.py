@@ -218,17 +218,26 @@ def replace_keeping_appends(
     """
     issue_remap = issue_remap or {}
     if sys.platform == "win32":
-        return atomic_write_if_changed(target, content), {}
-    try:
-        old = target.open("rb")
-    except OSError:
-        return atomic_write_if_changed(target, content), {}
-    with old:
+        tail = ""
+        try:
+            with target.open("rb") as old:
+                old.seek(snapshot_len)
+                tail = old.read().decode("utf-8", errors="replace")
+        except OSError:
+            return atomic_write_if_changed(target, content), {}
         if not atomic_write_if_changed(target, content):
             return False, {}
-        time.sleep(0.02)  # let a writer that opened the old file before the replace finish its write
-        old.seek(snapshot_len)
-        tail = old.read().decode("utf-8", errors="replace")
+    else:
+        try:
+            old = target.open("rb")
+        except OSError:
+            return atomic_write_if_changed(target, content), {}
+        with old:
+            if not atomic_write_if_changed(target, content):
+                return False, {}
+            time.sleep(0.02)  # let a writer that opened the old file before the replace finish its write
+            old.seek(snapshot_len)
+            tail = old.read().decode("utf-8", errors="replace")
     written = set(content.splitlines())
     late: list[dict[str, Any]] = []
     for raw in tail.splitlines():
@@ -1090,7 +1099,7 @@ def main(argv: list[str]) -> int:
             return 1
         sp = next((Path(p) for p in sp_dirs if Path(p).name.lower() == "site-packages"), Path(sp_dirs[0]))
         sp.mkdir(parents=True, exist_ok=True)
-        kit_bin = str(Path(__file__).resolve().parent)
+        kit_bin = Path(__file__).resolve().parent.as_posix()
         pth_content = (
             f"import sys; sys.path.insert(0, {kit_bin!r}); "
             "import pjm_sync; pjm_sync.install_runtime_hooks()\n"

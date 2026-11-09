@@ -177,7 +177,11 @@ case "$cmd" in
   check) exec "$KIT_DIR/bin/gate.sh" run "${1:-all}" ;;
   gate) exec "$KIT_DIR/bin/gate.sh" "$@" ;;
   review) exec "$KIT_DIR/bin/review.sh" "$@" ;;
-  eval) exec python3 "$KIT_DIR/bin/eval.py" "$@" ;;
+  eval)
+    PY="python3"
+    command -v python3 >/dev/null 2>&1 || PY="python"
+    exec "$PY" "$KIT_DIR/bin/eval.py" "$@"
+    ;;
   sync)
     PY="$HOME/.local/share/agent-kit/projectmem-venv/bin/python"
     [ -x "$PY" ] || PY="$HOME/.local/share/agent-kit/projectmem-venv/Scripts/python.exe"

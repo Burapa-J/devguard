@@ -19,12 +19,17 @@ die() { echo "devguard gate: $*" >&2; exit 2; }
 # errors a terminal run never shows. A shell cannot reset a signal ignored on entry; exec through
 # python3, which sets it back to default first (the default disposition survives exec).
 RUNNER=(sh -c)
-if command -v python3 >/dev/null 2>&1; then
-  # -I: isolated, so a repo file named signal.py (cwd is the repo) cannot replace the stdlib module.
-  RUNNER=(python3 -I -c 'import os, signal, sys
+case "${AGENT_KIT_OS:-$(uname -s)}" in
+  MINGW* | MSYS* | CYGWIN* | Windows_NT | windows) ;;
+  *)
+    if command -v python3 >/dev/null 2>&1; then
+      # -I: isolated, so a repo file named signal.py (cwd is the repo) cannot replace the stdlib module.
+      RUNNER=(python3 -I -c 'import os, signal, sys
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 os.execvp("sh", ["sh", "-c", sys.argv[1]])')
-fi
+    fi
+    ;;
+esac
 
 repo_top() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
 
@@ -133,7 +138,7 @@ detect_checks() {
     fi
   fi
   if [ -n "$(git ls-files '*.py' 2>/dev/null)" ]; then
-    echo 'commit py-syntax: for f in $(git ls-files "*.py"); do [ -f "$f" ] && python3 -I -m py_compile "$f" || exit 1; done'
+    echo 'commit py-syntax: py=$(command -v python3 || command -v python); for f in $(git ls-files "*.py"); do [ -f "$f" ] && "$py" -I -m py_compile "$f" || exit 1; done'
     found=1
   fi
   if [ -n "$(git ls-files '*.sh' 2>/dev/null)" ]; then

@@ -17,6 +17,11 @@ is_windows() {
   esac
 }
 
+# Force LF output from Windows jq.exe so JSON comparisons and backups never mix CRLF and LF.
+if is_windows && command -v jq >/dev/null 2>&1; then
+  jq() { command jq -b "$@"; }
+fi
+
 SKILL_NAME="verified-dev"
 # Hook commands are run by a shell, so paths are single-quoted (the kit path may contain spaces).
 # Single quotes, not backslashes: JSON stores them unescaped, so the command can be matched as text.
@@ -133,6 +138,8 @@ is_ours() {
     case "$cur" in "$KIT_DIR"/* | "$HOME/.local/share/agent-kit"/*) return 0 ;; esac
   elif [ -f "$1" ] && grep -q "^# agent-kit-shim: " "$1" 2>/dev/null; then
     return 0
+  elif is_windows && [ -d "$1" ] && [ -f "$1/SKILL.md" ] && [ "$1/SKILL.md" -ef "$KIT_DIR/skills/$SKILL_NAME/SKILL.md" ]; then
+    return 0
   fi
   return 1
 }
@@ -141,7 +148,8 @@ is_ours() {
 # On Windows, also writes a .cmd shim for ~/.local/bin commands so PowerShell and CMD can run them.
 link() {
   local target=$1 src=$2
-  if [ -L "$target" ] && [ "$(readlink "$target")" = "$src" ]; then
+  if { [ -L "$target" ] && [ "$(readlink "$target")" = "$src" ]; } ||
+     { is_windows && [ -d "$target" ] && [ -d "$src" ] && is_ours "$target"; }; then
     if is_windows; then
       case "$target" in
         "$HOME/.local/bin/"*)
@@ -166,13 +174,13 @@ link() {
   fi
   mkdir -p "$(dirname "$target")"
   if is_windows && [ -d "$src" ] && command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
-    rm -rf "$target"
+    rmdir "$target" 2>/dev/null || cmd.exe //c rmdir "$(cygpath -w "$target")" >/dev/null 2>&1 || rm -f "$target" 2>/dev/null || true
     MSYS=winsymlinks:nativestrict ln -sfn "$src" "$target" 2>/dev/null ||
       cmd.exe //c mklink //J "$(cygpath -w "$target")" "$(cygpath -w "$src")" >/dev/null 2>&1 ||
       ln -sfn "$src" "$target"
-  elif is_windows && [ -f "$src" ]; then
+  elif is_windows && [ -f "$src" ] && command -v cmd.exe >/dev/null 2>&1; then
+    rm -f "$target"
     MSYS=winsymlinks:nativestrict ln -sfn "$src" "$target" 2>/dev/null ||
-      ln -sfn "$src" "$target" 2>/dev/null ||
       { printf '#!/usr/bin/env bash\n# agent-kit-shim: %s\nexec %s "$@"\n' "$src" "$(shell_quote "$src")" > "$target" && chmod +x "$target"; }
   else
     ln -sfn "$src" "$target"
@@ -192,7 +200,11 @@ unlink_ours() {
   if [ "$DRY_RUN" = 1 ]; then
     say "  would remove link $1"
   else
-    rm -f "$1"
+    if is_windows && [ -d "$1" ] && [ ! -L "$1" ]; then
+      rmdir "$1" 2>/dev/null || { command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1 && cmd.exe //c rmdir "$(cygpath -w "$1")" >/dev/null 2>&1; } || rm -f "$1"
+    else
+      rm -f "$1"
+    fi
     if [ -f "$1.cmd" ] && grep -q "agent-kit-shim" "$1.cmd" 2>/dev/null; then
       rm -f "$1.cmd"
     fi

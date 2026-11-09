@@ -21,7 +21,7 @@ same_tree() { [ "$(snap "$1")" = "$(snap "$2")" ]; }
 # Seed: existing user content that must survive untouched
 mkdir -p "$HOME/.claude"
 printf '# My rules\n- be nice\n' > "$HOME/.claude/CLAUDE.md"
-echo '{"model":"opus","hooks":{"SessionStart":[{"matcher":"startup","hooks":[{"type":"command","command":"/usr/local/bin/mine.sh"}]}]}}' | jq . > "$HOME/.claude/settings.json"
+echo '{"model":"opus","hooks":{"SessionStart":[{"matcher":"startup","hooks":[{"type":"command","command":"/usr/local/bin/mine.sh"}]}]}}' | jq -b . > "$HOME/.claude/settings.json"
 mkdir -p "$HOME/.gemini/antigravity-cli/skills/verified-dev"   # foreign real dir: must be skipped, not replaced
 echo "foreign" > "$HOME/.gemini/antigravity-cli/skills/verified-dev/SKILL.md"
 cp -R "$HOME" "$HOME.orig"
@@ -34,9 +34,9 @@ check "user text kept in CLAUDE.md" 'grep -qx -- "- be nice" "$HOME/.claude/CLAU
 check "block in CLAUDE.md" 'grep -qx "<!-- agent-kit:begin -->" "$HOME/.claude/CLAUDE.md"'
 check "block in GEMINI.md" 'grep -q "verified-dev" "$HOME/.gemini/GEMINI.md"'
 check "block in copilot" 'grep -q "verified-dev" "$HOME/.copilot/copilot-instructions.md"'
-check "claude skill link" '[ "$(readlink "$HOME/.claude/skills/verified-dev")" = "$KIT/skills/verified-dev" ]'
+check "claude skill link" '[ "$(readlink "$HOME/.claude/skills/verified-dev" 2>/dev/null)" = "$KIT/skills/verified-dev" ] || [ "$HOME/.claude/skills/verified-dev/SKILL.md" -ef "$KIT/skills/verified-dev/SKILL.md" ]'
 check "no duplicate copilot skill" '[ ! -e "$HOME/.copilot/skills/verified-dev" ]'
-check "antigravity skill link" '[ -L "$HOME/.gemini/config/skills/verified-dev" ]'
+check "antigravity skill link" '[ -L "$HOME/.gemini/config/skills/verified-dev" ] || [ "$HOME/.gemini/config/skills/verified-dev/SKILL.md" -ef "$KIT/skills/verified-dev/SKILL.md" ]'
 check "foreign dir untouched" '[ ! -L "$HOME/.gemini/antigravity-cli/skills/verified-dev" ] && grep -q foreign "$HOME/.gemini/antigravity-cli/skills/verified-dev/SKILL.md"'
 check "user hook kept" 'jq -e ".hooks.SessionStart[] | select(.matcher==\"startup\")" "$HOME/.claude/settings.json" >/dev/null'
 check "our hook added once" '[ "$(jq "[.hooks.SessionStart[].hooks[] | select(.command==\"'"'"'$KIT/hooks/remind.sh'"'"'\")] | length" "$HOME/.claude/settings.json")" = 1 ]'

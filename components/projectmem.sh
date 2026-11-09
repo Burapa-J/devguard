@@ -52,8 +52,18 @@ projectmem_install() {
   [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 || true
 }
 
+# Convert a POSIX path (/c/Users/...) to C:/Users/... on Windows so native Windows IDE/CLI
+# processes (VS Code, Antigravity, Cursor, Claude Code, Python) can resolve it directly.
+win_or_posix_path() {
+  if is_windows && command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
+
 projectmem_server() {
-  printf '{"command":"%s","args":["-m","projectmem.mcp_server"]}' "$(projectmem_py)"
+  printf '{"command":"%s","args":["-m","projectmem.mcp_server"]}' "$(win_or_posix_path "$(projectmem_py)")"
 }
 
 projectmem_wire() {
@@ -113,9 +123,14 @@ projectmem_sync_pth() {
 # The .pth hook must load pjm_sync.py from this kit; a moved or re-cloned kit leaves it pointing at a
 # path that no longer exists, and projectmem then runs without sync or the events lock.
 projectmem_sync_hook_ok() {
-  local pth
+  local pth kit_bin_win
   pth=$(projectmem_sync_pth)
-  [ -n "$pth" ] && grep -qF "'$KIT_DIR/bin'" "$pth" && [ -f "$KIT_DIR/bin/pjm_sync.py" ]
+  [ -n "$pth" ] && [ -f "$KIT_DIR/bin/pjm_sync.py" ] || return 1
+  if grep -qF "'$KIT_DIR/bin'" "$pth" 2>/dev/null; then
+    return 0
+  fi
+  kit_bin_win=$(win_or_posix_path "$KIT_DIR/bin")
+  [ -n "$kit_bin_win" ] && grep -qF "'$kit_bin_win'" "$pth" 2>/dev/null
 }
 
 # Device ids that have written a node file to the hub, one per line.
@@ -149,8 +164,15 @@ projectmem_project_ready() {
   # --git-path follows linked worktrees (.git is a file there) and core.hooksPath.
   hook=$(git rev-parse --git-path hooks/post-commit 2>/dev/null) || return 1
   [ -f "$hook" ] && grep -q "pjm\|projectmem" "$hook" 2>/dev/null || return 1
-  [ -f "$HOME/.projectmem/projects.json" ] && grep -qF "\"$PWD\"" "$HOME/.projectmem/projects.json" 2>/dev/null || return 1
-  return 0
+  [ -f "$HOME/.projectmem/projects.json" ] || return 1
+  if grep -qF "\"$PWD\"" "$HOME/.projectmem/projects.json" 2>/dev/null; then
+    return 0
+  fi
+  if is_windows && command -v cygpath >/dev/null 2>&1; then
+    grep -qF "\"$(cygpath -m "$PWD")\"" "$HOME/.projectmem/projects.json" 2>/dev/null && return 0
+    grep -qF "\"$(cygpath -w "$PWD" | sed 's/\\/\\\\/g')\"" "$HOME/.projectmem/projects.json" 2>/dev/null && return 0
+  fi
+  return 1
 }
 
 projectmem_project_init() {

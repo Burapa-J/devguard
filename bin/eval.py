@@ -53,14 +53,15 @@ def load_cases(path: Path) -> list[dict]:
 
 def ask(agent: str, model: str | None, prompt: str, conversation: str | None) -> tuple[str, str | None]:
     """One turn. Returns (answer text, conversation id to continue)."""
+    exe = shutil.which(agent) or agent
     if agent == "agy":
-        cmd = ["agy", "-p", prompt, "--mode", "plan", "--output-format", "stream-json"]
+        cmd = [exe, "-p", prompt, "--mode", "plan", "--output-format", "stream-json"]
         if model:
             cmd += ["--model", model]
         if conversation:
             cmd += ["--conversation", conversation]
     else:
-        cmd = ["claude", "-p", prompt, "--permission-mode", "plan", "--output-format", "json"]
+        cmd = [exe, "-p", prompt, "--permission-mode", "plan", "--output-format", "json"]
         if model:
             cmd += ["--model", model]
         if conversation:
