@@ -17,7 +17,8 @@ for c in claude gemini agy; do
     "$T" "$c" "$T" "$c" > "$T/bin/$c"
   chmod +x "$T/bin/$c"
 done
-export PATH="$T/bin:/mingw64/bin:/usr/bin:/bin"
+GIT_BIN_DIR=$(dirname "$(command -v git)")
+export PATH="$T/bin:$GIT_BIN_DIR:/usr/bin:/bin"
 unset DEVGUARD_REVIEWER
 
 mkdir -p "$T/repo" && cd "$T/repo" || exit 1
