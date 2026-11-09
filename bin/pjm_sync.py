@@ -21,7 +21,6 @@ Architecture:
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import hashlib
 import json
 import os
@@ -33,6 +32,15 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Any
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None  # type: ignore[assignment]
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None  # type: ignore[assignment]
 
 PLACEHOLDER_PHRASES = (
     "Not described yet.",
@@ -51,6 +59,14 @@ def default_sync_dir() -> Path:
     env = os.environ.get("DEVGUARD_SYNC_DIR")
     if env:
         return Path(env).expanduser().resolve()
+    if sys.platform == "win32":
+        icloud = Path.home() / "iCloudDrive"
+        if icloud.is_dir():
+            return icloud / "devguard-sync"
+        onedrive = os.environ.get("OneDrive") or os.environ.get("OneDriveConsumer")
+        if onedrive and Path(onedrive).is_dir():
+            return Path(onedrive) / "devguard-sync"
+        return icloud / "devguard-sync"
     return Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "devguard-sync"
 
 
@@ -151,7 +167,7 @@ def events_lock(mem_dir: Path, timeout: float = LOCK_TIMEOUT_S):
     path = Path.home() / ".agent-kit" / "locks" / f"pjm-{key}.lock"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fh = path.open("a")
+        fh = path.open("a+b")
     except OSError:
         yield False
         return
@@ -159,9 +175,13 @@ def events_lock(mem_dir: Path, timeout: float = LOCK_TIMEOUT_S):
         deadline = time.monotonic() + timeout
         while True:
             try:
-                fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                if fcntl is not None:
+                    fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                elif msvcrt is not None:
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
                 break
-            except BlockingIOError:
+            except (BlockingIOError, OSError):
                 if time.monotonic() >= deadline:
                     yield False
                     return
@@ -169,7 +189,14 @@ def events_lock(mem_dir: Path, timeout: float = LOCK_TIMEOUT_S):
         try:
             yield True
         finally:
-            fcntl.flock(fh, fcntl.LOCK_UN)
+            try:
+                if fcntl is not None:
+                    fcntl.flock(fh, fcntl.LOCK_UN)
+                elif msvcrt is not None:
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            except OSError:
+                pass
 
 
 def replace_keeping_appends(
@@ -190,6 +217,8 @@ def replace_keeping_appends(
     Returns (replaced, remap applied to late issues) so the caller can update .current_issue.
     """
     issue_remap = issue_remap or {}
+    if sys.platform == "win32":
+        return atomic_write_if_changed(target, content), {}
     try:
         old = target.open("rb")
     except OSError:
@@ -1056,10 +1085,11 @@ def main(argv: list[str]) -> int:
         # Install .pth file into projectmem-venv site-packages so every MCP/CLI run activates hooks
         import site
 
-        sp_dirs = site.getsitepackages()
+        sp_dirs = [p for p in site.getsitepackages() if p]
         if not sp_dirs:
             return 1
-        sp = Path(sp_dirs[0])
+        sp = next((Path(p) for p in sp_dirs if Path(p).name.lower() == "site-packages"), Path(sp_dirs[0]))
+        sp.mkdir(parents=True, exist_ok=True)
         kit_bin = str(Path(__file__).resolve().parent)
         pth_content = (
             f"import sys; sys.path.insert(0, {kit_bin!r}); "

@@ -24,7 +24,9 @@ OPENCODE_MCP="$HOME/.config/opencode/opencode.jsonc"
 CURSOR_MCP="$HOME/.cursor/mcp.json"
 CODEX_MCP="$HOME/.codex/config.toml"
 GEMINI_MCP="$HOME/.gemini/settings.json"
-if [ "$(uname -s)" = Darwin ]; then
+if is_windows; then
+  VSCODE_MCP="${APPDATA:-$HOME/AppData/Roaming}/Code/User/mcp.json"
+elif [ "$(uname -s)" = Darwin ]; then
   VSCODE_MCP="$HOME/Library/Application Support/Code/User/mcp.json"
 else
   VSCODE_MCP="$HOME/.config/Code/User/mcp.json"

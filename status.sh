@@ -117,7 +117,7 @@ if projectmem_present; then
     flag "sandboxed (sync via launchd/zsh)" true
   else
     flag "$(projectmem_sync_devices | wc -l | tr -d ' ') device(s)" '[ -n "$(projectmem_sync_devices)" ]'
-    sync_summary=$("$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --check-summary 2>/dev/null)
+    sync_summary=$("$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" --check-summary 2>/dev/null)
     # shellcheck disable=SC2034  # read inside the eval'd flag/mark conditions
     sync_rc=$?
     [ -n "$sync_summary" ] && flag "$sync_summary" '[ "$sync_rc" = 0 ]'

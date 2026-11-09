@@ -70,7 +70,7 @@ echo "${C_BOLD}╭─ devguard doctor ──────────────
 # ---- 1. Legacy tokless residue -----------------------------------------------------------------
 tokless_found=0
 if [ -e "$HOME/.local/bin/tokless" ] || [ -L "$HOME/.local/bin/tokless" ] ||
-   { [ -f "$HOME/.local/bin/rtk" ] && [ ! -L "$HOME/.local/bin/rtk" ]; } ||
+   { [ -f "$HOME/.local/bin/rtk" ] && [ ! -L "$HOME/.local/bin/rtk" ] && ! state_installed_by_kit rtk; } ||
    [ -d "$HOME/.local/share/tokless" ] ||
    [ -f "$HOME/.config/opencode/plugins/tokless-rtk.ts" ] ||
    { [ -f "$ZSHRC" ] && grep -q "tokless" "$ZSHRC" 2>/dev/null; } ||
@@ -88,7 +88,7 @@ else
         "$HOME/.local/bin/tokless" disable >/dev/null 2>&1 || true
     fi
     rm -f "$HOME/.local/bin/tokless" "$HOME/.config/opencode/plugins/tokless-rtk.ts"
-    if [ -f "$HOME/.local/bin/rtk" ] && [ ! -L "$HOME/.local/bin/rtk" ]; then
+    if [ -f "$HOME/.local/bin/rtk" ] && [ ! -L "$HOME/.local/bin/rtk" ] && ! state_installed_by_kit rtk; then
       mkdir -p "$BACKUP_DIR"
       mv "$HOME/.local/bin/rtk" "$BACKUP_DIR/tokless-rtk"
       command -v rtk >/dev/null 2>&1 || rtk_install >/dev/null 2>&1 || true
@@ -135,9 +135,9 @@ for old_link in $LEGACY_LINKS; do
     bad_links="$bad_links $(basename "$old_link")(legacy-name)"
   fi
 done
-if [ -x "$PROJECTMEM_VENV/bin/pjm" ]; then
+if [ -x "$(projectmem_bin pjm)" ]; then
   for b in pjm projectmem; do
-    if [ ! -L "$HOME/.local/bin/$b" ] || [ "$(readlink "$HOME/.local/bin/$b")" != "$PROJECTMEM_VENV/bin/$b" ]; then
+    if { [ ! -L "$HOME/.local/bin/$b" ] || [ "$(readlink "$HOME/.local/bin/$b")" != "$(projectmem_bin "$b")" ]; } && ! is_ours "$HOME/.local/bin/$b"; then
       bad_links="$bad_links $b(wrong-target)"
     fi
   done
@@ -156,10 +156,10 @@ else
     for old_link in $LEGACY_LINKS; do
       [ -L "$old_link" ] && rm -f "$old_link"
     done
-    if [ -x "$PROJECTMEM_VENV/bin/pjm" ]; then
+    if [ -x "$(projectmem_bin pjm)" ]; then
       mkdir -p "$HOME/.local/bin"
       for b in pjm projectmem; do
-        ln -sfn "$PROJECTMEM_VENV/bin/$b" "$HOME/.local/bin/$b"
+        link "$HOME/.local/bin/$b" "$(projectmem_bin "$b")" >/dev/null
       done
     fi
     repaired "2. Repaired ~/.local/bin symlinks ($bad_links )"
@@ -355,9 +355,9 @@ version_drift() {
       fi
     fi
   done
-  if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
+  if [ -z "${STUB_LOG:-}" ] && ! is_windows && command -v brew >/dev/null 2>&1; then
     command -v ast-grep >/dev/null 2>&1 || out="$out ast-grep(missing)"
-    command -v xcbeautify >/dev/null 2>&1 || out="$out xcbeautify(missing)"
+    [ "$(uname -s)" = Darwin ] && { command -v xcbeautify >/dev/null 2>&1 || out="$out xcbeautify(missing)"; }
     command -v shellcheck >/dev/null 2>&1 || out="$out shellcheck(missing)"
   fi
   printf '%s' "$out"
@@ -371,9 +371,9 @@ else
     for c in $ALL_COMPONENTS; do
       component_upgrade "$c" >/dev/null 2>&1 || true
     done
-    if [ -z "${STUB_LOG:-}" ] && command -v brew >/dev/null 2>&1; then
+    if [ -z "${STUB_LOG:-}" ] && ! is_windows && command -v brew >/dev/null 2>&1; then
       command -v ast-grep >/dev/null 2>&1 || brew install ast-grep >/dev/null 2>&1 || true
-      command -v xcbeautify >/dev/null 2>&1 || brew install xcbeautify >/dev/null 2>&1 || true
+      [ "$(uname -s)" = Darwin ] && { command -v xcbeautify >/dev/null 2>&1 || brew install xcbeautify >/dev/null 2>&1 || true; }
       command -v shellcheck >/dev/null 2>&1 || brew install shellcheck >/dev/null 2>&1 || true
     fi
     # Re-check instead of trusting the installers: brew and npm failures are silenced above.
@@ -392,7 +392,7 @@ fi
 if projectmem_present && [ -z "${STUB_LOG:-}" ]; then
   if projectmem_sync_hook_ok; then
     ok "8a. Memory sync hook loads $KIT_DIR/bin/pjm_sync.py"
-  elif [ "$FIX" = 1 ] && "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 &&
+  elif [ "$FIX" = 1 ] && "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 &&
        projectmem_sync_hook_ok; then
     repaired "8a. Reinstalled memory sync hook (.pth) for $KIT_DIR"
   else

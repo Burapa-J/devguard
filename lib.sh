@@ -9,6 +9,14 @@ END_MARK="<!-- agent-kit:end -->"
 DRY_RUN=${DRY_RUN:-0}
 BACKUP_DIR=${BACKUP_DIR:-}
 
+# True on Git Bash / MSYS2 / Cygwin on Windows (or when AGENT_KIT_OS=windows in tests).
+is_windows() {
+  case "${AGENT_KIT_OS:-$(uname -s)}" in
+    MINGW* | MSYS* | CYGWIN* | Windows_NT | windows) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 SKILL_NAME="verified-dev"
 # Hook commands are run by a shell, so paths are single-quoted (the kit path may contain spaces).
 # Single quotes, not backslashes: JSON stores them unescaped, so the command can be matched as text.
@@ -120,16 +128,27 @@ remove_block() {
 
 is_ours() {
   local cur
-  [ -L "$1" ] || return 1
-  cur=$(readlink "$1")
-  case "$cur" in "$KIT_DIR"/*) return 0 ;; esac
+  if [ -L "$1" ]; then
+    cur=$(readlink "$1")
+    case "$cur" in "$KIT_DIR"/* | "$HOME/.local/share/agent-kit"/*) return 0 ;; esac
+  elif [ -f "$1" ] && grep -q "^# agent-kit-shim: " "$1" 2>/dev/null; then
+    return 0
+  fi
   return 1
 }
 
 # Symlink $1 -> $2. Never replaces a real file or someone else's symlink.
+# On Windows, also writes a .cmd shim for ~/.local/bin commands so PowerShell and CMD can run them.
 link() {
   local target=$1 src=$2
   if [ -L "$target" ] && [ "$(readlink "$target")" = "$src" ]; then
+    if is_windows; then
+      case "$target" in
+        "$HOME/.local/bin/"*)
+          [ -f "$target.cmd" ] || printf '@echo off\r\nREM agent-kit-shim\r\nbash "%%~dp0%s" %%*\r\n' "$(basename "$target")" > "$target.cmd"
+          ;;
+      esac
+    fi
     say "  unchanged  $target"
     return 0
   fi
@@ -137,7 +156,7 @@ link() {
     warn "$target is a symlink to $(readlink "$target"); skipped"
     return 0
   fi
-  if [ -e "$target" ] && [ ! -L "$target" ]; then
+  if [ -e "$target" ] && [ ! -L "$target" ] && ! is_ours "$target"; then
     warn "$target already exists and is not managed by agent-kit; skipped"
     return 0
   fi
@@ -146,7 +165,25 @@ link() {
     return 0
   fi
   mkdir -p "$(dirname "$target")"
-  ln -sfn "$src" "$target"
+  if is_windows && [ -d "$src" ] && command -v cmd.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+    rm -rf "$target"
+    MSYS=winsymlinks:nativestrict ln -sfn "$src" "$target" 2>/dev/null ||
+      cmd.exe //c mklink //J "$(cygpath -w "$target")" "$(cygpath -w "$src")" >/dev/null 2>&1 ||
+      ln -sfn "$src" "$target"
+  elif is_windows && [ -f "$src" ]; then
+    MSYS=winsymlinks:nativestrict ln -sfn "$src" "$target" 2>/dev/null ||
+      ln -sfn "$src" "$target" 2>/dev/null ||
+      { printf '#!/usr/bin/env bash\n# agent-kit-shim: %s\nexec %s "$@"\n' "$src" "$(shell_quote "$src")" > "$target" && chmod +x "$target"; }
+  else
+    ln -sfn "$src" "$target"
+  fi
+  if is_windows; then
+    case "$target" in
+      "$HOME/.local/bin/"*)
+        printf '@echo off\r\nREM agent-kit-shim\r\nbash "%%~dp0%s" %%*\r\n' "$(basename "$target")" > "$target.cmd"
+        ;;
+    esac
+  fi
   say "  linked     $target -> $src"
 }
 
@@ -156,6 +193,9 @@ unlink_ours() {
     say "  would remove link $1"
   else
     rm -f "$1"
+    if [ -f "$1.cmd" ] && grep -q "agent-kit-shim" "$1.cmd" 2>/dev/null; then
+      rm -f "$1.cmd"
+    fi
     say "  unlinked   $1"
   fi
 }

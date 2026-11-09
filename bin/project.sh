@@ -150,8 +150,8 @@ case "$cmd" in
       done < "${TMPDIR:-/tmp}/agent-kit-scan.$$"
       rm -f "${TMPDIR:-/tmp}/agent-kit-scan.$$"
     done < "$AUTO_ROOTS"
-    if [ -z "${STUB_LOG:-}" ] && [ -x "$PROJECTMEM_VENV/bin/python" ]; then
-      "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet >/dev/null 2>&1 || true
+    if [ -z "${STUB_LOG:-}" ] && [ -x "$(projectmem_py)" ]; then
+      "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" --quiet >/dev/null 2>&1 || true
     fi
     ;;
 
@@ -164,8 +164,8 @@ case "$cmd" in
     [ -e "$top/.agent-kit-skip" ] && exit 0
     cd "$top"
     if project_ready; then
-      if [ -z "${STUB_LOG:-}" ] && [ -x "$PROJECTMEM_VENV/bin/python" ]; then
-        nohup "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet "$top" </dev/null >/dev/null 2>&1 &
+      if [ -z "${STUB_LOG:-}" ] && [ -x "$(projectmem_py)" ]; then
+        nohup "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" --quiet "$top" </dev/null >/dev/null 2>&1 &
       fi
       exit 0
     fi

@@ -8,9 +8,60 @@ rtk_desc() { echo "shell-output compression hook (Homebrew rtk)"; }
 
 rtk_present() { command -v rtk >/dev/null 2>&1 && rtk gain >/dev/null 2>&1; }
 
+rtk_asset() {
+  local arch="x86_64"
+  case "$(uname -m)" in arm64 | aarch64) arch="aarch64" ;; esac
+  if is_windows; then
+    echo "rtk-${arch}-pc-windows-msvc.zip"
+  elif [ "$(uname -s)" = Darwin ]; then
+    echo "rtk-${arch}-apple-darwin.tar.gz"
+  elif [ "$(uname -s)" = Linux ]; then
+    [ "$arch" = aarch64 ] && echo "rtk-aarch64-unknown-linux-gnu.tar.gz" || echo "rtk-x86_64-unknown-linux-musl.tar.gz"
+  fi
+}
+
+rtk_install_prebuilt() {
+  local asset url tmp
+  asset=$(rtk_asset)
+  [ -n "$asset" ] || return 1
+  url="${RTK_RELEASE_BASE_URL:-https://github.com/rtk-ai/rtk/releases/latest/download}/$asset"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  would download $url -> $HOME/.local/bin"
+    return 0
+  fi
+  say "  downloading $asset -> $HOME/.local/bin"
+  mkdir -p "$HOME/.local/bin"
+  tmp=$(mktemp -d)
+  if ! curl -fsSL "$url" -o "$tmp/$asset"; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  case "$asset" in
+    *.zip)
+      if command -v unzip >/dev/null 2>&1; then
+        unzip -qo "$tmp/$asset" -d "$HOME/.local/bin" || { rm -rf "$tmp"; return 1; }
+      elif command -v powershell.exe >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+        powershell.exe -NoProfile -Command "Expand-Archive -Force -Path '$(cygpath -w "$tmp/$asset")' -DestinationPath '$(cygpath -w "$HOME/.local/bin")'" >/dev/null || { rm -rf "$tmp"; return 1; }
+      else
+        rm -rf "$tmp"
+        return 1
+      fi
+      ;;
+    *.tar.gz)
+      tar -xzf "$tmp/$asset" -C "$HOME/.local/bin" || { rm -rf "$tmp"; return 1; }
+      chmod +x "$HOME/.local/bin/rtk" 2>/dev/null || true
+      ;;
+  esac
+  rm -rf "$tmp"
+  [ -x "$HOME/.local/bin/rtk" ] || [ -x "$HOME/.local/bin/rtk.exe" ]
+}
+
 rtk_install() {
-  need brew "Homebrew not found; see https://brew.sh" || return 1
-  run brew install rtk || return 1
+  if command -v brew >/dev/null 2>&1 && ! is_windows; then
+    run brew install rtk || return 1
+  else
+    rtk_install_prebuilt || { warn "rtk install failed; install Homebrew or download from https://github.com/rtk-ai/rtk/releases"; return 1; }
+  fi
   [ "$DRY_RUN" = 1 ] || rtk telemetry disable >/dev/null 2>&1 || true
 }
 
@@ -56,7 +107,18 @@ rtk_unwire() {
   esac
 }
 
-rtk_remove() { run brew uninstall rtk; }
+rtk_remove() {
+  if [ -f "$HOME/.local/bin/rtk.exe" ] || { [ -f "$HOME/.local/bin/rtk" ] && [ ! -L "$HOME/.local/bin/rtk" ]; }; then
+    if [ "$DRY_RUN" = 1 ]; then
+      say "  would remove $HOME/.local/bin/rtk"
+    else
+      rm -f "$HOME/.local/bin/rtk" "$HOME/.local/bin/rtk.exe"
+      say "  removed    $HOME/.local/bin/rtk"
+    fi
+  elif command -v brew >/dev/null 2>&1; then
+    run brew uninstall rtk
+  fi
+}
 
 rtk_status() {
   if [ -f "$HOME/.claude/hooks/rtk-rewrite.sh" ] || grep -q "rtk hook claude" "$CLAUDE_SETTINGS" 2>/dev/null; then

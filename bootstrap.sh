@@ -28,9 +28,9 @@ main() {
   missing=""
   command -v git >/dev/null 2>&1 || missing="$missing git"
   command -v jq >/dev/null 2>&1 || missing="$missing jq"
-  command -v python3 >/dev/null 2>&1 || missing="$missing python3"
+  { command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; } || missing="$missing python3"
   command -v npm >/dev/null 2>&1 || missing="$missing node"
-  command -v xcbeautify >/dev/null 2>&1 || missing="$missing xcbeautify"
+  [ "$(uname -s)" = Darwin ] && { command -v xcbeautify >/dev/null 2>&1 || missing="$missing xcbeautify"; }
   command -v ast-grep >/dev/null 2>&1 || missing="$missing ast-grep"
   command -v shellcheck >/dev/null 2>&1 || missing="$missing shellcheck"
   if [ -n "$missing" ]; then
@@ -38,8 +38,13 @@ main() {
       say "Installing with Homebrew:$missing"
       # shellcheck disable=SC2046  # one argument per tool is intended
       brew install $(printf '%s' "$missing" | sed 's/python3/python/') < /dev/null
+    elif command -v apt-get >/dev/null 2>&1; then
+      say "Installing with apt-get:$missing"
+      apt_pkgs=$(printf '%s' "$missing" | sed 's/node/nodejs npm/; s/python3/python3 python3-venv python3-pip/; s/ast-grep//')
+      # shellcheck disable=SC2086
+      sudo apt-get update && sudo apt-get install -y $apt_pkgs < /dev/null
     else
-      die "missing:$missing. Install Homebrew (https://brew.sh) or these tools, then run again."
+      die "missing:$missing. Install Homebrew (https://brew.sh), winget (via bootstrap.ps1 on Windows), or these tools, then run again."
     fi
   fi
 

@@ -454,6 +454,100 @@ printf '{"projects":{"x":{"path":"%s"}}}\n' "$WT" > "$WT_HOME/.projectmem/projec
   . "$KIT/components/projectmem.sh" && projectmem_project_ready); code=$?
 check "projectmem_project_ready accepts a linked git worktree" '[ $code = 0 ]'
 
+echo "== Windows cross-platform mode (AGENT_KIT_OS=windows)"
+WIN_HOME="$STUB/win-home"; WIN_STUB="$STUB/win-bin"
+mkdir -p "$WIN_HOME/AppData/Roaming/Code/User" "$WIN_HOME/iCloudDrive/devguard-sync" "$WIN_STUB"
+echo '{"servers":{"existing":{"command":"keep-me"}}}' > "$WIN_HOME/AppData/Roaming/Code/User/mcp.json"
+# Create a fake rtk zip archive served via file:// URL for prebuilt rtk_install
+RTK_REL="$STUB/rtk-releases"
+mkdir -p "$RTK_REL"
+cp "$STUB/bin/rtk.real" "$RTK_REL/rtk"
+chmod +x "$RTK_REL/rtk"
+(cd "$RTK_REL" && zip -q "rtk-x86_64-pc-windows-msvc.zip" rtk && cp "rtk-x86_64-pc-windows-msvc.zip" "rtk-aarch64-pc-windows-msvc.zip")
+# Windows-shaped python3 stub creating Scripts/python.exe, Scripts/pjm.exe, and Lib/site-packages
+cat > "$WIN_STUB/python3" <<'EOF'
+#!/bin/sh
+echo "win-python3 $*" >> "$STUB_LOG"
+if [ "$1 $2" = "-m venv" ]; then
+  mkdir -p "$3/Scripts" "$3/Lib/site-packages"
+  printf '#!/bin/sh\necho "win-pip $*" >> "$STUB_LOG"\n' > "$3/Scripts/pip.exe"
+  printf '#!/bin/sh\n' > "$3/Scripts/python.exe"
+  printf '#!/bin/sh\necho "win-pjm $*" >> "$STUB_LOG"\n' > "$3/Scripts/pjm.exe"
+  cp "$3/Scripts/pjm.exe" "$3/Scripts/projectmem.exe"
+  chmod +x "$3/Scripts/"*
+fi
+EOF
+chmod +x "$WIN_STUB/python3"
+(
+  export HOME="$WIN_HOME" APPDATA="$WIN_HOME/AppData/Roaming" AGENT_KIT_OS=windows
+  export RTK_RELEASE_BASE_URL="file://$RTK_REL"
+  export PATH="$WIN_STUB:$STUB/bin:$WIN_HOME/.local/bin:/usr/bin:/bin"
+  "$KIT/install.sh" --with=projectmem,rtk --targets=claude,vscode --auto-project=none > "$STUB/win-install.log" 2>&1
+)
+check "Windows install created .cmd shims in ~/.local/bin" '[ -f "$WIN_HOME/.local/bin/devguard.cmd" ] && [ -f "$WIN_HOME/.local/bin/agent-verify.cmd" ] && [ -f "$WIN_HOME/.local/bin/pjm.cmd" ]'
+check "Windows projectmem wired to Scripts/python.exe" '[ "$(jq -r ".mcpServers.projectmem.command" "$WIN_HOME/.claude.json")" = "$WIN_HOME/.local/share/agent-kit/projectmem-venv/Scripts/python.exe" ]'
+check "Windows VS Code MCP written to APPDATA/Code/User/mcp.json keeping existing entry" '[ "$(jq -r ".servers.existing.command" "$WIN_HOME/AppData/Roaming/Code/User/mcp.json")" = "keep-me" ] && [ "$(jq -r ".servers.projectmem.command" "$WIN_HOME/AppData/Roaming/Code/User/mcp.json")" = "$WIN_HOME/.local/share/agent-kit/projectmem-venv/Scripts/python.exe" ]'
+check "Windows prebuilt rtk downloaded into ~/.local/bin" '[ -x "$WIN_HOME/.local/bin/rtk" ]'
+# Simulate Windows Lib/site-packages .pth hook and check doctor on Windows
+HOME="$WIN_HOME" /usr/bin/python3 -B -c '
+import site, sys
+sys.path.insert(0, sys.argv[1] + "/bin")
+import pjm_sync
+site.getsitepackages = lambda: [sys.argv[2], sys.argv[2] + "/Lib/site-packages"]
+assert pjm_sync.main(["install-hook"]) == 0
+' "$KIT" "$WIN_HOME/.local/share/agent-kit/projectmem-venv"
+check "install-hook writes .pth into Lib/site-packages on Windows venv" '[ -f "$WIN_HOME/.local/share/agent-kit/projectmem-venv/Lib/site-packages/devguard_pjm_sync.pth" ]'
+(
+  export HOME="$WIN_HOME" APPDATA="$WIN_HOME/AppData/Roaming" AGENT_KIT_OS=windows
+  export PATH="$WIN_STUB:$STUB/bin:$WIN_HOME/.local/bin:/usr/bin:/bin"
+  "$KIT/bin/doctor.sh" > "$STUB/win-doc.log" 2>&1
+); code=$?
+check "doctor passes on Windows layout (prebuilt rtk not mistaken for tokless)" '[ $code = 0 ] && grep -q "0 issues" "$STUB/win-doc.log"'
+(
+  unset STUB_LOG
+  export HOME="$WIN_HOME" APPDATA="$WIN_HOME/AppData/Roaming" AGENT_KIT_OS=windows KIT_DIR="$KIT"
+  . "$KIT/lib.sh"; . "$KIT/components/common.sh"; . "$KIT/components/projectmem.sh"
+  projectmem_sync_hook_ok && [ "$(projectmem_sync_hub)" = "$WIN_HOME/iCloudDrive/devguard-sync" ]
+); code=$?
+check "Windows sync hook (.pth in Lib/site-packages) and iCloudDrive sync hub detected" '[ $code = 0 ]'
+# Test pjm_sync.py Windows msvcrt lock fallback and win32 default_sync_dir
+win_py_out=$(HOME="$WIN_HOME" /usr/bin/python3 -B -c '
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1] + "/bin")
+import pjm_sync
+pjm_sync.fcntl = None
+calls = []
+class FakeMsvcrt:
+    LK_NBLCK = 1
+    LK_UNLCK = 0
+    def locking(self, fd, mode, nbytes):
+        calls.append(mode)
+pjm_sync.msvcrt = FakeMsvcrt()
+orig_plat = sys.platform
+sys.platform = "win32"
+try:
+    sdir = pjm_sync.default_sync_dir()
+    assert sdir == Path(sys.argv[2]) / "iCloudDrive" / "devguard-sync", f"bad sdir: {sdir}"
+    with pjm_sync.events_lock(Path(sys.argv[2])) as ok:
+        assert ok is True
+    assert calls == [1, 0], f"bad calls: {calls}"
+    t = Path(sys.argv[2]) / "ev.jsonl"
+    t.write_text("old\n", encoding="utf-8")
+    replaced, remap = pjm_sync.replace_keeping_appends(t, "new\n", 4, set())
+    assert replaced is True and remap == {} and t.read_text(encoding="utf-8") == "new\n"
+    print("WIN_PY_OK")
+finally:
+    sys.platform = orig_plat
+' "$KIT" "$WIN_HOME" 2>&1)
+check "pjm_sync.py win32 msvcrt lock, iCloudDrive sync dir, and replace_keeping_appends work" 'printf "%s" "$win_py_out" | grep -q "WIN_PY_OK"'
+(
+  export HOME="$WIN_HOME" APPDATA="$WIN_HOME/AppData/Roaming" AGENT_KIT_OS=windows
+  export PATH="$WIN_STUB:$STUB/bin:$WIN_HOME/.local/bin:/usr/bin:/bin"
+  "$KIT/uninstall.sh" --purge > "$STUB/win-un.log" 2>&1
+); code=$?
+check "Windows uninstall --purge removes prebuilt rtk, venv, and .cmd shims while keeping existing VS Code MCP" '[ $code = 0 ] && [ ! -e "$WIN_HOME/.local/bin/rtk" ] && [ ! -e "$WIN_HOME/.local/bin/devguard.cmd" ] && [ ! -e "$WIN_HOME/.local/bin/pjm.cmd" ] && [ "$(jq -r ".servers.existing.command" "$WIN_HOME/AppData/Roaming/Code/User/mcp.json")" = "keep-me" ]'
+
 rm -rf "$HOME/.agent-kit-backup"
 check ".claude.json byte-identical to original" 'cmp -s "$CJ" "$HOME.orig/.claude.json"'
 check "whole HOME restored" 'same_tree "$HOME" "$HOME.orig"'

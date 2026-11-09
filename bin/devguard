@@ -180,7 +180,9 @@ case "$cmd" in
   eval) exec python3 "$KIT_DIR/bin/eval.py" "$@" ;;
   sync)
     PY="$HOME/.local/share/agent-kit/projectmem-venv/bin/python"
-    [ -x "$PY" ] || PY="python3"
+    [ -x "$PY" ] || PY="$HOME/.local/share/agent-kit/projectmem-venv/Scripts/python.exe"
+    [ -x "$PY" ] || PY="$HOME/.local/share/agent-kit/projectmem-venv/Scripts/python"
+    [ -x "$PY" ] || { command -v python3 >/dev/null 2>&1 && PY="python3" || PY="python"; }
     exec "$PY" "$KIT_DIR/bin/pjm_sync.py" "$@"
     ;;
   select) run_select ;;
@@ -235,8 +237,8 @@ case "$cmd" in
     else
       "$KIT_DIR/install.sh" "$@"
     fi
-    if [ -x "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" ]; then
-      "$HOME/.local/share/agent-kit/projectmem-venv/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet || true
+    if [ -x "$(projectmem_py)" ]; then
+      "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" --quiet || true
     fi
     echo
     exec "$KIT_DIR/status.sh"

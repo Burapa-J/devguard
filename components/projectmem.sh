@@ -8,34 +8,57 @@ PROJECTMEM_VERSION=0.3.5
 PROJECTMEM_VENV="$HOME/.local/share/agent-kit/projectmem-venv"
 PROJECTMEM_LINKS="pjm projectmem"
 
+projectmem_venv_bin() {
+  if [ -d "$PROJECTMEM_VENV/Scripts" ] && [ ! -d "$PROJECTMEM_VENV/bin" ]; then
+    printf '%s/Scripts' "$PROJECTMEM_VENV"
+  else
+    printf '%s/bin' "$PROJECTMEM_VENV"
+  fi
+}
+
+projectmem_py() {
+  local b
+  b=$(projectmem_venv_bin)
+  if [ -x "$b/python.exe" ]; then printf '%s/python.exe' "$b"; else printf '%s/python' "$b"; fi
+}
+
+projectmem_bin() {
+  local b
+  b=$(projectmem_venv_bin)
+  if [ -x "$b/$1.exe" ]; then printf '%s/%s.exe' "$b" "$1"; else printf '%s/%s' "$b" "$1"; fi
+}
+
 projectmem_desc() { echo "project memory via MCP (PyPI projectmem==$PROJECTMEM_VERSION)"; }
 
-projectmem_present() { [ -x "$PROJECTMEM_VENV/bin/python" ] && [ -x "$PROJECTMEM_VENV/bin/pjm" ]; }
+projectmem_present() { [ -x "$(projectmem_py)" ] && [ -x "$(projectmem_bin pjm)" ]; }
 
 projectmem_pinned_version() { echo "$PROJECTMEM_VERSION"; }
 
 projectmem_installed_version() {
-  "$PROJECTMEM_VENV/bin/python" -c 'import importlib.metadata as m; print(m.version("projectmem"))' 2>/dev/null | tr -d '[:space:]'
+  "$(projectmem_py)" -c 'import importlib.metadata as m; print(m.version("projectmem"))' 2>/dev/null | tr -d '[:space:]'
 }
 
 projectmem_install() {
-  local b
-  need python3 "python3 not found; install it first (xcode-select --install or brew install python)" || return 1
-  run python3 -m venv "$PROJECTMEM_VENV" || return 1
-  run "$PROJECTMEM_VENV/bin/pip" install --quiet "projectmem==$PROJECTMEM_VERSION" || return 1
+  local b py="python3"
+  if ! command -v python3 >/dev/null 2>&1 && command -v python >/dev/null 2>&1; then
+    py="python"
+  fi
+  need "$py" "python3 not found; install it first (xcode-select --install, brew install python, or winget install Python.Python.3.12)" || return 1
+  run "$py" -m venv "$PROJECTMEM_VENV" || return 1
+  run "$(projectmem_bin pip)" install --quiet "projectmem==$PROJECTMEM_VERSION" || return 1
   for b in $PROJECTMEM_LINKS; do
-    link "$HOME/.local/bin/$b" "$PROJECTMEM_VENV/bin/$b"
+    link "$HOME/.local/bin/$b" "$(projectmem_bin "$b")"
   done
-  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 || true
+  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 || true
 }
 
 projectmem_server() {
-  printf '{"command":"%s","args":["-m","projectmem.mcp_server"]}' "$PROJECTMEM_VENV/bin/python"
+  printf '{"command":"%s","args":["-m","projectmem.mcp_server"]}' "$(projectmem_py)"
 }
 
 projectmem_wire() {
-  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || [ ! -x "$PROJECTMEM_VENV/bin/python" ] ||
-    "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 || true
+  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || [ ! -x "$(projectmem_py)" ] ||
+    "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" install-hook >/dev/null 2>&1 || true
   mcp_set "$1" projectmem "$(projectmem_server)"
 }
 
@@ -44,8 +67,8 @@ projectmem_unwire() { mcp_del "$1" projectmem; }
 projectmem_remove() {
   local b
   for b in $PROJECTMEM_LINKS; do
-    if [ -L "$HOME/.local/bin/$b" ]; then
-      if [ "$DRY_RUN" = 1 ]; then say "  would remove link $HOME/.local/bin/$b"; else rm -f "$HOME/.local/bin/$b"; fi
+    if [ -L "$HOME/.local/bin/$b" ] || is_ours "$HOME/.local/bin/$b"; then
+      if [ "$DRY_RUN" = 1 ]; then say "  would remove link $HOME/.local/bin/$b"; else rm -f "$HOME/.local/bin/$b" "$HOME/.local/bin/$b.cmd"; fi
     fi
   done
   if [ "$DRY_RUN" = 1 ]; then
@@ -67,11 +90,24 @@ projectmem_status() {
 # ---- cross-machine sync health (bin/pjm_sync.py), shared by status.sh and doctor.sh ----------
 
 projectmem_sync_hub() {
-  printf '%s' "${DEVGUARD_SYNC_DIR:-$HOME/Library/Mobile Documents/com~apple~CloudDocs/devguard-sync}"
+  if [ -n "${DEVGUARD_SYNC_DIR:-}" ]; then
+    printf '%s' "$DEVGUARD_SYNC_DIR"
+  elif is_windows; then
+    if [ -d "$HOME/iCloudDrive" ]; then
+      printf '%s' "$HOME/iCloudDrive/devguard-sync"
+    elif [ -n "${OneDrive:-}" ] && [ -d "${OneDrive}" ]; then
+      printf '%s' "$OneDrive/devguard-sync"
+    else
+      printf '%s' "$HOME/iCloudDrive/devguard-sync"
+    fi
+  else
+    printf '%s' "$HOME/Library/Mobile Documents/com~apple~CloudDocs/devguard-sync"
+  fi
 }
 
 projectmem_sync_pth() {
-  ls -d "$PROJECTMEM_VENV"/lib/python*/site-packages/devguard_pjm_sync.pth 2>/dev/null | head -n 1
+  ls -d "$PROJECTMEM_VENV"/lib/python*/site-packages/devguard_pjm_sync.pth \
+        "$PROJECTMEM_VENV"/Lib/site-packages/devguard_pjm_sync.pth 2>/dev/null | head -n 1
 }
 
 # The .pth hook must load pjm_sync.py from this kit; a moved or re-cloned kit leaves it pointing at a
@@ -121,6 +157,6 @@ projectmem_project_init() {
   if projectmem_project_ready; then say "  present    .projectmem/"; return 0; fi
   # pjm init also installs git hooks and creates/updates CLAUDE.md and AGENTS.md with a
   # "projectmem bridge" section. Undo per repo with: pjm hooks uninstall, and delete .projectmem/.
-  run "$PROJECTMEM_VENV/bin/pjm" init
-  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || "$PROJECTMEM_VENV/bin/python" "$KIT_DIR/bin/pjm_sync.py" --quiet "$PWD" >/dev/null 2>&1 || true
+  run "$(projectmem_bin pjm)" init
+  [ -n "${STUB_LOG:-}" ] || [ "$DRY_RUN" = 1 ] || "$(projectmem_py)" "$KIT_DIR/bin/pjm_sync.py" --quiet "$PWD" >/dev/null 2>&1 || true
 }
