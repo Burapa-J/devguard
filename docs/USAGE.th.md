@@ -14,17 +14,24 @@
 ### 1.1 เครื่องใหม่: คำสั่งเดียว
 
 ปิด Claude Code, VS Code และ Antigravity ก่อน แล้วรัน:
+
+**macOS / Linux:**
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.ps1 | iex
 ```
 *(หากยังตั้งค่า Repo เป็น Private อยู่ ให้รัน `gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/devguard/contents/bootstrap.sh | bash`)*
 
 คำสั่งนี้จะ
-- ติดตั้งสิ่งที่ขาดผ่าน Homebrew (git, jq, python3, node)
+- ติดตั้งสิ่งที่ขาดผ่าน Homebrew (macOS), `apt-get` (Linux) หรือ `winget` (Windows: git, jq, python, node, ast-grep, shellcheck)
 - clone kit ไปไว้ที่ `~/.local/share/agent-kit/src` หรือใช้ที่เดิมถ้าเคยติดตั้งแล้ว
-- ติดตั้ง rules, skill, hook, codegraph, projectmem และ rtk
+- ติดตั้ง rules, skill, hook, codegraph, projectmem และ rtk (ผ่าน Git Bash บน Windows พร้อมสร้าง `.cmd` shim ใน `~/.local/bin`)
 - เปิดการตั้งค่าโปรเจกต์อัตโนมัติใน `~/Developer`
-- เพิ่ม `~/.local/bin` ใน PATH
+- เพิ่ม `~/.local/bin` ใน `PATH` (ทั้งใน `~/.zshrc` และ User `PATH` บน Windows)
 
 จากนั้นเปิด Terminal ใหม่ เปิด agent ใหม่ แล้วรัน `devguard status`
 

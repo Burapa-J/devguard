@@ -364,8 +364,8 @@
 
   <main class="content">
     <div class="badges">
-      <span class="badge">Platform: macOS · Linux</span>
-      <span class="badge">Shell: Bash 3.2+ · Zsh</span>
+      <span class="badge">Platform: macOS · Linux · Windows</span>
+      <span class="badge">Shell: Bash 3.2+ · Zsh · PowerShell</span>
       <span class="badge">Agents: Claude Code · Copilot · Antigravity · Cursor · OpenCode · Codex · Gemini</span>
     </div>
 
@@ -393,12 +393,20 @@
       <pre><code>curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash</code></pre>
     </div>
 
+    <div class="code-block">
+      <div class="code-header">
+        <span>PowerShell — One-command bootstrap (Windows)</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+      <pre><code>irm https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.ps1 | iex</code></pre>
+    </div>
+
     <p>The bootstrap script performs the following idempotent steps:</p>
     <ol>
-      <li>Installs missing prerequisites via Homebrew (<code>git</code>, <code>jq</code>, <code>python3</code>, <code>node</code>, <code>xcbeautify</code>, <code>ast-grep</code>, <code>shellcheck</code>).</li>
+      <li>Installs missing prerequisites via Homebrew on macOS, <code>apt-get</code> on Debian/Ubuntu, or <code>winget</code> on Windows (<code>git</code>, <code>jq</code>, <code>python3</code>, <code>node</code>, <code>xcbeautify</code> on macOS, <code>ast-grep</code>, <code>shellcheck</code>).</li>
       <li>Clones the repository to <code>~/.local/share/agent-kit/src</code> (or updates an existing clone).</li>
-      <li>Runs <code>./install.sh</code> with the default setup: global rules, the <code>verified-dev</code> skill, compaction reminder hook, <code>codegraph</code>, <code>projectmem</code>, <code>rtk</code>, and automatic repository indexing under <code>~/Developer</code>.</li>
-      <li>Ensures <code>~/.local/bin</code> is on your <code>PATH</code>.</li>
+      <li>Runs <code>./install.sh</code> (via Git Bash on Windows) with the default setup: global rules, the <code>verified-dev</code> skill, compaction reminder hook, <code>codegraph</code>, <code>projectmem</code>, <code>rtk</code>, and automatic repository indexing under <code>~/Developer</code>.</li>
+      <li>Ensures <code>~/.local/bin</code> is on your <code>PATH</code> (including Windows User <code>PATH</code> and <code>.cmd</code> shims for PowerShell/CMD).</li>
     </ol>
 
     <h3>Custom Install Options</h3>

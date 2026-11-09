@@ -33,7 +33,7 @@ Two layers:
 |---|---|---|---|---|
 | `codegraph` | Code graph search (`codegraph_explore`); supports Swift and ObjC | npm `@colbymchenry/codegraph@1.6.2` | Its own `codegraph install` (MCP + marked CLAUDE.md section + prompt hook); telemetry turned off | on |
 | `projectmem` | Per-project & global memory (issues, attempts, fixes, decisions) with real-time iCloud Drive CRDT sync | PyPI `projectmem==0.3.5` in its own venv (`~/.local/share/agent-kit/projectmem-venv`) | One global MCP server for all projects + `.pth` real-time sync hook | on |
-| `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` (`1.2.0+`) | `rtk init -g` (per-agent flags) | on |
+| `rtk` | Compresses shell output before the agent reads it | Homebrew `rtk` (macOS) or GitHub release binary (Linux / Windows) (`1.2.0+`) | `rtk init -g` (per-agent flags) | on |
 | `context-mode` | Sandboxed execution + indexed search | npm `context-mode@2.1.7` (Node ≥ 22.5) | MCP only, no hooks | off |
 
 ### Companion CLI Tools (installed by `bootstrap.sh` / `devguard update`)
@@ -48,14 +48,21 @@ Two layers:
 
 ## Install
 
-One command on a new Mac (quit Claude Code, VS Code and Antigravity first):
+One command on a new machine (quit Claude Code, VS Code and Antigravity first):
 
+**macOS / Linux:**
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.sh | bash
 ```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Burapa-J/devguard/main/bootstrap.ps1 | iex
+```
+
 *(If the repository is still private on your account, run `gh api -H 'Accept: application/vnd.github.raw' repos/Burapa-J/devguard/contents/bootstrap.sh | bash` instead.)*
 
-It installs missing prerequisites with Homebrew, clones the kit to `~/.local/share/agent-kit/src` (or reuses an existing clone), and runs `install.sh` with the recommended defaults:
+It installs missing prerequisites (`brew` on macOS, `apt-get` on Debian/Ubuntu, or `winget` on Windows), clones the kit to `~/.local/share/agent-kit/src` (or reuses an existing clone), and runs `install.sh` (via Git Bash on Windows) with the recommended defaults:
 - rules and skill for all three agents
 - the compaction hook
 - codegraph, projectmem and rtk
@@ -142,7 +149,7 @@ Remove legacy tools first so hooks and plugins aren't wired twice: `tokless unin
 | Agent | Rules block | Skill link | MCP config |
 |---|---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/skills/verified-dev` | `~/.claude.json` |
-| VS Code / Copilot | `~/.copilot/copilot-instructions.md` | reads `~/.claude/skills` (or `~/.copilot/skills` if Claude Code is not a target) | `~/Library/Application Support/Code/User/mcp.json` |
+| VS Code / Copilot | `~/.copilot/copilot-instructions.md` | reads `~/.claude/skills` (or `~/.copilot/skills` if Claude Code is not a target) | `~/Library/Application Support/Code/User/mcp.json` (macOS), `%APPDATA%/Code/User/mcp.json` (Windows), `~/.config/Code/User/mcp.json` (Linux) |
 | Antigravity | `~/.gemini/GEMINI.md` | `~/.gemini/config/skills/verified-dev`, `~/.gemini/antigravity-cli/skills/verified-dev` | `~/.gemini/config/mcp_config.json` |
 | OpenCode | `~/.config/opencode/AGENTS.md` | `~/.config/opencode/skills/verified-dev` | `~/.config/opencode/opencode.jsonc` |
 | Cursor | `~/.cursor/rules/devguard.mdc` | `~/.cursor/skills/verified-dev` | `~/.cursor/mcp.json` |
