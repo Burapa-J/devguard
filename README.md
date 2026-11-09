@@ -43,6 +43,8 @@ Two layers:
 | `ast-grep` | Tree-sitter structural search & refactoring (`ast-grep run -p '<pattern>' -l swift`) | Homebrew `ast-grep` |
 | `xcbeautify` | Condenses `xcodebuild` build/test logs into clean summaries (also used by `rtk` for Xcode output) | Homebrew `xcbeautify` |
 | `shellcheck` | Static analysis for shell scripts; this kit runs it in its own commit gate | Homebrew `shellcheck` |
+| `osv-scanner` | Scans dependency lockfiles for known vulnerabilities (OSV database); `devguard gate init` adds it as a self-skipping `push deps:` check when a lockfile is present | Homebrew `osv-scanner` |
+| `gitleaks` | Scans staged changes for secrets; `devguard gate init` adds it as a self-skipping `commit secrets:` check | Homebrew `gitleaks` |
 
 `rtk` compresses routine shell output while `verified-dev` captures full verification logs into `.verify/<name>.log` via `agent-verify` and reads them with the file-read tool, so failing lines are never lost.
 
@@ -101,7 +103,7 @@ commit build: swift build        # every commit: keep it fast
 push   test:  swift test         # before push: full suites
 ```
 
-For repos that hold API keys or tokens, add `commit secrets: gitleaks git --staged --redact --no-banner .` (after `brew install gitleaks`): it scans only what is staged and blocks the commit on a finding.
+`devguard gate init` also writes two security checks that each self-skip (with a one-line install hint) when their tool is absent, so a fresh clone never fails the gate on them: `commit secrets:` runs `gitleaks` on staged content and blocks the commit on a secret, and `push deps:` runs `osv-scanner` on dependency lockfiles (when one is present) and blocks the push on a known vulnerability. Both tools are installed by `bootstrap.sh` and refreshed by `devguard update` (Homebrew; on Linux/Windows install them yourself and the checks start working).
 
 `devguard gate init` auto-detects the repo's stack (`Package.swift`, `Cargo.toml`, `package.json`, `*.py`, `*.sh`) to write runnable checks (falling back to a commented template in empty repos) and installs `pre-commit` / `pre-push` hooks; `devguard check` runs everything by hand (`devguard check commit` for the fast inner loop), and the core rule tells agents to run it before calling a task done. Each check runs through `agent-verify`, so a failure prints one line and leaves the full log in `.verify/gate-<name>.log`.
 

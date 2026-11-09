@@ -33,6 +33,8 @@ main() {
   [ "$(uname -s)" = Darwin ] && { command -v xcbeautify >/dev/null 2>&1 || missing="$missing xcbeautify"; }
   command -v ast-grep >/dev/null 2>&1 || missing="$missing ast-grep"
   command -v shellcheck >/dev/null 2>&1 || missing="$missing shellcheck"
+  command -v osv-scanner >/dev/null 2>&1 || missing="$missing osv-scanner"
+  command -v gitleaks >/dev/null 2>&1 || missing="$missing gitleaks"
   if [ -n "$missing" ]; then
     if command -v brew >/dev/null 2>&1; then
       say "Installing with Homebrew:$missing"
@@ -40,7 +42,7 @@ main() {
       brew install $(printf '%s' "$missing" | sed 's/python3/python/') < /dev/null
     elif command -v apt-get >/dev/null 2>&1; then
       say "Installing with apt-get:$missing"
-      apt_pkgs=$(printf '%s' "$missing" | sed 's/node/nodejs npm/; s/python3/python3 python3-venv python3-pip/; s/ast-grep//')
+      apt_pkgs=$(printf '%s' "$missing" | sed 's/node/nodejs npm/; s/python3/python3 python3-venv python3-pip/; s/ast-grep//; s/osv-scanner//; s/gitleaks//')
       # shellcheck disable=SC2086
       sudo apt-get update && sudo apt-get install -y $apt_pkgs < /dev/null
     else

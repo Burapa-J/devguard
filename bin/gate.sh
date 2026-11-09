@@ -145,14 +145,25 @@ detect_checks() {
   [ "$found" = 1 ]
 }
 
+# Security checks that layer onto any stack. gitleaks scans staged content on every commit;
+# osv-scanner scans dependency lockfiles before a push. Each self-skips with a hint when its tool
+# is absent, so a fresh clone (or a machine without the tool) never fails the gate on it.
+detect_security() {
+  echo 'commit secrets: command -v gitleaks >/dev/null 2>&1 || { echo "gitleaks not installed; skipping secret scan (brew install gitleaks)"; exit 0; }; gitleaks git --staged --redact --no-banner .'
+  if [ -n "$(git ls-files '*package-lock.json' '*yarn.lock' '*pnpm-lock.yaml' '*Cargo.lock' '*go.mod' '*Package.resolved' '*requirements.txt' '*poetry.lock' '*Pipfile.lock' '*uv.lock' '*Gemfile.lock' '*composer.lock' 2>/dev/null)" ]; then
+    echo 'push   deps: command -v osv-scanner >/dev/null 2>&1 || { echo "osv-scanner not installed; skipping deps scan (brew install osv-scanner)"; exit 0; }; osv-scanner scan source -r . --allow-no-lockfiles'
+  fi
+}
+
 cmd_init() {
-  local detected=""
+  local detected="" security=""
   cd "$(repo_top)" || exit 2
   if [ -e "$CHECKS" ]; then
     echo "devguard gate: $CHECKS already exists"
   else
     mkdir -p .devguard
     detected=$(detect_checks) || true
+    security=$(detect_security)
     cat > "$CHECKS" <<'EOF'
 # devguard gate: checks that must pass before a commit or a push.
 # One per line: <stage> <name>: <command>
@@ -161,15 +172,11 @@ cmd_init() {
 #
 EOF
     if [ -n "$detected" ]; then
-      printf '%s\n# commit secrets: gitleaks git --staged --redact --no-banner .   # needs: brew install gitleaks\n' "$detected" >> "$CHECKS"
-      echo "devguard gate: wrote $CHECKS (auto-detected stack checks enabled)"
+      printf '%s\n%s\n' "$detected" "$security" >> "$CHECKS"
+      echo "devguard gate: wrote $CHECKS (auto-detected stack + security checks enabled)"
     else
-      cat >> "$CHECKS" <<'EOF'
-# commit build: swift build
-# push   test:  swift test
-# commit secrets: gitleaks git --staged --redact --no-banner .   # needs: brew install gitleaks
-EOF
-      echo "devguard gate: wrote $CHECKS (all lines commented; add your real commands)"
+      printf '# commit build: swift build\n# push   test:  swift test\n%s\n' "$security" >> "$CHECKS"
+      echo "devguard gate: wrote $CHECKS (security checks enabled; add your build/test commands)"
     fi
   fi
   cmd_install

@@ -221,6 +221,8 @@ case "$cmd" in
       command -v xcbeautify >/dev/null 2>&1 && { brew upgrade xcbeautify 2>/dev/null || true; } || { brew install xcbeautify 2>/dev/null || true; }
       command -v ast-grep >/dev/null 2>&1 && { brew upgrade ast-grep 2>/dev/null || true; } || { brew install ast-grep 2>/dev/null || true; }
       command -v shellcheck >/dev/null 2>&1 && { brew upgrade shellcheck 2>/dev/null || true; } || { brew install shellcheck 2>/dev/null || true; }
+      command -v osv-scanner >/dev/null 2>&1 && { brew upgrade osv-scanner 2>/dev/null || true; } || { brew install osv-scanner 2>/dev/null || true; }
+      command -v gitleaks >/dev/null 2>&1 && { brew upgrade gitleaks 2>/dev/null || true; } || { brew install gitleaks 2>/dev/null || true; }
     fi
     if [ $# -eq 0 ]; then
       upd_agents=""

@@ -111,4 +111,18 @@ printf '#!/bin/sh\nif [\n' > run.sh
 out=$("$GATE" run commit 2>&1); code=$?
 check "auto-detected shell syntax check catches broken .sh on commit" '[ $code = 1 ]'
 
+echo "== gate init adds security checks (gitleaks always, osv-scanner on a lockfile)"
+new_repo sec-plain
+printf 'hello\n' > note.txt; g add note.txt
+"$GATE" init > /dev/null 2>&1
+check "gate init writes an active gitleaks secrets check" 'grep -q "^commit secrets:" .devguard/checks && grep -q "gitleaks git --staged" .devguard/checks'
+check "a repo with no lockfile gets no deps check" '! grep -q "^push   deps:" .devguard/checks'
+check "the secrets check self-skips with exit 0 when gitleaks is absent" 'PATH= /bin/sh -c "command -v gitleaks >/dev/null 2>&1 || exit 0; exit 1"; [ $? -eq 0 ]'
+
+new_repo sec-deps
+printf 'jinja2==3.1.6\n' > requirements.txt; g add requirements.txt
+"$GATE" init > /dev/null 2>&1
+check "a repo with a lockfile also gets an osv-scanner deps check" 'grep -q "^push   deps:" .devguard/checks && grep -q "osv-scanner scan source" .devguard/checks'
+check "the deps check self-skips with exit 0 when osv-scanner is absent" 'PATH= /bin/sh -c "command -v osv-scanner >/dev/null 2>&1 || exit 0; exit 1"; [ $? -eq 0 ]'
+
 exit $fail
