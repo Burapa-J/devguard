@@ -39,8 +39,7 @@ so it adds nothing over "review every code change". Not built.
 **Limits.** One run per commit and reviewer (model output varies between runs); 11 known bugs, all
 written by one model; not every finding was checked, so precision is estimated from samples.
 
-**Decision.** Review every code change with the other vendor before pushing; use both vendors for
-changes that touch persisted data or sync. No automatic trigger.
+**Decision.** Run `devguard check` on every task; keep `devguard review` on-demand (invoked only when explicitly requested by the user, or suggested as an option after high-risk changes to persisted data, sync, concurrency, or security). No automatic trigger.
 
 The experiment also exposed: report files colliding when two reviews start in the same second,
 bold findings not counted, untracked files missing from reviews, a multi-line command breaking the
