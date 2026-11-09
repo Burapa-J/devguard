@@ -89,11 +89,13 @@ rtk_unwire() {
     claude) run rtk init -g --uninstall ;;
     vscode)
       if [ -f "$HOME/.copilot/hooks/rtk-rewrite.json" ]; then
-        [ "$DRY_RUN" = 1 ] && say "  would remove $HOME/.copilot/hooks/rtk-rewrite.json" || {
+        if [ "$DRY_RUN" = 1 ]; then
+          say "  would remove $HOME/.copilot/hooks/rtk-rewrite.json"
+        else
           rm -f "$HOME/.copilot/hooks/rtk-rewrite.json"
           rmdir "$HOME/.copilot/hooks" 2>/dev/null || true
           say "  removed    $HOME/.copilot/hooks/rtk-rewrite.json"
-        }
+        fi
       fi
       ;;
     antigravity)
