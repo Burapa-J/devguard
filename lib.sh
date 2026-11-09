@@ -4,6 +4,7 @@
 # Shared helpers for install.sh / uninstall.sh.
 # Written for bash 3.2 (macOS /bin/bash): no associative arrays, no mapfile, no ${var,,}.
 
+DEVGUARD_VERSION="1.1.0"
 BEGIN_MARK="<!-- agent-kit:begin -->"
 END_MARK="<!-- agent-kit:end -->"
 DRY_RUN=${DRY_RUN:-0}

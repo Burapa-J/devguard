@@ -38,7 +38,7 @@ rtk_wired() {
   esac
 }
 
-echo "${C_BOLD}╭─ devguard overview ────────────────────────────────────────────────────────────╮${C_RESET}"
+echo "${C_BOLD}╭─ devguard v${DEVGUARD_VERSION} overview ─────────────────────────────────────────────────────╮${C_RESET}"
 printf "${C_BOLD}│ %-18s %-10s %-10s %-10s %-10s %-10s %-8s │${C_RESET}\n" \
   "Agent" "Rules" "Skill" "codegraph" "projectmem" "rtk" "ctx-mode"
 echo "├────────────────────────────────────────────────────────────────────────────────┤"

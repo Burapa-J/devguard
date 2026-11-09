@@ -8,10 +8,12 @@ while [ -L "$SELF" ]; do
   case "$t" in /* | [A-Za-z]:/* | [A-Za-z]:\\*) SELF=$t ;; *) SELF="$(dirname "$SELF")/$t" ;; esac
 done
 KIT_DIR=$(cd "$(dirname "$SELF")/.." && pwd -P)
+# shellcheck source=lib.sh
+. "$KIT_DIR/lib.sh"
 
 usage() {
   cat <<EOF
-devguard — evidence-first working mode and token-saving tools for AI coding agents
+devguard v$DEVGUARD_VERSION — evidence-first working mode and token-saving tools for AI coding agents
 Kit: $KIT_DIR
 
   devguard                      interactive menu (when run in a terminal)
@@ -271,6 +273,7 @@ case "$cmd" in
     echo "ภาษาไทย:  $KIT_DIR/docs/USAGE.th.md"
     echo "Radar:    $KIT_DIR/docs/UPSTREAM-RADAR.md"
     ;;
+  version | -v | --version) echo "devguard $DEVGUARD_VERSION" ;;
   help | -h | --help) usage ;;
   *) echo "unknown command: $cmd" >&2; usage >&2; exit 64 ;;
 esac

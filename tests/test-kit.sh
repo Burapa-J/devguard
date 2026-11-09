@@ -72,6 +72,9 @@ agent-verify multi -- sh -c 'echo one
 echo two' > /dev/null
 check "multi-line command keeps a 3-line header" 'sed -n 2p .verify/multi.log | grep -q "^# cwd:" && sed -n 3p .verify/multi.log | grep -q "^# started:"'
 "$KIT/hooks/remind.sh" | grep -q verified-dev; check "hook prints reminder" '[ $? = 0 ]'
+check "devguard --version prints version" '[ "$("$KIT/bin/devguard" --version)" = "devguard 1.1.0" ] && [ "$("$KIT/bin/devguard" -v)" = "devguard 1.1.0" ] && [ "$("$KIT/bin/devguard" version)" = "devguard 1.1.0" ]'
+check "devguard --help includes version" '"$KIT/bin/devguard" --help | head -n 1 | grep -q "devguard v1.1.0"'
+check "status.sh header includes version and aligns border" 'NO_COLOR=1 "$KIT/status.sh" | head -n 1 | grep -qx "╭─ devguard v1.1.0 overview ─────────────────────────────────────────────────────╮"'
 
 echo "== uninstall"; "$KIT/uninstall.sh" 2>&1
 rm -rf "$HOME/.agent-kit-backup"
