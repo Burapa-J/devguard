@@ -3,7 +3,7 @@
 **`devguard`** มี 2 ส่วน
 - **วิธีทำงาน**: rules และ skill `verified-dev` ที่บังคับให้ agent ทำงานแบบมีหลักฐาน
 - **เครื่องมือ (components)**: codegraph, projectmem และ rtk (เปิดเป็นค่าเริ่มต้น) รวมถึง context-mode (เลือกเปิดเอง) ติดตั้งและเชื่อมเข้ากับ **Claude Code**, **VS Code (Copilot)**, **Antigravity**, **OpenCode**, **Cursor**, **Codex CLI** และ **Gemini CLI**
-- **เครื่องมือเสริม CLI (Companion Tools)**: `ast-grep` (ค้นหาและแก้โค้ดระดับโครงสร้าง AST), `xcbeautify` (จัดรูปแบบและย่อ log ของ `xcodebuild`) และ `shellcheck` (ตรวจ shell script) ติดตั้งและอัปเดตผ่าน Homebrew และ `devguard update`
+- **เครื่องมือเสริม CLI (Companion Tools)**: `ast-grep` (ค้นหาและแก้โค้ดระดับโครงสร้าง AST), `xcbeautify` (จัดรูปแบบและย่อ log ของ `xcodebuild`), `shellcheck` (ตรวจ shell script), `osv-scanner` (สแกนช่องโหว่ของ dependency จาก lockfile) และ `gitleaks` (สแกน secret ที่ stage) ติดตั้งและอัปเดตผ่าน Homebrew และ `devguard update`
 
 ติดตั้งคำสั่งเดียว แล้วทุกอย่างทำงานเองผ่านคำสั่ง `devguard` ภาพรวมภาษาอังกฤษอยู่ใน `README.md`
 
@@ -154,7 +154,7 @@ commit build: swift build        # ทุก commit: ต้องเร็ว
 push   test:  swift test         # ก่อน push: suite เต็ม
 ```
 
-- `devguard gate init` ตรวจจับภาษาของโปรเจกต์อัตโนมัติ (`Package.swift`, `Cargo.toml`, `package.json`, `*.py`, `*.sh`) เพื่อสร้างไฟล์ `.devguard/checks` ที่พร้อมรันจริงทันที (หรือสร้างไฟล์ตัวอย่างถ้ายังไม่มีโค้ด) และติดตั้ง hook `pre-commit` / `pre-push`
+- `devguard gate init` ตรวจจับภาษาของโปรเจกต์อัตโนมัติ (`Package.swift`, `Cargo.toml`, `package.json`, `*.py`, `*.sh`) เพื่อสร้างไฟล์ `.devguard/checks` ที่พร้อมรันจริงทันที (หรือสร้างไฟล์ตัวอย่างถ้ายังไม่มีโค้ด), เพิ่มด่านความปลอดภัย `secrets`/`deps` ให้อัตโนมัติ (ดูหัวข้อสแกน secret ด้านล่าง) และติดตั้ง hook `pre-commit` / `pre-push`
 - `devguard check commit` รันเฉพาะด่านเร็ว (~1 วินาที สำหรับตรวจระหว่างทำหน่วยย่อย) และ `devguard check` รันครบทุก check ซึ่งกฎหลักสั่งให้ agent รันก่อนบอกว่าเสร็จหรือก่อน push
 - check ล้มจะแสดงบรรทัดเดียว พร้อม log เต็มที่ `.verify/gate-<name>.log`
 - ไม่ทับ hook ที่มีอยู่ของคนอื่น (จะบอกบรรทัดที่ต้องเพิ่มเอง), ใช้กับ worktree ได้, ถ้าย้าย kit จะปล่อยผ่านพร้อมเตือน, และเตือนเมื่อ commit แก้ไฟล์ checks
@@ -184,11 +184,12 @@ model แต่ละค่ายจับปัญหาได้ต่าง�
 
 วิธี A/B กฎ: รันโดยตั้ง label `before` → แก้กฎ → รันอีกครั้งโดยตั้ง label `after` → compare ชุดคำถามของ kit เองอยู่ที่ `.devguard/evals/kit.jsonl`
 
-**สแกน secret**: repo ที่มี token ให้เพิ่มบรรทัดนี้ใน `.devguard/checks` (ต้อง `brew install gitleaks` ก่อน) ระบบจะสแกนเฉพาะไฟล์ที่ stage และบล็อก commit ถ้าเจอ secret:
+**สแกน secret และช่องโหว่ dependency**: `devguard gate init` เขียนด่านความปลอดภัย 2 บรรทัดให้อัตโนมัติ ทั้งคู่จะ **ข้ามตัวเอง** (พิมพ์วิธีติดตั้งแล้ว exit 0) ถ้ายังไม่มีเครื่องมือ — clone ใหม่จึงไม่พังเพราะด่านนี้:
 
-```
-commit secrets: gitleaks git --staged --redact --no-banner .
-```
+- `commit secrets:` รัน `gitleaks` สแกนไฟล์ที่ stage และบล็อก commit ถ้าเจอ secret
+- `push deps:` รัน `osv-scanner` สแกน lockfile ของ dependency (เมื่อมี) และบล็อก push ถ้าเจอช่องโหว่ที่รู้แล้วใน OSV database
+
+เครื่องมือทั้งสองติดตั้งโดย `bootstrap.sh` และอัปเดตด้วย `devguard update` (ผ่าน Homebrew; บน Linux/Windows ติดตั้งเองแล้วด่านจะเริ่มทำงานทันที)
 
 ### คำสั่งที่ใช้กับ agent ได้
 | พิมพ์ | ผล |
