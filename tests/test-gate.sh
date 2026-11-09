@@ -7,11 +7,11 @@ KIT=$(cd "$(dirname "$0")/.." && pwd -P)
 GATE="$KIT/bin/gate.sh"
 T=$(cd "$(mktemp -d)" && pwd -P)
 fail=0; check(){ if eval "$2"; then echo "PASS $1"; else echo "FAIL $1"; fail=1; fi; }
-g() { git -c user.name=t -c user.email=t@t "$@"; }
+g() { git -c user.name=t -c user.email=t@t -c core.autocrlf=false "$@"; }
 
 new_repo() {
   rm -rf "${T:?}/${1:?}"; mkdir -p "$T/$1"; cd "$T/$1" || exit 1
-  git init -q; printf '.verify/\n' > .gitignore; g add .gitignore; g commit -qm init
+  git init -q; git config core.autocrlf false; printf '.verify/\n' > .gitignore; g add .gitignore; g commit -qm init
 }
 checks() { mkdir -p .devguard; printf '%s\n' "$@" > .devguard/checks; }
 

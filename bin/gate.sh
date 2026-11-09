@@ -17,19 +17,16 @@ die() { echo "devguard gate: $*" >&2; exit 2; }
 
 # git runs hooks with SIGPIPE ignored and children inherit it, so a check would see "Broken pipe"
 # errors a terminal run never shows. A shell cannot reset a signal ignored on entry; exec through
-# python3, which sets it back to default first (the default disposition survives exec).
+# env --default-signal=PIPE (GNU coreutils, including Git for Windows) or python3 (macOS/BSD).
 RUNNER=(sh -c)
-case "${AGENT_KIT_OS:-$(uname -s)}" in
-  MINGW* | MSYS* | CYGWIN* | Windows_NT | windows) ;;
-  *)
-    if command -v python3 >/dev/null 2>&1; then
-      # -I: isolated, so a repo file named signal.py (cwd is the repo) cannot replace the stdlib module.
-      RUNNER=(python3 -I -c 'import os, signal, sys
-signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+if env --default-signal=PIPE true >/dev/null 2>&1; then
+  RUNNER=(env --default-signal=PIPE sh -c)
+elif command -v python3 >/dev/null 2>&1; then
+  # -I: isolated, so a repo file named signal.py (cwd is the repo) cannot replace the stdlib module.
+  RUNNER=(python3 -I -c 'import os, signal, sys
+if hasattr(signal, "SIGPIPE"): signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 os.execvp("sh", ["sh", "-c", sys.argv[1]])')
-    fi
-    ;;
-esac
+fi
 
 repo_top() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
 
@@ -94,7 +91,7 @@ EOF
 cmd_install() {
   local dir hook stage
   dir=$(cd "$(repo_top)" && git rev-parse --git-path hooks) || exit 2
-  case "$dir" in /*) ;; *) dir="$(repo_top)/$dir" ;; esac
+  case "$dir" in /* | [A-Za-z]:/* | [A-Za-z]:\\*) ;; *) dir="$(repo_top)/$dir" ;; esac
   mkdir -p "$dir"
   for stage in commit push; do
     hook="$dir/pre-$stage"
@@ -111,7 +108,7 @@ cmd_install() {
 cmd_uninstall() {
   local dir hook
   dir=$(cd "$(repo_top)" && git rev-parse --git-path hooks) || exit 2
-  case "$dir" in /*) ;; *) dir="$(repo_top)/$dir" ;; esac
+  case "$dir" in /* | [A-Za-z]:/* | [A-Za-z]:\\*) ;; *) dir="$(repo_top)/$dir" ;; esac
   for hook in "$dir/pre-commit" "$dir/pre-push"; do
     [ -f "$hook" ] && grep -qF "$MARK" "$hook" && rm -f "$hook" && echo "devguard gate: removed $hook"
   done

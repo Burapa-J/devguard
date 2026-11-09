@@ -45,7 +45,7 @@ cd "$top" || exit 64
 untracked_diff() {
   local f
   git ls-files --others --exclude-standard -z | while IFS= read -r -d '' f; do
-    git diff --no-index -- /dev/null "$f"
+    MSYS_NO_PATHCONV=1 git diff --no-index -- /dev/null "$f"
   done
 }
 

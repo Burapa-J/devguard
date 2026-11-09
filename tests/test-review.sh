@@ -17,11 +17,11 @@ for c in claude gemini agy; do
     "$T" "$c" "$T" "$c" > "$T/bin/$c"
   chmod +x "$T/bin/$c"
 done
-export PATH="$T/bin:/usr/bin:/bin"
+export PATH="$T/bin:/mingw64/bin:/usr/bin:/bin"
 unset DEVGUARD_REVIEWER
 
 mkdir -p "$T/repo" && cd "$T/repo" || exit 1
-git init -q; printf '.verify/\n' > .gitignore; echo one > a.txt; g add .; g commit -qm init
+git init -q; git config core.autocrlf false; printf '.verify/\n' > .gitignore; echo one > a.txt; g add .; g commit -qm init
 
 out=$("$REVIEW" 2>&1); code=$?
 check "clean tree with one commit reviews HEAD" '[ $code = 0 ] && grep -q "a.txt" "$T/claude.args"'

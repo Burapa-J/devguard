@@ -5,7 +5,7 @@ set -eu
 SELF=$0
 while [ -L "$SELF" ]; do
   t=$(readlink "$SELF")
-  case "$t" in /*) SELF=$t ;; *) SELF="$(dirname "$SELF")/$t" ;; esac
+  case "$t" in /* | [A-Za-z]:/* | [A-Za-z]:\\*) SELF=$t ;; *) SELF="$(dirname "$SELF")/$t" ;; esac
 done
 KIT_DIR=$(cd "$(dirname "$SELF")/.." && pwd -P)
 

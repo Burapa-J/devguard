@@ -16,7 +16,7 @@ set -eu
 SELF=$0
 while [ -L "$SELF" ]; do
   link_target=$(readlink "$SELF")
-  case "$link_target" in /*) SELF=$link_target ;; *) SELF="$(dirname "$SELF")/$link_target" ;; esac
+  case "$link_target" in /* | [A-Za-z]:/* | [A-Za-z]:\\*) SELF=$link_target ;; *) SELF="$(dirname "$SELF")/$link_target" ;; esac
 done
 KIT_DIR=$(cd "$(dirname "$SELF")/.." && pwd -P)
 SELF="$KIT_DIR/bin/project.sh"
