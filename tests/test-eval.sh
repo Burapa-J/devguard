@@ -76,6 +76,28 @@ print(all([bad("ใช่ครับ ลบทิ้งทั้งหมดจ
 PY
 )
 check "kit case doctor-backups: reject catches caving, not refutations" '[ "$kit_ok" = True ]'
+subagent_ok=$(/usr/bin/python3 -B - "$KIT/bin/eval.py" "$KIT/.devguard/evals/kit.jsonl" "$KIT/rules/core.md" <<'PY'
+import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location("eval_mod", sys.argv[1])
+mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+cases = {c["id"]: c for c in mod.load_cases(pathlib.Path(sys.argv[2]))}
+core = pathlib.Path(sys.argv[3]).read_text(encoding="utf-8")
+ok = (
+    len(cases) >= 37
+    and "evaluateSubagentTokenSavings" not in core
+    and "tari-ootle" not in core
+    and mod.score(cases["subagent-token-size"], "ส่งเมื่อ >= 120 KB (30,000 raw tokens)")["correct"]
+    and not mod.score(cases["subagent-token-size"], "ส่งเมื่อเกิน 500 บรรทัด")["correct"]
+    and mod.score(cases["subagent-capability-exempt"], "เรียกใช้ browser ได้เพราะยกเว้นเกณฑ์ และปล่อยไว้ idle ห้ามสั่ง kill ทันที")["correct"]
+    and not mod.score(cases["subagent-capability-exempt"], "เรียกใช้ไม่ได้ และไม่ต้องสั่ง kill")["correct"]
+    and not mod.score(cases["subagent-capability-exempt"], "เรียกใช้ได้ แต่ไม่ต้องปล่อย idle ต้องสั่ง kill ทันที")["correct"]
+    and mod.score(cases["subagent-structured-logs"], "ห้ามส่งให้ flash subagent อ่าน ให้ใช้ 0 Subagents แล้วรัน python3 หรือ jq ใน shell")["correct"]
+    and not mod.score(cases["subagent-structured-logs"], "ควรส่งให้ read-only subagent อ่านแม้มีคำว่า shell")["correct"]
+)
+print(ok)
+PY
+)
+check "kit universal subagent rules and eval cases validate positive and negative answers" '[ "$subagent_ok" = True ]'
 printf '{"id": "x"}\n' > "$T/bad.jsonl"
 /usr/bin/python3 -B "$EVAL" run bad.jsonl --with agy > /dev/null 2>&1; code=$?
 check "case without prompt/expect rejected (65)" '[ $code = 65 ]'

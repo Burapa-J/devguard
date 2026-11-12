@@ -119,23 +119,22 @@ devguard skip            # ยกเว้น repo ที่อยู่ตอ�
 - คำว่า "เสร็จ" ต้องมาพร้อมใบเสร็จตรวจสอบสั้นๆ 1 บรรทัด (คำสั่ง, exit code, ผลลัพธ์หลัก และลิงก์ `.verify/<name>.log`) โดยแปะ log เต็มเฉพาะเมื่อเกิดข้อผิดพลาด
 - ถ้ายังไม่ได้ verify ต้องบอกตรง ๆ
 
-### หลักการควบคุมการใช้ Subagent และประหยัด Token โดยไม่ลดคุณภาพงาน (`~28k tokens/turn`)
-การเปิด Subagent 1 ตัวมีต้นทุนเริ่มต้นประมาณ **28,000 tokens ต่อ turn** กฎหลัก (`rules/core.md`) และ `verified-dev` จึงบังคับใช้เกณฑ์ 4 ข้อเพื่อลด Token รวมโดยไม่ลดคุณภาพการตรวจสอบ:
-1. **บันได 4 ขั้นในการค้นหาโค้ด (Token Escalation Ladder — จากถูกสุดไปแพงสุด)**:
-   - **(1) 0-Token Bash / Regex / `ast-grep`**: คัดกรองไฟล์เบื้องต้นด้วยคำสั่ง shell ก่อนเสมอ
-   - **(2) `projectmem` + `codegraph_explore`**: ดึงความจำเดิมและกราฟการเรียกฟังก์ชัน (call graph) โดยไม่อ่านทั้งไฟล์
-   - **(3) อ่านเฉพาะช่วงบรรทัดใน Main Agent (`< 1,000 บรรทัด`)**: เมื่อรู้พิกัดแล้วให้เปิดอ่านเฉพาะบรรทัดที่เกี่ยวข้องใน Main Agent (`Read` / `read_file`) ทันที
-   - **(4) Batch Subagent (โมเดลเร็วแบบ Read-only ข้ามค่าย)**: ใช้เฉพาะเมื่อต้องอ่านโค้ดดิบ `>= 30,000 raw tokens` เพื่อกันไม่ให้โค้ดดิบจำนวนมากค้างสะสมใน Context ของ Main Agent โดยจับคู่ตามโปรแกรมดังนี้:
-     - **Antigravity**: `invoke_subagent(TypeName="research", Model="flash")` แล้วสั่ง `manage_subagents(Action="kill")` ทันทีเมื่อรับผลลัพธ์
+### หลักการควบคุมการใช้ Subagent ฉบับสากล และประหยัด Token โดยไม่ลดคุณภาพงาน (`~28k tokens/turn`)
+การเปิด Subagent 1 ตัวมีต้นทุนเริ่มต้นประมาณ **28,000 tokens ต่อ turn** กฎหลัก (`rules/core.md`) และ `verified-dev` จึงใช้ **กฎสากล 3 ข้อ** ที่ครอบคลุมทั้งงานโค้ดและงานประเภทอื่นทั้งหมด:
+1. **ห้ามโยนงานปลายเปิดให้โมเดลเล็กคิดเองทำเอง (`NO_UNGUARDED_SUBAGENTS`)**:
+   - ไม่ว่างานประเภทใด ห้ามส่งงานปลายเปิด การวางแผน หรือการวนลูปแก้ปัญหาหลายรอบให้โมเดลเร็ว (`flash` / `haiku`) ทำเอง ทุกครั้งที่เรียก Subagent ต้องระบุ **อินพุตชัดเจน + เงื่อนไขหยุด (Stop condition) + รูปแบบผลลัพธ์ตายตัว** เสมอ
+2. **แยกตาม "ความสามารถเครื่องมือ" และ "ชนิดข้อมูล" ก่อนขนาดไฟล์**:
+   - **Subagent เฉพาะทางที่ Main Agent ไม่มีเครื่องมือเอง (`browser`, `image-generator`)**: เรียกใช้ได้ตามความจำเป็นของงานโดยไม่ติดเพดาน `30,000 tokens` แต่ต้องล็อก URL/Prompt ลำดับขั้นตอน และเงื่อนไขจบให้ชัด (และปล่อย `browser` ไว้สถานะ idle หลังจบงาน ห้ามสั่ง `kill` ทันทีเพื่อรักษาแท็บและ session)
+   - **ข้อมูลมีโครงสร้าง / Logs / JSONL / CSV / SQL / เช็กสถานะระบบ**: ใช้คำสั่งใน Shell (`python3`, `jq`, `sqlite3`, `awk`, CLI) ประมวลผลใน `0 LLM tokens` (`0 Subagents`) ห้ามส่งไฟล์ข้อมูลดิบให้ทั้ง Main Agent หรือ Subagent นั่งอ่านเอง
+3. **เกณฑ์กันขยะสำหรับซอร์สโค้ด เอกสาร และข้อความวิจัยดิบ (`120 KB ≈ 30,000 raw tokens`)**:
+   - วัดจาก **ขนาดช่วงข้อมูลที่ต้องเปิดอ่านจริง (`wc -l -c`)** ไม่ใช่ขนาดไฟล์ทั้งหมด โดยเรียงลำดับจากถูกสุดไปแพงสุด: **(1) `0`-token bash/regex/`ast-grep`/`jq` → (2) `projectmem` + `codegraph_explore` → (3) อ่านเฉพาะช่วงบรรทัดใน Main Agent → (4) Single-Shot Read-Only Scout**
+   - **ทำใน Main Agent โดยตรง (`0 Subagents`)**: เมื่อช่วงที่ต้องอ่าน `< 120 KB` (`< 30,000 raw tokens` หรือโค้ด `< 1,000–2,000 บรรทัด`) หรือเป็นงานถาม-ตอบสั้นๆ ที่จบใน `1–2 เทิร์น` (โค้ดไม่ถูกแบกซ้ำหลายเทิร์น จึงไม่คุ้มค่าหัว Subagent) รวมถึงงาน Ops/Deploy/Signing ทุกชนิด
+   - **ใช้ Guarded Single-Shot Read-Only Scout (`>= 120 KB` / `>= 30,000 raw tokens` และต้องทำต่ออีกหลายเทิร์น)**:
+     - ใช้ `1 ตัว` สำหรับ `120–320 KB` (`30k–80k tokens`) และแยกสูงสุดไม่เกิน **`2 ตัว`** (`MAX_ACTIVE_SUBAGENTS = 2`) เมื่อ `> 320 KB` (`> 80k tokens`) โดยตอบกลับเป็นพิกัด `path:line — symbol — note` ในรอบเดียว
+     - **Antigravity**: `invoke_subagent(TypeName="research", Model="flash")` แล้วสั่ง `manage_subagents(Action="kill")` เมื่อ `research` ตอบกลับ (`research` รันใน sandbox ที่ไม่มีอินเทอร์เน็ต งานวิจัยเว็บก้อนใหญ่จึงต้องดึงลงไฟล์ก่อนค่อยส่งให้ย่อย)
      - **Claude Code**: `Agent` / `Task` tool (`subagent_type="Explore"`, `model="haiku"`)
      - **VS Code Copilot / Cursor / OpenCode**: `runSubagent` หรือ read-only subagent tool ของโปรแกรมนั้นๆ
-2. **งานที่ต้องทำใน Main Agent โดยตรง (`MAIN_AGENT_DIRECT`)**: การวาง Data Shape, ตาราง Pre-mortem, งานแก้ไฟล์เดี่ยว (`< 1,000 บรรทัด`), คำสั่ง Git/PR, รอบแก้ตามผลรีวิวที่รู้ `file:line` แล้ว และการรัน build/test ที่ใช้ build directory เดียวกันที่มี lock (เช่น Cargo `target/`, `xcodebuild`)
-3. **งานที่ใช้ Subagent แบบรวบยอดครั้งเดียว (`CONSOLIDATED_BATCH_SUBAGENT`)**:
-   - **Pipeline-Parallel Batch Scout**: ขณะที่ Main Agent กำลัง compile, รัน test และ commit งานชุดปัจจุบัน ให้ส่ง read-only fast subagent 1 ตัวไปอ่าน 2–3 โมดูลใหญ่ถัดไป (`>= 3,500 บรรทัด` / `>= 30,000 raw tokens`) ล่วงหน้า เพื่อชี้เป้า `file:line` และร่าง reproducer โดยไม่แตะ build lock
-   - **0-Token Bash Pre-Filter + Batch Audit**: กรองเป้าหมายย่อยจำนวนมาก (เช่น 30–50 แพ็กเกจ) ด้วย bash ก่อน แล้วรวบ 10–25 รายการที่เข้าข่าย (`>= 30,000 raw tokens`) ส่งให้ read-only fast subagent ตรวจรวดเดียวใน 1 shot
-4. **การแบ่งบทบาทและควบคุมคุณภาพ (Role Split & Lifecycle)**:
-   - เปิดพร้อมกันไม่เกิน **2 ตัว** (`MAX_ACTIVE_SUBAGENTS = 2`), ส่งเฉพาะ `file:line` pointers (ไม่แปะโค้ดซ้ำ), บังคับรูปแบบคำตอบย่อบรรทัดเดียว (`path:line — symbol — note`), ไม่คุยโต้ตอบหลายรอบ และปิดทันทีเมื่อจบงาน (`manage_subagents(Action="kill")` ใน Antigravity; ส่วน Claude Code และ VS Code จะจบตัวเองอัตโนมัติ)
-   - **บีบอัดท่อส่งข้อมูล แต่ห้ามบีบอัดหลักฐาน**: Main Agent ต้องเปิดอ่านบรรทัด `file:line` ที่ Subagent ชี้เป้าเพื่อแก้โค้ด ตรวจ diff และรัน `agent-verify` / `devguard check` พิสูจน์บนพื้นผิวจริงด้วยตัวเองเสมอ
+   - **Main Agent เป็นผู้ผลิตชิ้นงานจริงและตรวจหลักฐานเสมอ**: Main Agent ต้องเปิดอ่านบรรทัด `file:line` ที่ชี้เป้า แล้วเป็นผู้ลงมือเขียนโค้ด เขียนบทความ/แผนกลยุทธ์ รัน `agent-verify` / `devguard check` และ commit/ส่งงานด้วยตัวเองเสมอ (เว้นแต่ผู้ใช้สั่งโหมดทำงานขนานเองโดยตรง เช่น `/teamwork` หรือ `swarm` บน worktree แยก)
 
 ### เก็บหลักฐานด้วย agent-verify
 agent จะเรียกเองตามกฎ แต่คุณใช้เองได้ด้วย:

@@ -44,7 +44,7 @@ Verification
 - **Explain the number.** Before trusting or reporting a measured number (speedup, latency, token savings, eval score), state how it was measured, what limits it, and rule out that it measured something else.
 
 Delegation and meta
-- **Guard the context window.** Follow the Token Escalation Ladder (section 5): keep reads `< 1,000 lines` inline in Main Agent; send disposable bulk reads (`>= 30,000 raw tokens`) to a single-shot read-only subagent and keep only compact `file:line` summaries in the main thread.
+- **Guard the context window.** Follow the Universal Subagent Rules & Token Escalation Ladder (section 5): process structured data/logs in `0 LLM tokens` via shell scripts; keep unstructured reads `< 120 KB` (`< 30,000 raw tokens` or `< 1,000–2,000` code lines) and 1–2 turn Q&A inline in Main Agent; send disposable bulk reads (`>= 120 KB` / `>= 30,000 raw tokens` with multi-turn work ahead) to a single-shot read-only scout and keep only compact `file:line` facts in the main thread.
 - **Don't block on the human once implementation is requested.** During an implementation task, proceed on reversible steps, show the result, and let them correct.
 - **Encode lessons.** If the same correction is needed twice, turn it into a lint rule, a test, a script, a hook or an edit to this skill.
 
@@ -77,7 +77,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ### Investigation (read-only: how X works, why Y was built this way, are we sure, should we do X or Y, plan/code review)
 1. State the exact question.
-2. Read the actual implementation source (not just `--help`, filenames, or one sample config): cover the read path, write path, ID/state lifecycle, and ignore/conflict rules. Follow the Token Escalation Ladder (section 5): read inline when `< 1,000 lines`; fan out to a single-shot read-only subagent only when raw input is `>= 30,000 tokens`.
+2. Read the actual implementation source (not just `--help`, filenames, or one sample config): cover the read path, write path, ID/state lifecycle, and ignore/conflict rules. Follow the Token Escalation Ladder (section 5): read inline when `< 120 KB` (`< 30,000 raw tokens` or `< 1,000–2,000` code lines) or answering a 1–2 turn question; fan out to a single-shot read-only scout only when unread unstructured input is `>= 120 KB` (`>= 30,000 raw tokens`) with multi-turn work ahead.
 3. Answer from evidence. Tag every claim with its source: `(read file:line)`, `(ran: <command> → exit N)`, `(inferred)` or `(unchecked)`. If the answer differs from an earlier one, say which new evidence changed it.
 
 ### Bug fix
@@ -94,7 +94,7 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 2. Name the data shape. If more than one design is viable, compare 2-3 options in a table and pick one with a reason.
 3. Pre-mortem, before any code: assume the feature shipped and broke. Fill a table `| what breaks | when it happens | design that prevents it | test that proves it |` covering at least concurrency or multi-device use, partial failure and rerun, upgrade or rollback, and data loss. A row with no test is an open risk: name it in the report.
 4. Throughput checkpoint, four lines (mark n/a with reason when not relevant): blocking first steps; independent workstreams; shared mutable state; smallest safe decomposition.
-5. Implement (or delegate with a scoped brief: file paths, data model, pre-mortem table, success criteria). Review every diff myself.
+5. Implement directly in Main Agent (or, only when the user explicitly requests parallel multi-agent execution such as `/teamwork` or `swarm`, delegate disjoint worktrees with file paths, data model, pre-mortem table, and success criteria, reviewing every diff myself).
 6. Verify on the matching surface (section 3), including the pre-mortem tests; mutation-check each one (remove its guard, watch it fail).
 7. Commit in small ordered units: build, verify, commit, next.
 8. Report: what was built, what was chosen and why, open risks from the pre-mortem, open decisions.
@@ -122,15 +122,22 @@ mkdir -p .verify && <command> > .verify/<name>.log 2>&1; echo "exit=$?"
 
 ## 5. Delegation rules
 
+- **3 Universal Subagent Rules (applies to ALL coding and non-coding tasks across harnesses; `~28k tokens/turn` subagent bootstrap):**
+  1. **Never use Unguarded Subagents (`NO_UNGUARDED_SUBAGENTS`):** Never delegate open-ended reasoning, multi-turn search/debugging loops, or final decisions to fast models (`flash` / `haiku`). Every subagent call must carry explicit inputs, a clear stop condition, and a fixed output contract.
+  2. **Route by capability and data structure before size:**
+     - **Capability subagents Main Agent lacks (`browser`, `image-generator`):** Exempt from the `30,000`-token floor. Pass an explicit URL/prompt, exact actions/checks, and a stop condition (pause for user on login/CAPTCHA/payment; leave `browser` idle after completion rather than killing it so open tabs and session state survive).
+     - **Structured data, logs, JSON/JSONL, CSV, SQL, lockfiles, and status checks:** Always process in `0 LLM tokens` (`0 Subagents`) via shell tools (`python3`, `jq`, `sqlite3`, `awk`, CLI); never feed raw data dumps to Main Agent or a subagent.
+  3. **Unstructured source code, docs, and research text (`120 KB` / `~30,000 raw tokens`, measured on the actual unread slice via `wc -l -c`):**
+     - **Small/medium scope (`< 120 KB` / `< 30,000 raw tokens` or `< 1,000–2,000` code lines) or short 1–2 turn Q&A:** Execute inline in Main Agent (`0 Subagents`, `MAIN_AGENT_DIRECT`), because subagent bootstrap overhead exceeds context-carry savings.
+     - **Large unstructured exploration (`>= 120 KB` / `>= 30,000 raw tokens` and `>= 1,000` lines) with multi-turn work ahead (`>= 5 turns`):** Use a **Guarded Single-Shot Read-Only Scout** (`1` scout for `120–320 KB` / `30k–80k tokens`; split across at most `2` scouts for `> 320 KB` / `> 80k tokens`, `MAX_ACTIVE_SUBAGENTS = 2`) to extract compact `file:line` facts in 1 turn, while **Main Agent ALWAYS writes the deliverable (code, prose/articles, strategy), runs verification/tests, handles ops/deploys, and commits/submits** unless the user explicitly invokes parallel multi-agent execution (`/teamwork`, `swarm`).
 - **Token & time economics (`~28k tokens/turn` subagent bootstrap, zero quality loss across harnesses):**
-  - **Escalation ladder (cheapest first):** (1) 0-token bash/regex/`ast-grep` pre-filter → (2) `projectmem` & `codegraph_explore` → (3) targeted file-read (`Read` / `read_file`) line ranges inline in Main Agent (`< 1,000 lines`) → (4) Consolidated Batch Subagent (read-only fast model) only when raw input is `>= 30,000 tokens`.
-  - **Cross-harness subagent mapping:**
-    - **Antigravity:** `invoke_subagent(TypeName="research", Model="flash")`, then call `manage_subagents(Action="kill")` immediately after it returns.
+  - **Escalation ladder (cheapest first):** (1) `0`-token bash/regex/`ast-grep`/`jq`/`python3` pre-filter → (2) `projectmem` & `codegraph_explore` → (3) targeted file-read (`Read` / `read_file`) line ranges inline in Main Agent (`< 120 KB` / `< 30,000 raw tokens`) → (4) Guarded Single-Shot Read-Only Scout (`CONSOLIDATED_SINGLE_SHOT_SUBAGENT`) only when remaining unread unstructured text is `>= 120 KB` (`>= 30,000 raw tokens`) with multi-turn follow-up.
+  - **Cross-harness Read-Only Scout mapping:**
+    - **Antigravity:** `invoke_subagent(TypeName="research", Model="flash")`, then call `manage_subagents(Action="kill")` immediately after `research` returns (`research` runs in a read-only sandbox with **no network access**, so fetch external web/API docs to local files first; never auto-kill `browser`).
     - **Claude Code:** `Agent` / `Task` tool (`subagent_type="Explore"`, `model="haiku"`), which terminates automatically on return.
     - **VS Code Copilot / Cursor / OpenCode:** `runSubagent` or the harness's read-only subagent tool (single-shot).
-  - **Do inline in Main Agent (`MAIN_AGENT_DIRECT`):** Data shape, pre-mortem, single-file edits (`< 1,000 lines`), git/PR commands, review-fix rounds with known `file:line`, and builds/tests sharing one build lock (e.g., Rust `target/`, `xcodebuild`).
-  - **Delegate via Consolidated Batch Subagent (`CONSOLIDATED_BATCH_SUBAGENT`):** (a) **Pipeline-Parallel Batch Scout:** While Main Agent compiles, tests, and commits the current unit, spawn 1 read-only fast subagent to read 2–3 large unlocked modules (`>= 3,500 lines` / `>= 30,000 raw tokens`) at once and return compact `file:line` root causes + reproducers without touching the build lock. (b) **0-Token Bash Pre-Filter + Batch Audit:** For many small targets (e.g., 30–50 small plugins/packages), filter via 0-token bash/regex first, then send all 10–25 surviving candidates (`>= 30,000 raw tokens`) to a single read-only fast subagent in 1 shot.
-  - **Role split & lifecycle:** Subagents keep raw bulk reads out of Main Agent's cumulative context; Main Agent re-reads only the cited `file:line` ranges to design, edit, and run `agent-verify` / `devguard check`. Never exceed 2 active subagents (`MAX_ACTIVE_SUBAGENTS = 2`) and avoid multi-turn ping-pong.
+  - **Do inline in Main Agent (`MAIN_AGENT_DIRECT`, `0 Subagents`):** Unstructured reads `< 120 KB` (`< 30,000 raw tokens`), 1–2 turn Q&A, data shape, pre-mortem, **all code and prose writing/editing**, **all test/build execution** (`cargo test`, `bun test`, `xcodebuild`), **all ops/deploys/signing**, **all git/PR submissions**, and review-fix rounds with known `file:line`.
+  - **Role split & lifecycle:** Scouts keep raw bulk text out of Main Agent's cumulative context and never draft prose, edit code, or run builds/tests; Main Agent reads the cited `file:line` ranges directly to produce the work and run `agent-verify` / `devguard check`. Never exceed 2 active subagents (`MAX_ACTIVE_SUBAGENTS = 2`) and never allow multi-turn ping-pong.
 - Give subagents file pointers, a scoped brief, and a compact output contract (`path:line — symbol — note` for search; `path:line: 🔴 bug | 🟡 risk | 🔵 nit | ❓ q: <problem>. <fix>.` for review), not pasted context.
 - I own subagent output: review the diff and write my own summary. Never relay a subagent's claims unverified.
 - Parallel writers need disjoint files or separate worktrees.
